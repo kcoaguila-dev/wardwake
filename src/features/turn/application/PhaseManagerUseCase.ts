@@ -13,6 +13,10 @@ export class PhaseManagerUseCase {
     return this.currentState;
   }
 
+  public getPhase(): TurnState {
+    return this.currentState;
+  }
+
   public get turnCount(): number {
     return this.currentTurnCount;
   }
