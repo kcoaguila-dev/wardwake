@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
     "test": "jest"
   },
   "repository": {
@@ -22,7 +25,8 @@
     "@types/jest": "^30.0.0",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.12",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite": "^8.2.1"
   },
   "dependencies": {
     "phaser": "^4.2.1"
