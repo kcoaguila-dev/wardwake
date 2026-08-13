@@ -49,4 +49,46 @@ export class Pathfinder {
 
     return Array.from(reachable.values());
   }
+
+  findPath(start: TileCoordinate, target: TileCoordinate, grid: GridMap): TileCoordinate[] {
+    if (!grid.isWalkable(start)) return [];
+
+    // If start is target, return path with just the start
+    if (start.equals(target)) return [start];
+
+    const queue: { coord: TileCoordinate; path: TileCoordinate[] }[] = [];
+    const visited = new Set<string>();
+
+    queue.push({ coord: start, path: [start] });
+    visited.add(start.toString());
+
+    const directions = [
+      { dx: 0, dy: -1 }, // Up
+      { dx: 0, dy: 1 },  // Down
+      { dx: -1, dy: 0 }, // Left
+      { dx: 1, dy: 0 }   // Right
+    ];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+
+      if (current.coord.equals(target)) {
+        return current.path;
+      }
+
+      for (const dir of directions) {
+        const nextX = current.coord.x + dir.dx;
+        const nextY = current.coord.y + dir.dy;
+        const nextCoord = new TileCoordinate(nextX, nextY);
+        const nextKey = nextCoord.toString();
+
+        if (!visited.has(nextKey) && grid.isWalkable(nextCoord)) {
+          visited.add(nextKey);
+          queue.push({ coord: nextCoord, path: [...current.path, nextCoord] });
+        }
+      }
+    }
+
+    return []; // No path found
+  }
 }
