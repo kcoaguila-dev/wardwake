@@ -1,22 +1,12 @@
 import * as Phaser from 'phaser';
+import { MainGameScene } from './scenes/MainGameScene';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 800,
-    height: 600,
+    width: 320,
+    height: 320,
     parent: 'app',
-    scene: {
-        preload: preload,
-        create: create
-    }
+    scene: [MainGameScene]
 };
 
 new Phaser.Game(config);
-
-function preload(this: Phaser.Scene) {
-    // Preload assets here
-}
-
-function create(this: Phaser.Scene) {
-    this.add.text(100, 100, 'Wardwake Initialized', { color: '#0f0' });
-}
