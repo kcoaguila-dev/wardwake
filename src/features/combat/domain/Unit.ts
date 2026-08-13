@@ -1,4 +1,5 @@
 import { WeaponType } from './WeaponType';
+import { Item } from '../../inventory/domain/Item';
 
 export class Unit {
   public readonly id: string;
@@ -8,6 +9,7 @@ export class Unit {
   public attack: number;
   public defense: number;
   public weaponType: WeaponType;
+  public inventory: Item[] = [];
 
   constructor(
     id: string,
@@ -37,5 +39,39 @@ export class Unit {
     this.currentHp = Math.max(0, this.currentHp - damageToApply);
 
     return this.currentHp === 0;
+  }
+
+  /**
+   * Restores HP to the unit, clamped to maxHp.
+   * @param amount The amount to heal.
+   */
+  public heal(amount: number): void {
+    if (amount < 0) return;
+    this.currentHp = Math.min(this.maxHp, this.currentHp + amount);
+  }
+
+  /**
+   * Increases the attack power of the unit.
+   * @param amount The amount to increase attack by.
+   */
+  public buffAttack(amount: number): void {
+    if (amount < 0) return;
+    this.attack += amount;
+  }
+
+  /**
+   * Adds an item to the unit's inventory.
+   * @param item The item to add.
+   */
+  public addItem(item: Item): void {
+    this.inventory.push(item);
+  }
+
+  /**
+   * Removes an item from the unit's inventory by its ID.
+   * @param itemId The ID of the item to remove.
+   */
+  public removeItem(itemId: string): void {
+    this.inventory = this.inventory.filter(i => i.id !== itemId);
   }
 }
