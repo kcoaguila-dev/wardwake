@@ -1,0 +1,5 @@
+export enum TurnState {
+  PLAYER_PHASE = 'PLAYER_PHASE',
+  ENEMY_PHASE = 'ENEMY_PHASE',
+  GAME_OVER = 'GAME_OVER'
+}
