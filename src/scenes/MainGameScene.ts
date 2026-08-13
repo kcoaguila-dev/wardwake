@@ -14,6 +14,7 @@ import { Unit } from '../features/combat/domain/Unit';
 import { WeaponType } from '../features/combat/domain/WeaponType';
 import { IAudioService } from '../features/combat/application/ports/IAudioService';
 import { TurnState } from '../features/turn/domain/TurnState';
+import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
 
 class DummyAudioService implements IAudioService {
   playSound(soundId: string): void {
@@ -38,8 +39,8 @@ export class MainGameScene extends Phaser.Scene {
   private pathfinder!: Pathfinder;
 
   // State
-  private playerSquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: Phaser.GameObjects.Graphics }[];
-  private enemySquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: Phaser.GameObjects.Graphics }[];
+  private playerSquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[];
+  private enemySquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[];
   private floorCount: number = 1;
   private floorText!: Phaser.GameObjects.Text;
   private staircaseCoord!: TileCoordinate;
@@ -72,14 +73,24 @@ export class MainGameScene extends Phaser.Scene {
     this.combatTextPresenter = new CombatTextPresenter(this);
 
     // 3. Initialize Units
+    const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
+    const p1Coord = new TileCoordinate(1, 1);
+    const p2Unit = new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE);
+    const p2Coord = new TileCoordinate(1, 2);
+
     this.playerSquad = [
-      { unit: new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD), coord: new TileCoordinate(1, 1), hasActed: false, graphic: this.add.graphics() },
-      { unit: new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE), coord: new TileCoordinate(1, 2), hasActed: false, graphic: this.add.graphics() }
+      { unit: p1Unit, coord: p1Coord, hasActed: false, graphic: new UnitPresenter(this, p1Unit, p1Coord) },
+      { unit: p2Unit, coord: p2Coord, hasActed: false, graphic: new UnitPresenter(this, p2Unit, p2Coord) }
     ];
 
+    const e1Unit = new Unit('e1', 'Axe Warrior', 15, 6, 1, WeaponType.AXE);
+    const e1Coord = new TileCoordinate(8, 7);
+    const e2Unit = new Unit('e2', 'Sword Guard', 18, 4, 3, WeaponType.SWORD);
+    const e2Coord = new TileCoordinate(8, 8);
+
     this.enemySquad = [
-      { unit: new Unit('e1', 'Axe Warrior', 15, 6, 1, WeaponType.AXE), coord: new TileCoordinate(8, 7), hasActed: false, graphic: this.add.graphics() },
-      { unit: new Unit('e2', 'Sword Guard', 18, 4, 3, WeaponType.SWORD), coord: new TileCoordinate(8, 8), hasActed: false, graphic: this.add.graphics() }
+      { unit: e1Unit, coord: e1Coord, hasActed: false, graphic: new UnitPresenter(this, e1Unit, e1Coord) },
+      { unit: e2Unit, coord: e2Coord, hasActed: false, graphic: new UnitPresenter(this, e2Unit, e2Coord) }
     ];
 
     // 4. Initialize Use Cases
@@ -95,8 +106,8 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter.drawGrid(this.gridMap);
     this.gridPresenter.drawStaircase(this.staircaseCoord);
 
-    this.playerSquad.forEach(p => this.updateGraphic(p.graphic, p.coord, 0x0000ff)); // Blue
-    this.enemySquad.forEach(e => this.updateGraphic(e.graphic, e.coord, 0xff0000)); // Red
+    this.playerSquad.forEach(p => p.graphic.setTint(0x0000ff)); // Blue
+    this.enemySquad.forEach(e => e.graphic.setTint(0xff0000)); // Red
 
     // Display floor
     this.floorText = this.add.text(10, 330, `Floor ${this.floorCount}`, { fontSize: '20px', color: '#ffffff' });
@@ -165,7 +176,8 @@ export class MainGameScene extends Phaser.Scene {
 
       if (isReachable) {
         selectedPlayer.coord = coord;
-        this.updateGraphic(selectedPlayer.graphic, selectedPlayer.coord, 0x0000ff);
+        selectedPlayer.graphic.moveTo(coord);
+        selectedPlayer.graphic.setTint(0x0000ff);
         actionTaken = true;
       }
     }
@@ -174,7 +186,7 @@ export class MainGameScene extends Phaser.Scene {
       selectedPlayer.hasActed = true;
       this.selectedPlayerIndex = null;
       this.gridPresenter.clearHighlights();
-      this.updateGraphic(selectedPlayer.graphic, selectedPlayer.coord, 0x5555ff); // Change color to indicate it acted
+      selectedPlayer.graphic.setTint(0x5555ff); // Change color to indicate it acted
 
       if (this.checkWinCondition()) {
         return;
@@ -223,7 +235,8 @@ export class MainGameScene extends Phaser.Scene {
     this.playerSquad.forEach(p => {
       p.unit.currentHp = p.unit.maxHp;
       p.hasActed = false;
-      this.updateGraphic(p.graphic, p.coord, 0x0000ff);
+      p.graphic.moveTo(p.coord);
+      p.graphic.setTint(0x0000ff);
     });
 
     // Reset enemies
@@ -233,7 +246,8 @@ export class MainGameScene extends Phaser.Scene {
     this.enemySquad.forEach(e => {
       e.unit.currentHp = e.unit.maxHp;
       e.hasActed = false;
-      this.updateGraphic(e.graphic, e.coord, 0xff0000);
+      e.graphic.moveTo(e.coord);
+      e.graphic.setTint(0xff0000);
     });
 
     this.selectedPlayerIndex = null;
@@ -266,7 +280,8 @@ export class MainGameScene extends Phaser.Scene {
 
           // Move enemy
           enemyData.coord = result.targetCoordinate;
-          this.updateGraphic(enemyData.graphic, enemyData.coord, 0xff0000);
+          enemyData.graphic.moveTo(enemyData.coord);
+          enemyData.graphic.setTint(0xff0000);
 
           // Attack player if in range
           if (result.targetToAttack) {
@@ -294,20 +309,9 @@ export class MainGameScene extends Phaser.Scene {
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
           p.hasActed = false;
-          this.updateGraphic(p.graphic, p.coord, 0x0000ff);
+          p.graphic.setTint(0x0000ff);
         }
       });
     }
-  }
-
-  private updateGraphic(graphic: Phaser.GameObjects.Graphics, coord: TileCoordinate, color: number) {
-    graphic.clear();
-    graphic.fillStyle(color, 1);
-    graphic.fillRect(
-      coord.x * GridPresenter.TILE_SIZE + 4,
-      coord.y * GridPresenter.TILE_SIZE + 4,
-      GridPresenter.TILE_SIZE - 8,
-      GridPresenter.TILE_SIZE - 8
-    );
   }
 }
