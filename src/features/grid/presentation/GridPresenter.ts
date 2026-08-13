@@ -3,33 +3,61 @@ import { TileCoordinate } from "../domain/TileCoordinate";
 import { GridMap } from "../domain/GridMap";
 
 export class GridPresenter {
-  private graphics: Phaser.GameObjects.Graphics;
+  private gridGraphics: Phaser.GameObjects.Graphics;
+  private staircaseGraphics: Phaser.GameObjects.Graphics;
+  private highlightGraphics: Phaser.GameObjects.Graphics;
   public static readonly TILE_SIZE = 32;
 
   constructor(private scene: Phaser.Scene) {
-    this.graphics = this.scene.add.graphics();
+    this.gridGraphics = this.scene.add.graphics();
+    this.staircaseGraphics = this.scene.add.graphics();
+    this.highlightGraphics = this.scene.add.graphics();
   }
 
   drawGrid(gridMap: GridMap): void {
-    this.graphics.lineStyle(1, 0x444444, 1);
+    this.gridGraphics.clear();
+    this.gridGraphics.lineStyle(1, 0x444444, 1);
 
     for (let x = 0; x < gridMap.width; x++) {
       for (let y = 0; y < gridMap.height; y++) {
-        this.graphics.strokeRect(
+        const coord = new TileCoordinate(x, y);
+        this.gridGraphics.strokeRect(
           x * GridPresenter.TILE_SIZE,
           y * GridPresenter.TILE_SIZE,
           GridPresenter.TILE_SIZE,
           GridPresenter.TILE_SIZE
         );
+
+        if (!gridMap.isWalkable(coord)) {
+          this.gridGraphics.fillStyle(0x333333, 1);
+          this.gridGraphics.fillRect(
+            x * GridPresenter.TILE_SIZE,
+            y * GridPresenter.TILE_SIZE,
+            GridPresenter.TILE_SIZE,
+            GridPresenter.TILE_SIZE
+          );
+        }
       }
     }
   }
 
+  drawStaircase(coord: TileCoordinate): void {
+    this.staircaseGraphics.clear();
+    this.staircaseGraphics.fillStyle(0xffd700, 1);
+    this.staircaseGraphics.fillRect(
+      coord.x * GridPresenter.TILE_SIZE,
+      coord.y * GridPresenter.TILE_SIZE,
+      GridPresenter.TILE_SIZE,
+      GridPresenter.TILE_SIZE
+    );
+  }
+
   highlightWalkableArea(validMoves: TileCoordinate[]): void {
-    this.graphics.fillStyle(0x0000ff, 0.3);
+    this.clearHighlights();
+    this.highlightGraphics.fillStyle(0x0000ff, 0.3);
 
     for (const move of validMoves) {
-      this.graphics.fillRect(
+      this.highlightGraphics.fillRect(
         move.x * GridPresenter.TILE_SIZE,
         move.y * GridPresenter.TILE_SIZE,
         GridPresenter.TILE_SIZE,
@@ -38,7 +66,13 @@ export class GridPresenter {
     }
   }
 
+  clearHighlights(): void {
+    this.highlightGraphics.clear();
+  }
+
   clear(): void {
-    this.graphics.clear();
+    this.gridGraphics.clear();
+    this.staircaseGraphics.clear();
+    this.highlightGraphics.clear();
   }
 }
