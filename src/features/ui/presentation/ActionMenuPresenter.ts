@@ -5,6 +5,8 @@ export class ActionMenuPresenter {
   private bg: Phaser.GameObjects.Rectangle;
   private attackBtn: Phaser.GameObjects.Rectangle;
   private attackText: Phaser.GameObjects.Text;
+  private skillBtn: Phaser.GameObjects.Rectangle;
+  private skillText: Phaser.GameObjects.Text;
   private itemBtn: Phaser.GameObjects.Rectangle;
   private itemText: Phaser.GameObjects.Text;
   private waitBtn: Phaser.GameObjects.Rectangle;
@@ -12,7 +14,11 @@ export class ActionMenuPresenter {
   private cancelBtn: Phaser.GameObjects.Rectangle;
   private cancelText: Phaser.GameObjects.Text;
 
+  private skillSubmenuBg!: Phaser.GameObjects.Rectangle;
+  private skillSubmenuContainer!: Phaser.GameObjects.Container;
+
   public onAttack?: () => void;
+  public onSkill?: (skillId: string) => void;
   public onItem?: () => void;
   public onWait?: () => void;
   public onCancel?: () => void;
@@ -25,7 +31,7 @@ export class ActionMenuPresenter {
     this.container.setVisible(false);
 
     const width = 120;
-    const height = 138;
+    const height = 170; // Increased height for SKILL button
     this.bg = this.scene.add.rectangle(0, 0, width, height, 0x111622, 0.96)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0x4466aa)
@@ -36,6 +42,19 @@ export class ActionMenuPresenter {
     const btnWidth = 100;
     const btnHeight = 26;
     const startX = 10;
+
+    // Skill Submenu Setup
+    this.skillSubmenuContainer = this.scene.add.container(125, 0);
+    this.skillSubmenuContainer.setDepth(201);
+    this.skillSubmenuContainer.setVisible(false);
+
+    this.skillSubmenuBg = this.scene.add.rectangle(0, 0, 150, 100, 0x111622, 0.96)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0x9333ea) // Purple hue for skills
+      .setInteractive();
+    this.skillSubmenuContainer.add(this.skillSubmenuBg);
+
+    this.container.add(this.skillSubmenuContainer);
 
     // 1. ATTACK Button (y = 10)
     const attackY = 10;
@@ -58,8 +77,29 @@ export class ActionMenuPresenter {
     this.attackBtn.on('pointerover', () => { if (this.canAttack) this.attackBtn.setFillStyle(0x3f5b8a); });
     this.attackBtn.on('pointerout', () => { if (this.canAttack) this.attackBtn.setFillStyle(0x2a3b5c); });
 
-    // 2. ITEM Button (y = 42)
-    const itemY = 42;
+    // 2. SKILL Button (y = 42)
+    const skillY = 42;
+    this.skillBtn = this.scene.add.rectangle(startX, skillY, btnWidth, btnHeight, 0x2a3b5c)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.skillText = this.scene.add.text(startX + 10, skillY + 5, '✨ SKILL', {
+      fontSize: '13px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#ffffff'
+    }).setInteractive({ useHandCursor: true });
+
+    const handleSkill = () => {
+      this.skillSubmenuContainer.setVisible(!this.skillSubmenuContainer.visible);
+    };
+    this.skillBtn.on('pointerdown', handleSkill);
+    this.skillText.on('pointerdown', handleSkill);
+    this.skillBtn.on('pointerover', () => this.skillBtn.setFillStyle(0x4c2b6b));
+    this.skillBtn.on('pointerout', () => this.skillBtn.setFillStyle(0x2a3b5c));
+
+    // 3. ITEM Button (y = 74)
+    const itemY = 74;
     this.itemBtn = this.scene.add.rectangle(startX, itemY, btnWidth, btnHeight, 0x2a3b5c)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
@@ -79,8 +119,8 @@ export class ActionMenuPresenter {
     this.itemBtn.on('pointerover', () => this.itemBtn.setFillStyle(0x3f5b8a));
     this.itemBtn.on('pointerout', () => this.itemBtn.setFillStyle(0x2a3b5c));
 
-    // 3. WAIT Button (y = 74)
-    const waitY = 74;
+    // 4. WAIT Button (y = 106)
+    const waitY = 106;
     this.waitBtn = this.scene.add.rectangle(startX, waitY, btnWidth, btnHeight, 0x2a3b5c)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
@@ -100,8 +140,8 @@ export class ActionMenuPresenter {
     this.waitBtn.on('pointerover', () => this.waitBtn.setFillStyle(0x3f5b8a));
     this.waitBtn.on('pointerout', () => this.waitBtn.setFillStyle(0x2a3b5c));
 
-    // 4. CANCEL Button (y = 106)
-    const cancelY = 106;
+    // 5. CANCEL Button (y = 138)
+    const cancelY = 138;
     this.cancelBtn = this.scene.add.rectangle(startX, cancelY, btnWidth, btnHeight, 0x3d1c24)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
@@ -123,13 +163,72 @@ export class ActionMenuPresenter {
 
     this.container.add([
       this.attackBtn, this.attackText,
+      this.skillBtn, this.skillText,
       this.itemBtn, this.itemText,
       this.waitBtn, this.waitText,
       this.cancelBtn, this.cancelText
     ]);
   }
 
+  public updateSkills(unitSkills: { id: string, name: string, cost: number }[], currentSp: number): void {
+    // Clear old skill buttons
+    this.skillSubmenuContainer.removeAll(true);
+    this.skillSubmenuContainer.add(this.skillSubmenuBg);
+
+    if (unitSkills.length === 0) {
+      this.skillBtn.setFillStyle(0x1a2436);
+      this.skillText.setColor('#556677');
+      this.skillSubmenuBg.height = 36;
+      const noSkillText = this.scene.add.text(10, 10, 'No Skills', {
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        color: '#556677'
+      });
+      this.skillSubmenuContainer.add(noSkillText);
+      return;
+    }
+
+    this.skillBtn.setFillStyle(0x2a3b5c);
+    this.skillText.setColor('#ffffff');
+
+    let currentY = 10;
+    this.skillSubmenuBg.height = unitSkills.length * 32 + 20;
+
+    for (const skill of unitSkills) {
+      const canAfford = currentSp >= skill.cost;
+
+      const btn = this.scene.add.rectangle(10, currentY, 130, 26, canAfford ? 0x2a3b5c : 0x1a2436)
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: canAfford });
+
+      const text = this.scene.add.text(20, currentY + 6, `${skill.name} (${skill.cost}SP)`, {
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        color: canAfford ? '#ffffff' : '#556677'
+      }).setInteractive({ useHandCursor: canAfford });
+
+      const handleSelect = () => {
+        if (canAfford && this.onSkill) {
+          this.skillSubmenuContainer.setVisible(false);
+          this.onSkill(skill.id);
+        }
+      };
+
+      btn.on('pointerdown', handleSelect);
+      text.on('pointerdown', handleSelect);
+      if (canAfford) {
+        btn.on('pointerover', () => btn.setFillStyle(0x4c2b6b));
+        btn.on('pointerout', () => btn.setFillStyle(0x2a3b5c));
+      }
+
+      this.skillSubmenuContainer.add([btn, text]);
+      currentY += 32;
+    }
+  }
+
   public show(worldX: number, worldY: number, canAttack: boolean): void {
+    this.skillSubmenuContainer.setVisible(false);
     this.canAttack = canAttack;
     if (this.canAttack) {
       this.attackBtn.setFillStyle(0x2a3b5c);
@@ -145,8 +244,8 @@ export class ActionMenuPresenter {
 
     // Keep menu inside camera map boundaries dynamically
     const bounds = this.scene.cameras.main.getBounds();
-    const mapMaxX = bounds.width > 0 ? bounds.width - 125 : 24 * 32 - 125;
-    const mapMaxY = bounds.height > 0 ? bounds.height - 145 : 24 * 32 - 145;
+    const mapMaxX = bounds.width > 0 ? bounds.width - 275 : 24 * 32 - 275; // Account for submenu width
+    const mapMaxY = bounds.height > 0 ? bounds.height - 175 : 24 * 32 - 175;
     if (finalX > mapMaxX) finalX = worldX - 125;
     if (finalY > mapMaxY) finalY = mapMaxY;
     if (finalX < 5) finalX = 5;

@@ -1,0 +1,30 @@
+[
+  {
+    "id": "spin_slash",
+    "name": "Spin Slash",
+    "cost": 6,
+    "description": "Attacks all 4 cardinal adjacent tiles simultaneously.",
+    "heroId": "hero_sword_fighter"
+  },
+  {
+    "id": "blade_dash",
+    "name": "Blade Dash",
+    "cost": 8,
+    "description": "Dashes 2 tiles forward and strikes the enemy in path.",
+    "heroId": "hero_sword_fighter"
+  },
+  {
+    "id": "pierce_thrust",
+    "name": "Pierce Thrust",
+    "cost": 5,
+    "description": "Line attack piercing 2 tiles forward.",
+    "heroId": "hero_lance_knight"
+  },
+  {
+    "id": "iron_bulwark",
+    "name": "Iron Bulwark",
+    "cost": 10,
+    "description": "Grants +6 DEF buff for 3 turns.",
+    "heroId": "hero_lance_knight"
+  }
+]
