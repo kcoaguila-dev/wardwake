@@ -82,7 +82,6 @@ export class MainGameScene extends Phaser.Scene {
   private isTargeting: boolean = false;
   private isEncounterActive: boolean = false;
   private stepCount: number = 0;
-  private shiftKey: Phaser.Input.Keyboard.Key | undefined = undefined;
 
   constructor() {
     super('MainGameScene');
@@ -123,9 +122,6 @@ export class MainGameScene extends Phaser.Scene {
       MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
     );
 
-    // Shift Key for Corridor Sprinting
-    this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
-
     // Load Initial Procedural Floor
     this.startFloor(1);
 
@@ -149,27 +145,30 @@ export class MainGameScene extends Phaser.Scene {
       }
     });
 
-    // WASD & Arrow Keys for tactical exploration & sprinting
-    const handleDirectionalMove = (dx: number, dy: number) => {
-      this.handleKeyboardStep(dx, dy);
-    };
+    // Unified Keyboard Listener with Native Shift Capture
+    this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      if (this.isProcessingAction || this.isMenuOpen || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) return;
 
-    this.input.keyboard?.on('keydown-W', () => handleDirectionalMove(0, -1));
-    this.input.keyboard?.on('keydown-UP', () => handleDirectionalMove(0, -1));
-    this.input.keyboard?.on('keydown-S', () => handleDirectionalMove(0, 1));
-    this.input.keyboard?.on('keydown-DOWN', () => handleDirectionalMove(0, 1));
-    this.input.keyboard?.on('keydown-A', () => handleDirectionalMove(-1, 0));
-    this.input.keyboard?.on('keydown-LEFT', () => handleDirectionalMove(-1, 0));
-    this.input.keyboard?.on('keydown-D', () => handleDirectionalMove(1, 0));
-    this.input.keyboard?.on('keydown-RIGHT', () => handleDirectionalMove(1, 0));
+      const isShift = event.shiftKey;
+      const key = event.key.toLowerCase();
+      const code = event.code;
 
-    this.input.keyboard?.on('keydown-SPACE', () => {
-      if (this.isMenuOpen) {
-        this.actionMenuPresenter.onWait?.();
-      } else {
-        const activeHero = this.getActiveHero();
-        if (activeHero) {
-          this.finalizePlayerTurn(activeHero);
+      if (key === 'w' || code === 'ArrowUp') {
+        this.handleKeyboardStep(0, -1, isShift);
+      } else if (key === 's' || code === 'ArrowDown') {
+        this.handleKeyboardStep(0, 1, isShift);
+      } else if (key === 'a' || code === 'ArrowLeft') {
+        this.handleKeyboardStep(-1, 0, isShift);
+      } else if (key === 'd' || code === 'ArrowRight') {
+        this.handleKeyboardStep(1, 0, isShift);
+      } else if (code === 'Space') {
+        if (this.isMenuOpen) {
+          this.actionMenuPresenter.onWait?.();
+        } else {
+          const activeHero = this.getActiveHero();
+          if (activeHero) {
+            this.finalizePlayerTurn(activeHero);
+          }
         }
       }
     });
@@ -182,7 +181,7 @@ export class MainGameScene extends Phaser.Scene {
     return this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
   }
 
-  private async handleKeyboardStep(dx: number, dy: number): Promise<void> {
+  private async handleKeyboardStep(dx: number, dy: number, isShift: boolean = false): Promise<void> {
     if (this.isProcessingAction || this.isMenuOpen || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       return;
     }
@@ -197,7 +196,7 @@ export class MainGameScene extends Phaser.Scene {
     if (!player || player.hasActed || player.unit.currentHp <= 0) return;
 
     // Check if player is holding Shift for Corridor Sprint
-    if (this.shiftKey?.isDown && !this.isEncounterActive) {
+    if (isShift && !this.isEncounterActive) {
       await this.handleCorridorSprint(player, dx, dy);
       return;
     }
@@ -227,7 +226,7 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private async handleCorridorSprint(player: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, dx: number, dy: number): Promise<void> {
-    const maxSprintSteps = 8;
+    const maxSprintSteps = 10;
     for (let step = 0; step < maxSprintSteps; step++) {
       const nextCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
 
@@ -241,11 +240,11 @@ export class MainGameScene extends Phaser.Scene {
       // Stop if item at next tile
       const hasItem = this.floorItems.some(fi => fi.coord.equals(nextCoord));
 
-      await this.movePlayerUnit(player, nextCoord);
+      await this.movePlayerUnit(player, nextCoord, true);
 
       if (hasItem || this.isEncounterActive) break;
 
-      // Check if hallway branches into multiple directions
+      // Check if hallway branches into multiple directions (intersection/room door)
       let walkableNeighbors = 0;
       const neighbors = [
         new TileCoordinate(player.coord.x + 1, player.coord.y),
@@ -589,7 +588,9 @@ export class MainGameScene extends Phaser.Scene {
     if (hoveredEnemy) {
       const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
       if (dist === 1) {
-        this.combatForecastPresenter.show(selectedPlayer.unit, hoveredEnemy.unit);
+        const worldX = hoveredEnemy.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const worldY = hoveredEnemy.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        this.combatForecastPresenter.show(selectedPlayer.unit, hoveredEnemy.unit, worldX, worldY);
         return;
       }
     }
@@ -675,7 +676,7 @@ export class MainGameScene extends Phaser.Scene {
     }
   }
 
-  private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, coord: TileCoordinate): Promise<void> {
+  private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, coord: TileCoordinate, fast: boolean = false): Promise<void> {
     this.isProcessingAction = true;
     this.combatForecastPresenter.hide();
     this.gridPresenter.clearHighlights();
@@ -683,8 +684,8 @@ export class MainGameScene extends Phaser.Scene {
     const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
     selectedPlayer.coord = coord;
     this.audioService.playSound('hero_step');
-    await selectedPlayer.graphic.moveTo(coord);
-    this.centerCameraOn(coord);
+    await selectedPlayer.graphic.moveTo(coord, fast);
+    this.centerCameraOn(coord, !fast);
 
     // In Exploration Mode (no active encounter), companion auto-follows behind leader
     if (!this.isEncounterActive) {
@@ -692,7 +693,7 @@ export class MainGameScene extends Phaser.Scene {
       if (companion && !companion.coord.equals(leaderPreviousCoord)) {
         const followTarget = this.followFormationCalculator.calculate(leaderPreviousCoord);
         companion.coord = followTarget;
-        await companion.graphic.moveTo(followTarget);
+        await companion.graphic.moveTo(followTarget, fast);
       }
     }
 
@@ -749,7 +750,7 @@ export class MainGameScene extends Phaser.Scene {
   private showActionMenuForPlayer(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
     this.isMenuOpen = true;
 
-    const hasAdjacentEnemy = this.enemySquad.some(e => {
+    const adjacentEnemy = this.enemySquad.find(e => {
       if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
       const dist = Math.abs(player.coord.x - e.coord.x) + Math.abs(player.coord.y - e.coord.y);
       return dist === 1;
@@ -757,6 +758,13 @@ export class MainGameScene extends Phaser.Scene {
 
     const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE + 4;
     const worldY = player.coord.y * GridPresenter.TILE_SIZE;
+
+    // Show floating forecast above adjacent enemy if available
+    if (adjacentEnemy) {
+      const enemyWorldX = adjacentEnemy.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const enemyWorldY = adjacentEnemy.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      this.combatForecastPresenter.show(player.unit, adjacentEnemy.unit, enemyWorldX, enemyWorldY);
+    }
 
     this.actionMenuPresenter.onAttack = () => {
       this.actionMenuPresenter.hide();
@@ -766,16 +774,18 @@ export class MainGameScene extends Phaser.Scene {
 
     this.actionMenuPresenter.onWait = () => {
       this.actionMenuPresenter.hide();
+      this.combatForecastPresenter.hide();
       this.isMenuOpen = false;
       this.finalizePlayerTurn(player);
     };
 
     this.actionMenuPresenter.onItem = () => {
       this.actionMenuPresenter.hide();
+      this.combatForecastPresenter.hide();
       this.showInventoryMenu(player);
     };
 
-    this.actionMenuPresenter.show(worldX, worldY, hasAdjacentEnemy);
+    this.actionMenuPresenter.show(worldX, worldY, !!adjacentEnemy);
   }
 
   private showInventoryMenu(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
@@ -867,6 +877,7 @@ export class MainGameScene extends Phaser.Scene {
     player.graphic.setExhausted(true);
     this.selectedPlayerIndex = null;
     this.gridPresenter.clearHighlights();
+    this.combatForecastPresenter.hide();
 
     if (this.checkWinCondition()) {
       return;

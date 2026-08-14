@@ -4,101 +4,71 @@ import { CombatResolver } from '../../combat/domain/CombatResolver';
 
 export class CombatForecastPresenter {
   private container: Phaser.GameObjects.Container;
-  private background: Phaser.GameObjects.Rectangle;
-  private attackerText: Phaser.GameObjects.Text;
-  private defenderText: Phaser.GameObjects.Text;
-  private advantageText: Phaser.GameObjects.Text;
-  private damageText: Phaser.GameObjects.Text;
-  private hpText: Phaser.GameObjects.Text;
+  private bgRect: Phaser.GameObjects.Rectangle;
+  private forecastText: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene) {
     this.container = this.scene.add.container(0, 0);
-    this.container.setDepth(100);
-    this.container.setScrollFactor(0);
+    this.container.setDepth(60);
     this.container.setVisible(false);
 
-    // Box dimensions
-    const width = 280;
-    const height = 105;
+    // Compact floating pill
+    this.bgRect = this.scene.add.rectangle(0, 0, 140, 20, 0x0f172a, 0.94)
+      .setOrigin(0.5, 0.5)
+      .setStrokeStyle(1.5, 0xffd700);
 
-    // Create UI elements
-    this.background = this.scene.add.rectangle(0, 0, width, height, 0x111622, 0.92)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0x4466aa);
-
-    this.attackerText = this.scene.add.text(10, 10, '', {
-      fontSize: '14px',
-      color: '#ffffff',
-    });
-
-    this.defenderText = this.scene.add.text(10, 30, '', {
-      fontSize: '14px',
-      color: '#ffffff',
-    });
-
-    this.advantageText = this.scene.add.text(10, 50, '', {
-      fontSize: '12px',
-      color: '#ffff00',
+    this.forecastText = this.scene.add.text(0, 0, '', {
+      fontSize: '10px',
+      fontFamily: 'monospace',
       fontStyle: 'bold',
-    });
+      color: '#ffffff',
+    }).setOrigin(0.5, 0.5);
 
-    this.damageText = this.scene.add.text(10, 75, '', {
-      fontSize: '14px',
-      color: '#ff5555',
-      fontStyle: 'bold',
-    });
-
-    this.hpText = this.scene.add.text(10, 95, '', {
-      fontSize: '14px',
-      color: '#55ff55',
-    });
-
-    this.container.add([
-      this.background,
-      this.attackerText,
-      this.defenderText,
-      this.advantageText,
-      this.damageText,
-      this.hpText,
-    ]);
+    this.container.add([this.bgRect, this.forecastText]);
   }
 
-  public show(attacker: Unit, defender: Unit): void {
+  public show(attacker: Unit, defender: Unit, worldX: number, worldY: number): void {
     const result = CombatResolver.calculateDamage(attacker, defender);
-
-    this.attackerText.setText(`Atk: ${attacker.name} (${attacker.weaponType})`);
-    this.defenderText.setText(`Def: ${defender.name} (${defender.weaponType})`);
-
-    let advantageString = '';
-    if (result.hasAdvantage) {
-      const icon = this.getWeaponIcon(attacker.weaponType);
-      advantageString = `${icon} ADVANTAGE +${CombatResolver.ADVANTAGE_BONUS_DAMAGE} DMG`;
-      this.advantageText.setColor('#ffff00');
-    } else if (result.hasDisadvantage) {
-      advantageString = `DISADVANTAGE ${CombatResolver.DISADVANTAGE_PENALTY_DAMAGE} DMG`;
-      this.advantageText.setColor('#aaaaaa');
-    }
-    this.advantageText.setText(advantageString);
-
-    this.damageText.setText(`DMG: ${result.damageDealt}`);
-
     const newHp = Math.max(0, defender.currentHp - result.damageDealt);
-    this.hpText.setText(`HP: ${defender.currentHp} ➔ ${newHp}`);
+    const isLethal = newHp === 0;
 
-    // Position at the bottom center or near the top
-    const cam = this.scene.cameras.main;
-    this.container.setPosition(cam.width / 2 - 125, cam.height - 130);
+    let icon = '⚔️';
+    if (attacker.weaponType === 'LANCE') icon = '🔱';
+    else if (attacker.weaponType === 'AXE') icon = '🪓';
 
-    this.container.setVisible(true);
-  }
+    let strokeColor = 0x38bdf8; // Default Cyan
+    let textColor = '#ffffff';
 
-  private getWeaponIcon(weaponType: string): string {
-    switch(weaponType) {
-      case 'SWORD': return '⚔️';
-      case 'AXE': return '🪓';
-      case 'LANCE': return '🛡️';
-      default: return '';
+    let previewString = '';
+    if (isLethal) {
+      previewString = `${icon} ${result.damageDealt} DMG (1-Hit Kill! 🔥)`;
+      strokeColor = 0xff4444;
+      textColor = '#fca5a5';
+    } else if (result.hasAdvantage) {
+      previewString = `${icon} ${result.damageDealt} DMG [${defender.currentHp}➔${newHp} HP]`;
+      strokeColor = 0xffd700;
+      textColor = '#fef08a';
+    } else if (result.hasDisadvantage) {
+      previewString = `${icon} ${result.damageDealt} DMG [${defender.currentHp}➔${newHp} HP]`;
+      strokeColor = 0x64748b;
+      textColor = '#cbd5e1';
+    } else {
+      previewString = `${icon} ${result.damageDealt} DMG [${defender.currentHp}➔${newHp} HP]`;
+      strokeColor = 0x38bdf8;
+      textColor = '#ffffff';
     }
+
+    this.bgRect.setStrokeStyle(1.5, strokeColor);
+    this.forecastText.setColor(textColor);
+    this.forecastText.setText(previewString);
+
+    // Auto-adjust pill width based on text length
+    const pillWidth = Math.max(130, this.forecastText.width + 16);
+    this.bgRect.setSize(pillWidth, 20);
+
+    // Position directly above the targeted unit in world space
+    this.container.setPosition(worldX, worldY - 24);
+    this.container.setVisible(true);
   }
 
   public hide(): void {

@@ -120,7 +120,7 @@ export class UnitPresenter {
     }
   }
 
-  public moveTo(coord: TileCoordinate): Promise<void> {
+  public moveTo(coord: TileCoordinate, fast: boolean = false): Promise<void> {
     return new Promise((resolve) => {
       const targetX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
       const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
@@ -128,12 +128,15 @@ export class UnitPresenter {
       this.container.setVisible(true);
       this.scene.tweens.killTweensOf(this.container);
 
+      const duration = fast ? 35 : 120;
+      const ease = fast ? 'Linear' : 'Sine.easeInOut';
+
       this.scene.tweens.add({
         targets: this.container,
         x: targetX,
         y: targetY,
-        duration: 150,
-        ease: 'Sine.easeInOut',
+        duration,
+        ease,
         onComplete: () => {
           this.container.setPosition(targetX, targetY);
           resolve();
