@@ -210,4 +210,8 @@ export class UnitPresenter {
       });
     });
   }
+
+  public setVisible(visible: boolean): void {
+    this.container.setVisible(visible);
+  }
 }

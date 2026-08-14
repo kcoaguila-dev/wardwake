@@ -15,6 +15,18 @@ export class PreloaderScene extends Phaser.Scene {
     }
 
     create() {
+        // Generate procedural item_drop texture (Golden Treasure Chest)
+        const g = this.make.graphics({ x: 0, y: 0 });
+        g.fillStyle(0x8b5a2b, 1);
+        g.fillRect(2, 4, 12, 10);
+        g.fillStyle(0xffd700, 1);
+        g.fillRect(1, 3, 14, 3);
+        g.fillRect(6, 6, 4, 5);
+        g.fillStyle(0xffea00, 1);
+        g.fillRect(7, 7, 2, 3);
+        g.generateTexture('item_drop', 16, 16);
+        g.destroy();
+
         // Transition to MainGameScene when loading is complete
         this.scene.start('MainGameScene');
     }

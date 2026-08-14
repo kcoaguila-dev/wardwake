@@ -1,12 +1,16 @@
 import { GridMap } from "../domain/GridMap";
 import { DungeonGenerator } from "../domain/DungeonGenerator";
 import { TileCoordinate } from "../domain/TileCoordinate";
+import { Room } from "../domain/BspNode";
+import { Item, ItemType } from "../../inventory/domain/Item";
 
 export interface FloorGenerationResult {
   map: GridMap;
   playerSpawns: TileCoordinate[];
   enemySpawns: TileCoordinate[];
   staircase: TileCoordinate;
+  rooms: Room[];
+  items: { coord: TileCoordinate; item: Item }[];
 }
 
 export class GenerateFloorUseCase {
@@ -84,11 +88,48 @@ export class GenerateFloorUseCase {
 
     const staircase = furthestTile;
 
+    // 4. Generate 1-2 random items in distant rooms
+    const generatedItems: { coord: TileCoordinate; item: Item }[] = [];
+    const numItems = Math.floor(Math.random() * 2) + 1; // 1 to 2 items
+
+    // Pick rooms other than the starting room if possible
+    const itemRooms = rooms.length > 1 ? rooms.slice(1) : rooms;
+
+    for (let i = 0; i < numItems; i++) {
+      const room = itemRooms[Math.floor(Math.random() * itemRooms.length)];
+      if (!room) continue;
+
+      const availableTiles: TileCoordinate[] = [];
+      for (let x = room.x; x < room.x + room.width; x++) {
+        for (let y = room.y; y < room.y + room.height; y++) {
+          const c = new TileCoordinate(x, y);
+          if (map.isWalkable(c) && !usedSet.has(c.toString()) && !c.equals(staircase)) {
+            availableTiles.push(c);
+          }
+        }
+      }
+
+      if (availableTiles.length > 0) {
+        const coord = availableTiles[Math.floor(Math.random() * availableTiles.length)]!;
+        usedSet.add(coord.toString());
+
+        // Randomly pick Item Type (Vulnerary/Heal or Attack Buff)
+        const isHeal = Math.random() > 0.5;
+        const item = isHeal
+          ? new Item(`item_${Math.random()}`, 'Vulnerary', ItemType.HEAL, 10)
+          : new Item(`item_${Math.random()}`, 'Strength Potion', ItemType.ATTACK_BUFF, 2);
+
+        generatedItems.push({ coord, item });
+      }
+    }
+
     return {
       map,
       playerSpawns,
       enemySpawns,
-      staircase
+      staircase,
+      rooms,
+      items: generatedItems
     };
   }
 }

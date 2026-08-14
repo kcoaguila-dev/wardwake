@@ -16,9 +16,13 @@ import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseC
 import { GainExpUseCase } from '../features/combat/application/GainExpUseCase';
 import { LevelUpUseCase } from '../features/combat/application/LevelUpUseCase';
 import { ConsumeItemUseCase } from '../features/inventory/application/ConsumeItemUseCase';
+import { PickupItemUseCase } from '../features/inventory/application/PickupItemUseCase';
 import { ExecuteEnemyTurnUseCase } from '../features/ai/application/ExecuteEnemyTurnUseCase';
 import { FollowFormationCalculator } from '../features/ai/domain/FollowFormationCalculator';
 import { GenerateFloorUseCase } from '../features/grid/application/GenerateFloorUseCase';
+import { FogOfWar } from '../features/fog/domain/FogOfWar';
+import { VisibilityMap } from '../features/fog/domain/VisibilityMap';
+import { FogPresenter } from '../features/fog/presentation/FogPresenter';
 import { Unit } from '../features/combat/domain/Unit';
 import { WeaponType } from '../features/combat/domain/WeaponType';
 import { EnemyFactory } from '../features/combat/domain/EnemyFactory';
@@ -39,6 +43,7 @@ export class MainGameScene extends Phaser.Scene {
   private attackUnitUseCase!: AttackUnitUseCase;
   private gainExpUseCase!: GainExpUseCase;
   private consumeItemUseCase!: ConsumeItemUseCase;
+  private pickupItemUseCase!: PickupItemUseCase;
   private executeEnemyTurnUseCase!: ExecuteEnemyTurnUseCase;
   private generateFloorUseCase!: GenerateFloorUseCase;
   private followFormationCalculator!: FollowFormationCalculator;
@@ -52,6 +57,7 @@ export class MainGameScene extends Phaser.Scene {
   private minimapPresenter!: MinimapPresenter;
   private actionMenuPresenter!: ActionMenuPresenter;
   private inventoryMenuPresenter!: InventoryMenuPresenter;
+  private fogPresenter!: FogPresenter;
 
   // Audio
   private audioService!: WebAudioSynthService;
@@ -59,10 +65,13 @@ export class MainGameScene extends Phaser.Scene {
   // Domain
   private gridMap!: GridMap;
   private pathfinder!: Pathfinder;
+  private visibilityMap!: VisibilityMap;
+  private fogOfWar!: FogOfWar;
 
   // State
   private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private enemySquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
+  private floorItems: { coord: TileCoordinate; item: Item; sprite: Phaser.GameObjects.Sprite }[] = [];
   private floorCount: number = 1;
   private staircaseCoord!: TileCoordinate;
   private selectedPlayerIndex: number | null = null;
@@ -83,6 +92,7 @@ export class MainGameScene extends Phaser.Scene {
     this.attackUnitUseCase = new AttackUnitUseCase(this.audioService);
     this.gainExpUseCase = new GainExpUseCase(new LevelUpUseCase());
     this.consumeItemUseCase = new ConsumeItemUseCase();
+    this.pickupItemUseCase = new PickupItemUseCase();
     this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
     this.followFormationCalculator = new FollowFormationCalculator();
 
@@ -96,6 +106,7 @@ export class MainGameScene extends Phaser.Scene {
     this.minimapPresenter = new MinimapPresenter(this);
     this.actionMenuPresenter = new ActionMenuPresenter(this);
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
+    this.fogPresenter = new FogPresenter(this);
 
     // Set Camera Bounds for Expanded 18x18 Map
     this.cameras.main.setBounds(
@@ -132,19 +143,20 @@ export class MainGameScene extends Phaser.Scene {
     this.inventoryMenuPresenter.hide();
     this.gridPresenter.clearHighlights();
 
-    // 1. Generate Procedural Layout & Dynamic Spawns
+    // 1. Generate Procedural Layout, Spawns & Floor Items
     const enemyCount = Math.min(5, 3 + Math.floor((floorNumber - 1) / 2));
     const floorData = this.generateFloorUseCase.execute(2, enemyCount);
 
     this.gridMap = floorData.map;
     this.staircaseCoord = floorData.staircase;
+    this.visibilityMap = new VisibilityMap();
+    this.fogOfWar = new FogOfWar(this.gridMap, floorData.rooms);
     this.getValidMovesUseCase = new GetValidMovesUseCase(this.gridMap, this.pathfinder);
     this.inputPresenter.setBounds(this.gridMap.width, this.gridMap.height);
 
     // 2. Draw Floor & Staircase
     this.gridPresenter.drawGrid(this.gridMap);
     this.gridPresenter.drawStaircase(this.staircaseCoord);
-    this.minimapPresenter.drawMap(this.gridMap, this.staircaseCoord);
 
     // 3. Spawn / Reset Players
     if (this.playerSquad.length === 0) {
@@ -166,7 +178,29 @@ export class MainGameScene extends Phaser.Scene {
       });
     }
 
-    // 4. Spawn / Reset Enemies with Tiered Difficulty
+    // 4. Spawn Floor Items
+    this.floorItems.forEach(fi => fi.sprite.destroy());
+    this.floorItems = [];
+
+    if (floorData.items) {
+      for (const itemSpawn of floorData.items) {
+        const itemSprite = this.add.sprite(
+          itemSpawn.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2,
+          itemSpawn.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2,
+          'item_drop'
+        );
+        itemSprite.setScale(1.5);
+        itemSprite.setDepth(1.5);
+
+        this.floorItems.push({
+          coord: itemSpawn.coord,
+          item: itemSpawn.item,
+          sprite: itemSprite
+        });
+      }
+    }
+
+    // 5. Spawn / Reset Enemies with Tiered Difficulty
     this.enemySquad.forEach(e => e.graphic.clear());
     this.enemySquad = [];
 
@@ -184,7 +218,7 @@ export class MainGameScene extends Phaser.Scene {
       });
     }
 
-    // 5. Update HUD & Phase
+    // 6. Update HUD & Phase
     this.hudPresenter.updateFloor(this.floorCount);
     this.hudPresenter.updatePhase('🔵 PLAYER');
     this.hudPresenter.updateEnemies(this.enemySquad.length);
@@ -201,12 +235,36 @@ export class MainGameScene extends Phaser.Scene {
       this.centerCameraOn(this.playerSquad[0].coord, false);
     }
 
-    this.updateMinimap();
+    this.updateFogAndVisibility();
     this.checkEncounterState();
   }
 
+  private updateFogAndVisibility(): void {
+    const playerCoords = this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord);
+    this.fogOfWar.updateVisibility(playerCoords, this.visibilityMap);
+    this.fogPresenter.drawFog(this.gridMap, this.visibilityMap);
+
+    // Hide or show enemies based on visibility
+    this.enemySquad.forEach(enemy => {
+      if (enemy.unit.currentHp > 0) {
+        const isVisible = this.visibilityMap.isVisible(enemy.coord);
+        enemy.graphic.setVisible(isVisible);
+      }
+    });
+
+    // Hide or show floor items based on visibility
+    this.floorItems.forEach(item => {
+      const isVisible = this.visibilityMap.isVisible(item.coord);
+      item.sprite.setVisible(isVisible);
+    });
+
+    // Update minimap with discovered tiles and visible enemies
+    this.minimapPresenter.drawMap(this.gridMap, this.staircaseCoord, this.visibilityMap);
+    this.updateMinimap();
+  }
+
   private checkEncounterState(): void {
-    const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0);
+    const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0 && this.visibilityMap.isVisible(e.coord));
     const alivePlayers = this.playerSquad.filter(p => p.unit.currentHp > 0);
 
     let enemyNearby = false;
@@ -226,7 +284,7 @@ export class MainGameScene extends Phaser.Scene {
       if (this.playerSquad[0]) {
         const screenX = this.playerSquad[0].coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
         const screenY = this.playerSquad[0].coord.y * GridPresenter.TILE_SIZE - 10;
-        this.combatTextPresenter.showDamage(screenX, screenY, 0, true, false); // Flash encounter chime
+        this.combatTextPresenter.showDamage(screenX, screenY, 0, true, false);
       }
     } else if (!enemyNearby && this.isEncounterActive) {
       this.isEncounterActive = false;
@@ -312,8 +370,10 @@ export class MainGameScene extends Phaser.Scene {
 
   private updateMinimap(): void {
     const playerCoords = this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord);
-    const enemyCoords = this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord);
-    this.minimapPresenter.updateEntities(playerCoords, enemyCoords);
+    const visibleEnemyCoords = this.enemySquad
+      .filter(e => e.unit.currentHp > 0 && this.visibilityMap.isVisible(e.coord))
+      .map(e => e.coord);
+    this.minimapPresenter.updateEntities(playerCoords, visibleEnemyCoords, this.visibilityMap);
   }
 
   private onTileHover(coord: TileCoordinate) {
@@ -333,7 +393,7 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    const hoveredEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
+    const hoveredEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord) && this.visibilityMap.isVisible(coord));
     if (hoveredEnemy) {
       const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
       if (dist === 1) {
@@ -353,7 +413,7 @@ export class MainGameScene extends Phaser.Scene {
     // 1. If targeting mode is active for attack
     if (this.isTargeting && this.selectedPlayerIndex !== null) {
       const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
-      const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
+      const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord) && this.visibilityMap.isVisible(coord));
 
       if (clickedEnemy && selectedPlayer) {
         const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
@@ -403,7 +463,7 @@ export class MainGameScene extends Phaser.Scene {
       await selectedPlayer.graphic.moveTo(coord);
       this.centerCameraOn(coord);
 
-      // In Exploration Mode (no encounter active), companion auto-follows
+      // In Exploration Mode, companion auto-follows
       if (!this.isEncounterActive) {
         const companion = this.playerSquad.find((p, i) => i !== this.selectedPlayerIndex && p.unit.currentHp > 0 && !p.hasActed);
         if (companion && !companion.coord.equals(leaderPreviousCoord)) {
@@ -413,8 +473,21 @@ export class MainGameScene extends Phaser.Scene {
         }
       }
 
+      // Check Floor Item Pickup
+      const itemIndex = this.floorItems.findIndex(fi => fi.coord.equals(coord));
+      if (itemIndex !== -1) {
+        const floorItem = this.floorItems[itemIndex]!;
+        this.pickupItemUseCase.execute(selectedPlayer.unit, floorItem.item);
+        floorItem.sprite.destroy();
+        this.floorItems.splice(itemIndex, 1);
+        this.audioService.playSound('item_pickup');
+        const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const screenY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        this.combatTextPresenter.showBanner(screenX, screenY, `+ Obtained ${floorItem.item.name}!`);
+      }
+
       this.isProcessingAction = false;
-      this.updateMinimap();
+      this.updateFogAndVisibility();
       this.checkEncounterState();
 
       // Show Action Menu after moving
@@ -426,7 +499,7 @@ export class MainGameScene extends Phaser.Scene {
     this.isMenuOpen = true;
 
     const hasAdjacentEnemy = this.enemySquad.some(e => {
-      if (e.unit.currentHp <= 0) return false;
+      if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
       const dist = Math.abs(player.coord.x - e.coord.x) + Math.abs(player.coord.y - e.coord.y);
       return dist === 1;
     });
@@ -525,7 +598,7 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     this.isProcessingAction = false;
-    this.updateMinimap();
+    this.updateFogAndVisibility();
     this.checkEncounterState();
 
     this.finalizePlayerTurn(player);
@@ -547,7 +620,6 @@ export class MainGameScene extends Phaser.Scene {
       this.hudPresenter.updatePhase('🔴 ENEMY');
       this.executeEnemyPhase();
     } else {
-      // Auto-focus next unacted player
       const nextActiveHero = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
       if (nextActiveHero) {
         this.centerCameraOn(nextActiveHero.coord);
@@ -597,7 +669,7 @@ export class MainGameScene extends Phaser.Scene {
           enemyData.coord = result.targetCoordinate;
           this.audioService.playSound('hero_step');
           await enemyData.graphic.moveTo(enemyData.coord);
-          this.updateMinimap();
+          this.updateFogAndVisibility();
 
           if (result.targetToAttack) {
             const targetPlayer = this.playerSquad.find(p => p.unit.id === result.targetToAttack!.id);
@@ -626,7 +698,7 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     this.isProcessingAction = false;
-    this.updateMinimap();
+    this.updateFogAndVisibility();
     this.checkEncounterState();
 
     if (!this.checkWinCondition()) {

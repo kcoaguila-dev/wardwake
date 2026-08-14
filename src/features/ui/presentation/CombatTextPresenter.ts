@@ -20,13 +20,37 @@ export class CombatTextPresenter {
     });
 
     text.setOrigin(0.5, 0.5);
-    text.setDepth(10); // Ensure it's above other elements
+    text.setDepth(100);
 
     this.scene.tweens.add({
       targets: text,
       y: y - 40,
       alpha: 0,
       duration: 1500,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        text.destroy();
+      }
+    });
+  }
+
+  showBanner(x: number, y: number, message: string): void {
+    const text = this.scene.add.text(x, y, message, {
+      fontSize: "13px",
+      color: "#00ff00", // Bright Green for item pickups
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3,
+    });
+
+    text.setOrigin(0.5, 0.5);
+    text.setDepth(100);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: y - 35,
+      alpha: { from: 1, to: 0 },
+      duration: 1200,
       ease: 'Sine.easeOut',
       onComplete: () => {
         text.destroy();
@@ -44,6 +68,7 @@ export class CombatTextPresenter {
     });
 
     text.setOrigin(0.5, 0.5);
+    text.setDepth(100);
     text.setScale(1.2);
 
     this.scene.tweens.add({
@@ -75,8 +100,8 @@ export class CombatTextPresenter {
       strokeThickness: 3,
     });
 
-    // Center the text origin horizontally and vertically
     text.setOrigin(0.5, 0.5);
+    text.setDepth(100);
     text.setScale(1.3);
 
     this.scene.tweens.add({
