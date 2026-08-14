@@ -1,10 +1,8 @@
 import { GridMap } from "./GridMap";
 import { TileCoordinate } from "./TileCoordinate";
-import { BspNode, Room } from "./BspNode";
+import { Room } from "./BspNode";
 
 export class DungeonGenerator {
-  private readonly minNodeSize = 4;
-  private root!: BspNode;
   private rooms: Room[] = [];
 
   constructor(public readonly width: number, public readonly height: number) {}
@@ -14,155 +12,110 @@ export class DungeonGenerator {
   }
 
   public generate(): GridMap {
-    this.root = new BspNode(0, 0, this.width, this.height);
     this.rooms = [];
-    this.splitNode(this.root);
-
-    this.carveRooms(this.root);
-
     const map = new GridMap(this.width, this.height);
 
-    // Initially block everything (all walls)
+    // 1. Initially block all tiles as solid rock walls
     for (let x = 0; x < this.width; x++) {
       for (let y = 0; y < this.height; y++) {
         map.addObstacle(new TileCoordinate(x, y));
       }
     }
 
-    // Carve out rooms
-    for (const room of this.rooms) {
-      for (let x = room.x; x < room.x + room.width; x++) {
-        for (let y = room.y; y < room.y + room.height; y++) {
-          map.removeObstacle(new TileCoordinate(x, y));
+    // 2. Divide map into Chunsoft Macro Cells (e.g. 2x2 grid for 10x10)
+    const cols = Math.max(2, Math.floor(this.width / 5));
+    const rows = Math.max(2, Math.floor(this.height / 5));
+    const cellW = Math.floor(this.width / cols);
+    const cellH = Math.floor(this.height / rows);
+
+    const cellRooms: (Room | null)[][] = Array.from({ length: cols }, () => Array(rows).fill(null));
+
+    // 3. Carve a distinct room inside each macro-cell
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const cellX = c * cellW;
+        const cellY = r * cellH;
+
+        // Leave at least 1 tile border padding inside each cell
+        const minSize = 2;
+        const maxW = Math.max(minSize, cellW - 2);
+        const maxH = Math.max(minSize, cellH - 2);
+
+        const roomW = Math.floor(Math.random() * (maxW - minSize + 1)) + minSize;
+        const roomH = Math.floor(Math.random() * (maxH - minSize + 1)) + minSize;
+
+        const roomX = cellX + 1 + Math.floor(Math.random() * (cellW - roomW - 1));
+        const roomY = cellY + 1 + Math.floor(Math.random() * (cellH - roomH - 1));
+
+        const room = new Room(roomX, roomY, roomW, roomH);
+        this.rooms.push(room);
+        cellRooms[c]![r] = room;
+
+        // Carve room floor
+        for (let x = room.x; x < room.x + room.width; x++) {
+          for (let y = room.y; y < room.y + room.height; y++) {
+            map.removeObstacle(new TileCoordinate(x, y));
+          }
         }
       }
     }
 
-    // Connect rooms by creating corridors between sibling nodes recursively
-    this.connectNodes(this.root, map);
+    // 4. Connect adjacent macro cells with clean 1-tile L-junction corridors
+    // Horizontal connections
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols - 1; c++) {
+        const roomA = cellRooms[c]![r]!;
+        const roomB = cellRooms[c + 1]![r]!;
+        this.connectRooms(roomA, roomB, map);
+      }
+    }
+
+    // Vertical connections
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows - 1; r++) {
+        const roomA = cellRooms[c]![r]!;
+        const roomB = cellRooms[c]![r + 1]!;
+        this.connectRooms(roomA, roomB, map);
+      }
+    }
 
     return map;
   }
 
-  private connectNodes(node: BspNode, map: GridMap): void {
-    if (node.leftChild && node.rightChild) {
-      this.connectNodes(node.leftChild, map);
-      this.connectNodes(node.rightChild, map);
+  private connectRooms(r1: Room, r2: Room, map: GridMap): void {
+    // Pick center anchor points of both rooms
+    const x1 = Math.floor(r1.x + r1.width / 2);
+    const y1 = Math.floor(r1.y + r1.height / 2);
+    const x2 = Math.floor(r2.x + r2.width / 2);
+    const y2 = Math.floor(r2.y + r2.height / 2);
 
-      // Dig corridor between leftChild's center and rightChild's center
-      const leftCenter = this.getNodeCenter(node.leftChild);
-      const rightCenter = this.getNodeCenter(node.rightChild);
-
-      this.digCorridor(leftCenter.x, leftCenter.y, rightCenter.x, rightCenter.y, map);
-    }
-  }
-
-  private getNodeCenter(node: BspNode): { x: number, y: number } {
-    if (node.room) {
-      return {
-        x: Math.floor(node.room.x + node.room.width / 2),
-        y: Math.floor(node.room.y + node.room.height / 2)
-      };
-    }
-
-    // If not a leaf, find center of descendants
-    let center = { x: Math.floor(node.x + node.width / 2), y: Math.floor(node.y + node.height / 2) };
-    if (node.leftChild) {
-        center = this.getNodeCenter(node.leftChild);
-    } else if (node.rightChild) {
-        center = this.getNodeCenter(node.rightChild);
-    }
-    return center;
-  }
-
-  private digCorridor(x1: number, y1: number, x2: number, y2: number, map: GridMap): void {
-    // Dig horizontal then vertical, or vertical then horizontal
-    const startHoriz = Math.random() > 0.5;
-
-    if (startHoriz) {
-      this.digHorizontal(x1, x2, y1, map);
-      this.digVertical(y1, y2, x2, map);
+    // 50% chance: Horizontal then Vertical, or Vertical then Horizontal
+    if (Math.random() > 0.5) {
+      this.carveHorizontalLine(x1, x2, y1, map);
+      this.carveVerticalLine(y1, y2, x2, map);
     } else {
-      this.digVertical(y1, y2, x1, map);
-      this.digHorizontal(x1, x2, y2, map);
+      this.carveVerticalLine(y1, y2, x1, map);
+      this.carveHorizontalLine(x1, x2, y2, map);
     }
   }
 
-  private digHorizontal(x1: number, x2: number, y: number, map: GridMap): void {
+  private carveHorizontalLine(x1: number, x2: number, y: number, map: GridMap): void {
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
     for (let x = minX; x <= maxX; x++) {
-      map.removeObstacle(new TileCoordinate(x, y));
-    }
-  }
-
-  private digVertical(y1: number, y2: number, x: number, map: GridMap): void {
-    const minY = Math.min(y1, y2);
-    const maxY = Math.max(y1, y2);
-    for (let y = minY; y <= maxY; y++) {
-      map.removeObstacle(new TileCoordinate(x, y));
-    }
-  }
-
-  private carveRooms(node: BspNode): void {
-    if (node.leftChild || node.rightChild) {
-      if (node.leftChild) this.carveRooms(node.leftChild);
-      if (node.rightChild) this.carveRooms(node.rightChild);
-    } else {
-      // It's a leaf, carve a room
-      // Room size should be random, but at least minRoomSize and fit inside node with some padding
-      const minRoomSize = 3;
-      const padding = 1;
-
-      const maxWidth = node.width - (padding * 2);
-      const maxHeight = node.height - (padding * 2);
-
-      if (maxWidth >= minRoomSize && maxHeight >= minRoomSize) {
-        const roomWidth = Math.floor(Math.random() * (maxWidth - minRoomSize + 1)) + minRoomSize;
-        const roomHeight = Math.floor(Math.random() * (maxHeight - minRoomSize + 1)) + minRoomSize;
-
-        const roomX = node.x + padding + Math.floor(Math.random() * (maxWidth - roomWidth + 1));
-        const roomY = node.y + padding + Math.floor(Math.random() * (maxHeight - roomHeight + 1));
-
-        node.room = new Room(roomX, roomY, roomWidth, roomHeight);
-        this.rooms.push(node.room);
+      if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+        map.removeObstacle(new TileCoordinate(x, y));
       }
     }
   }
 
-  private splitNode(node: BspNode): void {
-    if (node.leftChild || node.rightChild) {
-      return; // Already split
+  private carveVerticalLine(y1: number, y2: number, x: number, map: GridMap): void {
+    const minY = Math.min(y1, y2);
+    const maxY = Math.max(y1, y2);
+    for (let y = minY; y <= maxY; y++) {
+      if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
+        map.removeObstacle(new TileCoordinate(x, y));
+      }
     }
-
-    // Determine direction of split
-    // If width is >25% larger than height, split vertically
-    // If height is >25% larger than width, split horizontally
-    // Otherwise, random
-    let splitHorizontally = Math.random() > 0.5;
-    if (node.width > node.height && node.width / node.height >= 1.25) {
-      splitHorizontally = false;
-    } else if (node.height > node.width && node.height / node.width >= 1.25) {
-      splitHorizontally = true;
-    }
-
-    const max = (splitHorizontally ? node.height : node.width) - this.minNodeSize;
-    if (max <= this.minNodeSize) {
-      return; // Node is too small to split further
-    }
-
-    // Random split point between minNodeSize and max
-    const splitPoint = Math.floor(Math.random() * (max - this.minNodeSize)) + this.minNodeSize;
-
-    if (splitHorizontally) {
-      node.leftChild = new BspNode(node.x, node.y, node.width, splitPoint);
-      node.rightChild = new BspNode(node.x, node.y + splitPoint, node.width, node.height - splitPoint);
-    } else {
-      node.leftChild = new BspNode(node.x, node.y, splitPoint, node.height);
-      node.rightChild = new BspNode(node.x + splitPoint, node.y, node.width - splitPoint, node.height);
-    }
-
-    this.splitNode(node.leftChild);
-    this.splitNode(node.rightChild);
   }
 }
