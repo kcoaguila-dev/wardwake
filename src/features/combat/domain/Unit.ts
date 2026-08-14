@@ -1,15 +1,26 @@
 import { WeaponType } from './WeaponType';
 import { Item } from '../../inventory/domain/Item';
 
+export interface StatGrowths {
+  hp: number;
+  attack: number;
+  defense: number;
+}
+
 export class Unit {
   public readonly id: string;
   public readonly name: string;
-  public readonly maxHp: number;
+  public maxHp: number; // Made mutable for level ups
   public currentHp: number;
   public attack: number;
   public defense: number;
   public weaponType: WeaponType;
   public inventory: Item[] = [];
+
+  // Level up properties
+  public exp: number = 0;
+  public level: number = 1;
+  public statGrowths: StatGrowths = { hp: 0.8, attack: 0.6, defense: 0.4 };
 
   constructor(
     id: string,

@@ -11,6 +11,8 @@ import { MinimapPresenter } from '../features/ui/presentation/MinimapPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
+import { GainExpUseCase } from '../features/combat/application/GainExpUseCase';
+import { LevelUpUseCase } from '../features/combat/application/LevelUpUseCase';
 import { ExecuteEnemyTurnUseCase } from '../features/ai/application/ExecuteEnemyTurnUseCase';
 import { GenerateFloorUseCase } from '../features/grid/application/GenerateFloorUseCase';
 import { Unit } from '../features/combat/domain/Unit';
@@ -33,6 +35,7 @@ export class MainGameScene extends Phaser.Scene {
   private attackUnitUseCase!: AttackUnitUseCase;
   private executeEnemyTurnUseCase!: ExecuteEnemyTurnUseCase;
   private generateFloorUseCase!: GenerateFloorUseCase;
+  private gainExpUseCase!: GainExpUseCase;
 
   // Presenters
   private gridPresenter!: GridPresenter;
@@ -68,6 +71,7 @@ export class MainGameScene extends Phaser.Scene {
     this.phaseManager = new PhaseManagerUseCase();
     this.attackUnitUseCase = new AttackUnitUseCase(this.audioService);
     this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
+    this.gainExpUseCase = new GainExpUseCase(new LevelUpUseCase());
 
     // Presenters
     this.gridPresenter = new GridPresenter(this);
@@ -277,6 +281,29 @@ export class MainGameScene extends Phaser.Scene {
 
         this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
         clickedEnemy.graphic.updateHp(clickedEnemy.unit.currentHp, clickedEnemy.unit.maxHp);
+
+        // Handle EXP logic
+        const expGain = summary.isFatal ? 50 : 20;
+        const expResult = this.gainExpUseCase.execute(selectedPlayer.unit, expGain);
+
+        // Accumulate level up stats if there are any
+        if (expResult.levelUps.length > 0) {
+           const accumulatedStats = { hpIncrease: 0, attackIncrease: 0, defenseIncrease: 0 };
+           for (const lu of expResult.levelUps) {
+             accumulatedStats.hpIncrease += lu.hpIncrease;
+             accumulatedStats.attackIncrease += lu.attackIncrease;
+             accumulatedStats.defenseIncrease += lu.defenseIncrease;
+           }
+           // Show level up banner above player
+           const playerScreenX = selectedPlayer.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+           const playerScreenY = selectedPlayer.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+           this.combatTextPresenter.showLevelUp(playerScreenX, playerScreenY - 20, accumulatedStats);
+
+           // Update player HP graphic if they gained HP
+           if (accumulatedStats.hpIncrease > 0) {
+             selectedPlayer.graphic.updateHp(selectedPlayer.unit.currentHp, selectedPlayer.unit.maxHp);
+           }
+        }
 
         if (summary.isFatal) {
           clickedEnemy.graphic.clear();
