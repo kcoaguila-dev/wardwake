@@ -30,6 +30,7 @@ export interface FloorTierBlueprint {
   itemCountMax: number;
   respawnIntervalSteps: number;
   statScaleFactor: number;
+  possibleModifiers?: string[];
 }
 
 export interface CombatRulesConfig {

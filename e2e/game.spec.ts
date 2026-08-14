@@ -186,4 +186,55 @@ test.describe('Wardwake Game E2E Tests', () => {
     expect(logs.length).toBe(0);
     await expect(canvas).toBeVisible();
   });
+
+  test('Save & Continue persistence allows resuming expedition from Title Scene', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Populate fake save state in localStorage
+    await page.evaluate(() => {
+      const mockSave = {
+        version: 1,
+        floorNumber: 3,
+        turnsTaken: 42,
+        monstersSlain: 6,
+        relicsFound: 2,
+        playerSquad: [
+          {
+            id: 'hero_sword_fighter',
+            name: 'Sword Fighter',
+            maxHp: 20,
+            currentHp: 18,
+            maxSp: 20,
+            currentSp: 14,
+            attack: 10,
+            defense: 5,
+            weaponType: 'SWORD',
+            exp: 40,
+            level: 2,
+            belly: 85,
+            maxBelly: 100,
+            inventory: []
+          }
+        ],
+        selectedPlayerIndex: 0,
+        activeModifier: 'TREASURE_VAULT',
+        savedAt: Date.now()
+      };
+      localStorage.setItem('wardwake_run_save', JSON.stringify(mockSave));
+    });
+
+    // Reload page to see Continue button
+    await page.reload();
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Press Enter to trigger Continue
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1000);
+
+    await expect(canvas).toBeVisible();
+  });
 });

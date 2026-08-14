@@ -1,4 +1,8 @@
 export class Room {
+  public isMonsterHouse: boolean = false;
+  public isShop: boolean = false;
+  public isTriggered: boolean = false;
+
   constructor(
     public x: number,
     public y: number,

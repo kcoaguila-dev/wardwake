@@ -3,6 +3,7 @@ import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudio
 import { SettingsModalPresenter } from '../features/ui/presentation/SettingsModalPresenter';
 import { HowToPlayModalPresenter } from '../features/ui/presentation/HowToPlayModalPresenter';
 import { BestiaryModalPresenter } from '../features/ui/presentation/BestiaryModalPresenter';
+import { SaveGameRepository } from '../features/save/infrastructure/SaveGameRepository';
 
 export class TitleScene extends Phaser.Scene {
   private audioService!: WebAudioSynthService;
@@ -78,9 +79,9 @@ export class TitleScene extends Phaser.Scene {
     }
 
     // 3. Grand Title Banner
-    const titleY = 95;
+    const titleY = 75;
     const titleText = this.add.text(screenWidth / 2, titleY, 'WARDWAKE', {
-      fontSize: '38px',
+      fontSize: '36px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffd700',
@@ -99,7 +100,7 @@ export class TitleScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    this.add.text(screenWidth / 2, titleY + 38, '⚔️ TACTICAL ROGUELIKE ⚔️', {
+    this.add.text(screenWidth / 2, titleY + 34, '⚔️ TACTICAL ROGUELIKE ⚔️', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -107,26 +108,48 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
 
     // 4. Menu Options Buttons
+    const hasSave = SaveGameRepository.hasSave();
+    const savedState = hasSave ? SaveGameRepository.load() : null;
+
     const btnW = 200;
-    const btnH = 34;
+    const btnH = 30;
     const btnX = (screenWidth - btnW) / 2;
-    const startBtnY = 165;
-    const bestiaryBtnY = 205;
-    const settingsBtnY = 245;
-    const manualBtnY = 285;
+
+    let startY = 140;
+    const spacing = 36;
+
+    // Continue Button (if save exists)
+    let continueBtn: Phaser.GameObjects.Rectangle | null = null;
+    let continueBtnY = 0;
+
+    if (hasSave && savedState) {
+      continueBtnY = startY;
+      continueBtn = this.add.rectangle(btnX, continueBtnY, btnW, btnH, 0x065f46)
+        .setOrigin(0, 0)
+        .setStrokeStyle(1.5, 0x34d399);
+      this.add.text(screenWidth / 2, continueBtnY + btnH / 2, `📜 CONTINUE (F${savedState.floorNumber})`, {
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        color: '#a7f3d0'
+      }).setOrigin(0.5, 0.5);
+      startY += spacing;
+    }
 
     // A. [ NEW GAME ] Button
+    const startBtnY = startY;
     const startBtn = this.add.rectangle(btnX, startBtnY, btnW, btnH, 0x1e3a8a)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x38bdf8);
     this.add.text(screenWidth / 2, startBtnY + btnH / 2, '⚔️ NEW GAME', {
-      fontSize: '12px',
+      fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5, 0.5);
 
     // B. [ BESTIARY ] Button
+    const bestiaryBtnY = startY + spacing;
     const bestiaryBtn = this.add.rectangle(btnX, bestiaryBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
@@ -138,6 +161,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
 
     // C. [ SETTINGS ] Button
+    const settingsBtnY = startY + spacing * 2;
     const settingsBtn = this.add.rectangle(btnX, settingsBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
@@ -149,6 +173,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
 
     // D. [ HOW TO PLAY ] Button
+    const manualBtnY = startY + spacing * 3;
     const manualBtn = this.add.rectangle(btnX, manualBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
@@ -160,19 +185,29 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
 
     // Footer instructions
-    this.add.text(screenWidth / 2, screenHeight - 16, '[ENTER / SPACE] Play   [B] Bestiary   [S] Settings   [H] Help', {
+    this.add.text(screenWidth / 2, screenHeight - 14, '[ENTER / SPACE] Play   [B] Bestiary   [S] Settings   [H] Help', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#475569'
     }).setOrigin(0.5, 0.5);
 
     // Start Game Transition
-    const handleStartGame = () => {
+    const handleStartNewGame = () => {
+      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible() || this.bestiaryModal.isVisible()) return;
+      this.audioService.playSound('sword_slash');
+      SaveGameRepository.clear();
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('TownScene');
+      });
+    };
+
+    const handleResumeGame = () => {
       if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible() || this.bestiaryModal.isVisible()) return;
       this.audioService.playSound('sword_slash');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('TownScene');
+        this.scene.start('MainGameScene', { resumeSave: true });
       });
     };
 
@@ -183,8 +218,10 @@ export class TitleScene extends Phaser.Scene {
       const px = pointer.x;
       const py = pointer.y;
 
-      if (px >= btnX && px <= btnX + btnW && py >= startBtnY && py <= startBtnY + btnH) {
-        handleStartGame();
+      if (continueBtn && px >= btnX && px <= btnX + btnW && py >= continueBtnY && py <= continueBtnY + btnH) {
+        handleResumeGame();
+      } else if (px >= btnX && px <= btnX + btnW && py >= startBtnY && py <= startBtnY + btnH) {
+        handleStartNewGame();
       } else if (px >= btnX && px <= btnX + btnW && py >= bestiaryBtnY && py <= bestiaryBtnY + btnH) {
         this.audioService.playSound('hero_step');
         this.bestiaryModal.show();
@@ -203,6 +240,14 @@ export class TitleScene extends Phaser.Scene {
 
       const px = pointer.x;
       const py = pointer.y;
+
+      if (continueBtn) {
+        if (px >= btnX && px <= btnX + btnW && py >= continueBtnY && py <= continueBtnY + btnH) {
+          continueBtn.setFillStyle(0x047857);
+        } else {
+          continueBtn.setFillStyle(0x065f46);
+        }
+      }
 
       if (px >= btnX && px <= btnX + btnW && py >= startBtnY && py <= startBtnY + btnH) {
         startBtn.setFillStyle(0x2563eb);
@@ -248,7 +293,11 @@ export class TitleScene extends Phaser.Scene {
       }
 
       if (key === 'enter' || key === ' ' || code === 'Space') {
-        handleStartGame();
+        if (hasSave) {
+          handleResumeGame();
+        } else {
+          handleStartNewGame();
+        }
       } else if (key === 'b') {
         this.bestiaryModal.show();
       } else if (key === 's') {

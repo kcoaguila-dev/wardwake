@@ -8,7 +8,8 @@
     "itemCountMin": 1,
     "itemCountMax": 2,
     "respawnIntervalSteps": 25,
-    "statScaleFactor": 1.0
+    "statScaleFactor": 1.0,
+    "possibleModifiers": ["NORMAL", "TREASURE_VAULT", "DARK_LABYRINTH"]
   },
   {
     "tier": 2,
@@ -19,7 +20,8 @@
     "itemCountMin": 1,
     "itemCountMax": 2,
     "respawnIntervalSteps": 22,
-    "statScaleFactor": 1.5
+    "statScaleFactor": 1.5,
+    "possibleModifiers": ["NORMAL", "DARK_LABYRINTH", "MONSTER_SURGE", "TREASURE_VAULT"]
   },
   {
     "tier": 3,
@@ -30,6 +32,7 @@
     "itemCountMin": 2,
     "itemCountMax": 3,
     "respawnIntervalSteps": 20,
-    "statScaleFactor": 2.0
+    "statScaleFactor": 2.0,
+    "possibleModifiers": ["NORMAL", "DARK_LABYRINTH", "MONSTER_SURGE", "GOLD_RUSH"]
   }
 ]

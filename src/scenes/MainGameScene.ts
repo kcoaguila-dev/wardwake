@@ -46,6 +46,8 @@ import { VirtualPadPresenter } from '../features/ui/presentation/VirtualPadPrese
 import { TownStorageService } from '../features/progression/infrastructure/TownStorageService';
 import { ApplyProgressionUseCase } from '../features/progression/application/ApplyProgressionUseCase';
 import { TownManagerUseCase } from '../features/progression/application/TownManagerUseCase';
+import { SaveGameRepository } from '../features/save/infrastructure/SaveGameRepository';
+import { Room } from '../features/grid/domain/BspNode';
 
 export class MainGameScene extends Phaser.Scene {
   // Map Dimensions (Expansive 24x24 for 3x3 Chunsoft Macro-Grid with Winding Hallways)
@@ -118,9 +120,15 @@ export class MainGameScene extends Phaser.Scene {
   private runMonstersSlain: number = 0;
   private runTotalExp: number = 0;
   private runRelicsFound: number = 0;
+  private activeModifier: string = 'NORMAL';
+  private isResumingSave: boolean = false;
 
   constructor() {
     super('MainGameScene');
+  }
+
+  init(data?: { resumeSave?: boolean }) {
+    this.isResumingSave = !!data?.resumeSave;
   }
 
   create() {
@@ -200,8 +208,43 @@ export class MainGameScene extends Phaser.Scene {
       MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
     );
 
-    // Load Initial Floor
-    this.startFloor(1);
+    // Load Initial Floor or Resume Saved Run
+    if (this.isResumingSave) {
+      const saved = SaveGameRepository.load();
+      if (saved) {
+        this.floorCount = saved.floorNumber;
+        this.turnCount = saved.turnsTaken;
+        this.runMonstersSlain = saved.monstersSlain;
+        this.runRelicsFound = saved.relicsFound;
+        this.activeModifier = saved.activeModifier || 'NORMAL';
+
+        this.playerSquad = saved.playerSquad.map((s) => {
+          const u = new Unit(s.id, s.name, s.maxHp, s.attack, s.defense, s.weaponType);
+          u.currentHp = s.currentHp;
+          u.maxSp = s.maxSp;
+          u.currentSp = s.currentSp;
+          u.exp = s.exp;
+          u.level = s.level;
+          u.belly = s.belly;
+          u.maxBelly = s.maxBelly;
+          u.inventory = s.inventory || [];
+          if (s.equippedWeapon) u.equipRelic(s.equippedWeapon);
+          if (s.equippedArmor) u.equipRelic(s.equippedArmor);
+          return {
+            unit: u,
+            coord: new TileCoordinate(0, 0),
+            hasActed: false,
+            graphic: null as any
+          };
+        });
+
+        this.startFloor(this.floorCount, true);
+      } else {
+        this.startFloor(1);
+      }
+    } else {
+      this.startFloor(1);
+    }
 
     // Start Ambient Retro BGM
     this.audioService.startBgm('explore');
@@ -555,7 +598,7 @@ export class MainGameScene extends Phaser.Scene {
     }
   }
 
-  private startFloor(floorNumber: number): void {
+  private startFloor(floorNumber: number, isResuming: boolean = false): void {
     this.floorCount = floorNumber;
     this.selectedPlayerIndex = null;
     this.isProcessingAction = false;
@@ -575,9 +618,20 @@ export class MainGameScene extends Phaser.Scene {
 
     const isBossFloor = floorNumber === 5 || floorNumber === 10;
 
-    // 1. Generate Procedural Layout, Spawns & Floor Items
+    // Pick Floor Modifier (data-driven)
     const floorConfig = GameDatabase.getFloorConfig(floorNumber);
-    const enemyCount = isBossFloor ? 1 : floorConfig.enemyCountMin;
+    if (!isBossFloor) {
+      const possible = floorConfig.possibleModifiers || ['NORMAL'];
+      this.activeModifier = possible[Math.floor(Math.random() * possible.length)] || 'NORMAL';
+    } else {
+      this.activeModifier = 'NORMAL';
+    }
+    this.hudPresenter.updateFloor(this.floorCount, this.activeModifier);
+
+    // 1. Generate Procedural Layout, Spawns & Floor Items
+    let enemyCount = isBossFloor ? 1 : floorConfig.enemyCountMin;
+    if (this.activeModifier === 'MONSTER_SURGE') enemyCount += 2;
+
     const floorData = this.generateFloorUseCase.execute(2, enemyCount);
 
     this.gridMap = floorData.map;
@@ -609,11 +663,17 @@ export class MainGameScene extends Phaser.Scene {
       this.playerSquad.forEach((p, idx) => {
         p.coord = floorData.playerSpawns[idx] || floorData.playerSpawns[0]!;
         p.hasActed = false;
-        p.unit.currentHp = p.unit.maxHp;
-        p.graphic.moveTo(p.coord);
-        p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
-        p.graphic.setExhausted(false);
-        p.graphic.setLeader(idx === 0);
+        if (!isResuming) {
+          p.unit.currentHp = p.unit.maxHp;
+        }
+        if (!p.graphic) {
+          p.graphic = new UnitPresenter(this, p.unit, p.coord, true, idx === 0);
+        } else {
+          p.graphic.moveTo(p.coord);
+          p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
+          p.graphic.setExhausted(false);
+          p.graphic.setLeader(idx === 0);
+        }
       });
     }
 
@@ -640,6 +700,27 @@ export class MainGameScene extends Phaser.Scene {
           item: itemSpawn.item,
           sprite: itemSprite
         });
+      }
+    }
+
+    // Extra Items for Treasure Vault
+    if (this.activeModifier === 'TREASURE_VAULT' && floorData.rooms.length > 0) {
+      for (let i = 0; i < 2; i++) {
+        const r = floorData.rooms[Math.floor(Math.random() * floorData.rooms.length)]!;
+        const ix = r.x + Math.floor(Math.random() * r.width);
+        const iy = r.y + Math.floor(Math.random() * r.height);
+        const coord = new TileCoordinate(ix, iy);
+        const item = ItemRepository.getRandomLootItem();
+
+        const itemSprite = this.add.sprite(
+          coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2,
+          coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2,
+          'item_drop'
+        );
+        itemSprite.setScale(1.5);
+        itemSprite.setDepth(1.5);
+
+        this.floorItems.push({ coord, item, sprite: itemSprite });
       }
     }
 
@@ -710,8 +791,19 @@ export class MainGameScene extends Phaser.Scene {
       }
     }
 
-    // 7. Update HUD & Phase
-    this.hudPresenter.updateFloor(this.floorCount);
+    // 7. Auto-Save Run State
+    SaveGameRepository.save(
+      this.floorCount,
+      this.turnCount,
+      this.runMonstersSlain,
+      this.runRelicsFound,
+      this.playerSquad.map(p => p.unit),
+      this.selectedPlayerIndex ?? 0,
+      this.activeModifier
+    );
+
+    // 8. Update HUD & Phase
+    this.hudPresenter.updateFloor(this.floorCount, this.activeModifier);
     this.hudPresenter.updatePhase('🔵 EXPLORE');
     this.hudPresenter.updateTurns(this.turnCount);
     this.partyHudPresenter.updateParty(this.playerSquad);
@@ -733,10 +825,55 @@ export class MainGameScene extends Phaser.Scene {
     this.audioService.startBgm('explore');
   }
 
+  private triggerMonsterHouse(room: Room): void {
+    this.cameras.main.shake(350, 0.015);
+    this.audioService.playSound('boss_roar');
+
+    const centerCoord = new TileCoordinate(Math.floor(room.x + room.width / 2), Math.floor(room.y + room.height / 2));
+    const screenX = centerCoord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+    const screenY = centerCoord.y * GridPresenter.TILE_SIZE;
+    this.combatTextPresenter.showBanner(screenX, screenY, '⚠️ MONSTER HOUSE AMBUSH!');
+
+    const spawnCount = 3 + Math.floor(Math.random() * 2);
+
+    for (let i = 0; i < spawnCount; i++) {
+      const sx = room.x + Math.floor(Math.random() * room.width);
+      const sy = room.y + Math.floor(Math.random() * room.height);
+      const spawnCoord = new TileCoordinate(sx, sy);
+
+      const isOccupied = this.playerSquad.some(p => p.coord.equals(spawnCoord)) ||
+                         this.enemySquad.some(e => e.coord.equals(spawnCoord)) ||
+                         this.staircaseCoord.equals(spawnCoord);
+
+      if (this.gridMap.isWalkable(spawnCoord) && !isOccupied) {
+        const enemyUnit = EnemyFactory.createEnemy(this.floorCount, 10 + i, false);
+        const enemyGraphic = new UnitPresenter(this, enemyUnit, spawnCoord, false, false);
+        this.enemySquad.push({
+          unit: enemyUnit,
+          coord: spawnCoord,
+          hasActed: false,
+          graphic: enemyGraphic
+        });
+      }
+    }
+
+    this.checkEncounterState();
+  }
+
   private updateFogAndVisibility(): void {
     const playerCoords = this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord);
     this.fogOfWar.updateVisibility(playerCoords, this.visibilityMap);
     this.fogPresenter.drawFog(this.gridMap, this.visibilityMap);
+
+    // Check Monster House Trigger
+    const activeLeader = this.playerSquad[this.selectedPlayerIndex ?? 0] || this.playerSquad.find(p => p.unit.currentHp > 0);
+    if (activeLeader && this.fogOfWar) {
+      const room = this.fogOfWar.getRoomAt(activeLeader.coord);
+      if (room && room.isMonsterHouse && !room.isTriggered) {
+        room.isTriggered = true;
+        this.triggerMonsterHouse(room);
+      }
+    }
 
     this.enemySquad.forEach(enemy => {
       if (enemy.unit.currentHp > 0) {
@@ -1640,6 +1777,9 @@ export class MainGameScene extends Phaser.Scene {
     const townManager = new TownManagerUseCase(townData);
     townManager.addGold(goldEarned);
     TownStorageService.save(townManager.getTownData());
+
+    // Clear active run save
+    SaveGameRepository.clear();
 
     this.runSummaryModalPresenter.show(stats);
   }

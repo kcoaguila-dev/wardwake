@@ -129,11 +129,29 @@ export class DungeonGenerator {
       selectedEdges.push(remainingEdges[k]!);
     }
 
-    // 5. Carve clean 1-tile L-junction corridors for all selected edges
+    // 5. Connect rooms along selected edges
     for (const edge of selectedEdges) {
-      const roomA = cellRooms[edge.u]!;
-      const roomB = cellRooms[edge.v]!;
-      this.connectRooms(roomA, roomB, map);
+      const r1 = cellRooms[edge.u];
+      const r2 = cellRooms[edge.v];
+      if (r1 && r2) {
+        this.connectRooms(r1, r2, map);
+      }
+    }
+
+    // 6. Assign special room traits (Monster House & Merchant Shop)
+    if (this.rooms.length > 2) {
+      const candidates = this.rooms.slice(1);
+      // Monster House: 20% chance
+      if (Math.random() < 0.20) {
+        const houseIdx = Math.floor(Math.random() * candidates.length);
+        candidates[houseIdx]!.isMonsterHouse = true;
+      }
+      // Merchant Shop: 20% chance on a non-monster-house room
+      const shopCandidates = candidates.filter(r => !r.isMonsterHouse);
+      if (shopCandidates.length > 0 && Math.random() < 0.20) {
+        const shopIdx = Math.floor(Math.random() * shopCandidates.length);
+        shopCandidates[shopIdx]!.isShop = true;
+      }
     }
 
     return map;

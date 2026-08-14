@@ -31,7 +31,7 @@ export class FogOfWar {
     }
   }
 
-  private getRoomAt(coord: TileCoordinate): Room | undefined {
+  public getRoomAt(coord: TileCoordinate): Room | undefined {
     return this.rooms.find(
       (r) => coord.x >= r.x && coord.x < r.x + r.width && coord.y >= r.y && coord.y < r.y + r.height
     );

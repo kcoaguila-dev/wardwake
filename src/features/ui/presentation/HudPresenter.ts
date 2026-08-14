@@ -100,8 +100,19 @@ export class HudPresenter {
     this.onSettingsClickCallback = callback;
   }
 
-  updateFloor(floor: number): void {
-    this.floorText.setText(`🏰 Floor ${floor}`);
+  updateFloor(floor: number, modifier?: string): void {
+    if (modifier && modifier !== 'NORMAL') {
+      const labelMap: Record<string, string> = {
+        'DARK_LABYRINTH': '🌙 DARK',
+        'TREASURE_VAULT': '💰 VAULT',
+        'MONSTER_SURGE': '👹 SURGE',
+        'GOLD_RUSH': '🪙 GOLD'
+      };
+      const modLabel = labelMap[modifier] || modifier;
+      this.floorText.setText(`🏰 F${floor} • ${modLabel}`);
+    } else {
+      this.floorText.setText(`🏰 Floor ${floor}`);
+    }
   }
 
   updatePhase(phase: string): void {
