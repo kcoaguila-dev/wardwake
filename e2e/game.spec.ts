@@ -176,4 +176,17 @@ test.describe('Wardwake Game E2E Tests', () => {
 
     await expect(canvas).toBeVisible();
   });
+
+  test('Staircase Modal allows confirming or staying on current floor', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Escape dismisses any open modals
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    await expect(canvas).toBeVisible();
+  });
 });

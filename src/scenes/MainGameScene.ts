@@ -11,6 +11,7 @@ import { MinimapPresenter } from '../features/ui/presentation/MinimapPresenter';
 import { ActionMenuPresenter } from '../features/ui/presentation/ActionMenuPresenter';
 import { InventoryMenuPresenter } from '../features/ui/presentation/InventoryMenuPresenter';
 import { PartyHudPresenter } from '../features/ui/presentation/PartyHudPresenter';
+import { StairsModalPresenter } from '../features/ui/presentation/StairsModalPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -59,6 +60,7 @@ export class MainGameScene extends Phaser.Scene {
   private minimapPresenter!: MinimapPresenter;
   private actionMenuPresenter!: ActionMenuPresenter;
   private inventoryMenuPresenter!: InventoryMenuPresenter;
+  private stairsModalPresenter!: StairsModalPresenter;
   private fogPresenter!: FogPresenter;
 
   // Audio
@@ -115,6 +117,18 @@ export class MainGameScene extends Phaser.Scene {
     this.actionMenuPresenter.onCancel = () => this.cancelActionMenu();
 
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
+    this.stairsModalPresenter = new StairsModalPresenter(this);
+    this.stairsModalPresenter.onDescend = () => {
+      this.stairsModalPresenter.hide();
+      this.isMenuOpen = false;
+      this.audioService.playSound('staircase_descend');
+      this.startFloor(this.floorCount + 1);
+    };
+    this.stairsModalPresenter.onStay = () => {
+      this.stairsModalPresenter.hide();
+      this.isMenuOpen = false;
+    };
+
     this.fogPresenter = new FogPresenter(this);
 
     // Set Camera Bounds for Expanded 18x18 Map
@@ -150,7 +164,11 @@ export class MainGameScene extends Phaser.Scene {
 
     // ESC key to dismiss menus immediately
     this.input.keyboard?.on('keydown-ESCAPE', () => {
-      this.cancelActionMenu();
+      if (this.stairsModalPresenter.isVisible()) {
+        this.stairsModalPresenter.onStay?.();
+      } else {
+        this.cancelActionMenu();
+      }
     });
 
     // Unified Keyboard Listener with Native Shift Capture
@@ -160,6 +178,17 @@ export class MainGameScene extends Phaser.Scene {
       const isShift = event.shiftKey;
       const key = event.key.toLowerCase();
       const code = event.code;
+
+      // Handle Stairs Modal confirmation with Enter / Y / N
+      if (this.stairsModalPresenter.isVisible()) {
+        if (key === 'enter' || key === 'y') {
+          this.stairsModalPresenter.onDescend?.();
+          return;
+        } else if (key === 'escape' || key === 'n') {
+          this.stairsModalPresenter.onStay?.();
+          return;
+        }
+      }
 
       if (this.isMenuOpen && (key === 'w' || key === 'a' || key === 's' || key === 'd' || code.startsWith('Arrow'))) {
         this.cancelActionMenu();
@@ -189,6 +218,7 @@ export class MainGameScene extends Phaser.Scene {
   private async cancelActionMenu(): Promise<void> {
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
+    this.stairsModalPresenter.hide();
     this.combatForecastPresenter.hide();
     this.isMenuOpen = false;
     this.isTargeting = false;
@@ -270,12 +300,13 @@ export class MainGameScene extends Phaser.Scene {
       const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(nextCoord) && this.visibilityMap.isVisible(nextCoord));
       if (hasAlly || hasEnemy) break;
 
-      // Stop if item at next tile
+      // Stop if item or staircase at next tile
       const hasItem = this.floorItems.some(fi => fi.coord.equals(nextCoord));
+      const hasStairs = this.staircaseCoord.equals(nextCoord);
 
       await this.movePlayerUnit(player, nextCoord, true);
 
-      if (hasItem || this.isEncounterActive) break;
+      if (hasItem || hasStairs || this.isEncounterActive) break;
 
       // Check if hallway branches into multiple directions
       let walkableNeighbors = 0;
@@ -323,10 +354,15 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
+    if (activePlayer.coord.equals(this.staircaseCoord)) {
+      const remainingEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).length;
+      this.stairsModalPresenter.show(this.floorCount + 1, remainingEnemies);
+      this.isMenuOpen = true;
+      return;
+    }
+
     if (this.isEncounterActive) {
       this.showActionMenuForPlayer(activePlayer);
-    } else {
-      if (this.checkWinCondition()) return;
     }
   }
 
@@ -340,6 +376,7 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
+    this.stairsModalPresenter.hide();
     this.gridPresenter.clearHighlights();
 
     // 1. Generate Procedural Layout, Spawns & Floor Items
@@ -592,11 +629,9 @@ export class MainGameScene extends Phaser.Scene {
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
 
-    if (!this.checkWinCondition()) {
-      this.phaseManager.advancePhase();
-      this.hudPresenter.updatePhase('🔴 ENEMY');
-      this.executeEnemyPhase();
-    }
+    this.phaseManager.advancePhase();
+    this.hudPresenter.updatePhase('🔴 ENEMY');
+    this.executeEnemyPhase();
   }
 
   private centerCameraOn(coord: TileCoordinate, animate: boolean = true): void {
@@ -670,7 +705,18 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 2. Select an active unacted player OR swap positions with adjacent ally
+    // 2. If clicking on the Staircase while standing on it
+    if (coord.equals(this.staircaseCoord)) {
+      const heroOnStairs = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(this.staircaseCoord));
+      if (heroOnStairs) {
+        const remainingEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).length;
+        this.stairsModalPresenter.show(this.floorCount + 1, remainingEnemies);
+        this.isMenuOpen = true;
+        return;
+      }
+    }
+
+    // 3. Select an active unacted player OR swap positions with adjacent ally
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && (this.isEncounterActive ? !p.hasActed : true) && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
       if (this.selectedPlayerIndex === clickedPlayerIndex) {
@@ -712,7 +758,7 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 3. Move to valid tile
+    // 4. Move to valid tile
     const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
     const filteredMoves = validMoves.filter(move => {
       const isAdjacentAlly = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move) && (Math.abs(selectedPlayer.coord.x - move.x) + Math.abs(selectedPlayer.coord.y - move.y) === 1));
@@ -786,11 +832,17 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
+    // Check if player stepped on the staircase
+    if (coord.equals(this.staircaseCoord)) {
+      const remainingEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).length;
+      this.stairsModalPresenter.show(this.floorCount + 1, remainingEnemies);
+      this.isMenuOpen = true;
+      return;
+    }
+
     // In Combat Mode, moving always prompts tactical actions (Attack, Item, Wait, or Cancel Undo)
     if (this.isEncounterActive) {
       this.showActionMenuForPlayer(selectedPlayer);
-    } else {
-      if (this.checkWinCondition()) return;
     }
   }
 
@@ -940,10 +992,6 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
     this.turnStartCoords.set(player.unit.id, new TileCoordinate(player.coord.x, player.coord.y));
 
-    if (this.checkWinCondition()) {
-      return;
-    }
-
     const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
     if (allActed) {
       this.phaseManager.advancePhase();
@@ -955,20 +1003,6 @@ export class MainGameScene extends Phaser.Scene {
         this.centerCameraOn(nextActiveHero.coord);
       }
     }
-  }
-
-  private checkWinCondition(): boolean {
-    const allEnemiesDead = this.enemySquad.every(e => e.unit.currentHp <= 0);
-    const playerOnStaircase = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(this.staircaseCoord));
-
-    if (allEnemiesDead || playerOnStaircase) {
-      if (playerOnStaircase) {
-        this.audioService.playSound('staircase_descend');
-      }
-      this.startFloor(this.floorCount + 1);
-      return true;
-    }
-    return false;
   }
 
   private async executeEnemyPhase() {
@@ -1040,22 +1074,20 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
-    if (!this.checkWinCondition()) {
-      this.phaseManager.advancePhase();
-      this.hudPresenter.updatePhase(this.isEncounterActive ? '⚔️ COMBAT' : '🔵 EXPLORE');
+    this.phaseManager.advancePhase();
+    this.hudPresenter.updatePhase(this.isEncounterActive ? '⚔️ COMBAT' : '🔵 EXPLORE');
 
-      this.playerSquad.forEach(p => {
-        if (p.unit.currentHp > 0) {
-          p.hasActed = false;
-          p.graphic.setExhausted(false);
-          this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
-        }
-      });
-
-      const nextActivePlayer = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
-      if (nextActivePlayer) {
-        this.centerCameraOn(nextActivePlayer.coord);
+    this.playerSquad.forEach(p => {
+      if (p.unit.currentHp > 0) {
+        p.hasActed = false;
+        p.graphic.setExhausted(false);
+        this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
       }
+    });
+
+    const nextActivePlayer = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
+    if (nextActivePlayer) {
+      this.centerCameraOn(nextActivePlayer.coord);
     }
   }
 }
