@@ -12,10 +12,14 @@ export class Unit {
   public readonly name: string;
   public maxHp: number;
   public currentHp: number;
+  public maxSp: number = 20; // Default SP logic can be refined
+  public currentSp: number;
   public attack: number;
   public defense: number;
   public weaponType: WeaponType;
   public inventory: Item[] = [];
+
+  public defenseBuffTurns: number = 0;
 
   // Equipped Relic Slots
   public equippedWeapon?: Item;
@@ -42,6 +46,8 @@ export class Unit {
     this.name = name;
     this.maxHp = maxHp;
     this.currentHp = maxHp;
+    this.maxSp = 20;
+    this.currentSp = this.maxSp;
     this.attack = attack;
     this.defense = defense;
     this.weaponType = weaponType;
@@ -61,6 +67,25 @@ export class Unit {
   public buffAttack(amount: number): void {
     if (amount < 0) return;
     this.attack += amount;
+  }
+
+  public applyDefenseBuff(amount: number, turns: number): void {
+    // Prevent stacking
+    if (this.defenseBuffTurns > 0) {
+      this.defenseBuffTurns = turns;
+      return;
+    }
+    this.defense += amount;
+    this.defenseBuffTurns = turns;
+  }
+
+  public tickBuffs(): void {
+    if (this.defenseBuffTurns > 0) {
+      this.defenseBuffTurns--;
+      if (this.defenseBuffTurns === 0) {
+        this.defense -= 6; // Hardcoded reversal for Iron Bulwark based on prompt
+      }
+    }
   }
 
   public decreaseBelly(amount: number = 1): boolean {

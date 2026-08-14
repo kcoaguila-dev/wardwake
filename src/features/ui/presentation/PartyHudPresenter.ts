@@ -11,6 +11,8 @@ export class PartyHudPresenter {
   private p1TitleText!: Phaser.GameObjects.Text;
   private p1HpText!: Phaser.GameObjects.Text;
   private p1HpBar!: Phaser.GameObjects.Graphics;
+  private p1SpText!: Phaser.GameObjects.Text;
+  private p1SpBar!: Phaser.GameObjects.Graphics;
   private p1StatsText!: Phaser.GameObjects.Text;
   private p1BellyText!: Phaser.GameObjects.Text;
 
@@ -19,6 +21,8 @@ export class PartyHudPresenter {
   private p2TitleText!: Phaser.GameObjects.Text;
   private p2HpText!: Phaser.GameObjects.Text;
   private p2HpBar!: Phaser.GameObjects.Graphics;
+  private p2SpText!: Phaser.GameObjects.Text;
+  private p2SpBar!: Phaser.GameObjects.Graphics;
   private p2StatsText!: Phaser.GameObjects.Text;
   private p2BellyText!: Phaser.GameObjects.Text;
 
@@ -75,20 +79,29 @@ export class PartyHudPresenter {
       color: '#e2e8f0'
     });
 
-    this.p1StatsText = this.scene.add.text(125, 18, '⚔️8 🛡️2', {
+    this.p1SpBar = this.scene.add.graphics();
+
+    this.p1SpText = this.scene.add.text(80, 18, 'SP 20/20', {
+      fontSize: '9px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#c084fc'
+    });
+
+    this.p1StatsText = this.scene.add.text(135, 18, '⚔️8 🛡️2', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#94a3b8'
     });
 
-    this.p1BellyText = this.scene.add.text(205, 18, '🍞 100%', {
+    this.p1BellyText = this.scene.add.text(215, 18, '🍞 100%', {
       fontSize: '9px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#f59e0b'
     });
 
-    this.p1Card.add([this.p1Bg, this.p1Avatar, this.p1TitleText, this.p1HpBar, this.p1HpText, this.p1StatsText, this.p1BellyText]);
+    this.p1Card.add([this.p1Bg, this.p1Avatar, this.p1TitleText, this.p1HpBar, this.p1HpText, this.p1SpBar, this.p1SpText, this.p1StatsText, this.p1BellyText]);
     this.container.add(this.p1Card);
   }
 
@@ -119,20 +132,29 @@ export class PartyHudPresenter {
       color: '#e2e8f0'
     });
 
-    this.p2StatsText = this.scene.add.text(125, 18, '🔱8 🛡️3', {
+    this.p2SpBar = this.scene.add.graphics();
+
+    this.p2SpText = this.scene.add.text(80, 18, 'SP 20/20', {
+      fontSize: '9px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#c084fc'
+    });
+
+    this.p2StatsText = this.scene.add.text(135, 18, '🔱8 🛡️3', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#94a3b8'
     });
 
-    this.p2BellyText = this.scene.add.text(205, 18, '🍞 100%', {
+    this.p2BellyText = this.scene.add.text(215, 18, '🍞 100%', {
       fontSize: '9px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#f59e0b'
     });
 
-    this.p2Card.add([this.p2Bg, this.p2Avatar, this.p2TitleText, this.p2HpBar, this.p2HpText, this.p2StatsText, this.p2BellyText]);
+    this.p2Card.add([this.p2Bg, this.p2Avatar, this.p2TitleText, this.p2HpBar, this.p2HpText, this.p2SpBar, this.p2SpText, this.p2StatsText, this.p2BellyText]);
     this.container.add(this.p2Card);
   }
 
@@ -151,13 +173,16 @@ export class PartyHudPresenter {
         this.p1TitleText.setColor('#ef4444');
         this.p1HpText.setText('HP 0/0');
         this.p1HpText.setColor('#ef4444');
+        this.p1SpText.setText('SP 0/0');
         this.p1StatsText.setText('---');
         this.p1BellyText.setText('');
-        this.drawBar(this.p1HpBar, 85, 21, 35, 4, 0);
+        this.drawBar(this.p1HpBar, 34, 28, 40, 2, 0, 0xef4444);
+        this.drawBar(this.p1SpBar, 80, 28, 40, 2, 0, 0xc084fc);
       } else {
         this.p1Avatar.clearTint();
         this.p1HpText.setColor('#e2e8f0');
         this.p1HpText.setText(`HP ${u1.currentHp}/${u1.maxHp}`);
+        this.p1SpText.setText(`SP ${u1.currentSp}/${u1.maxSp}`);
         this.p1StatsText.setText(`⚔️${u1.attack} 🛡️${u1.defense}`);
         this.p1BellyText.setText(`🍞 ${u1.belly}%`);
         this.p1BellyText.setColor(u1.belly <= 20 ? '#ef4444' : '#f59e0b');
@@ -173,7 +198,13 @@ export class PartyHudPresenter {
           this.p1TitleText.setText(`🔵 ${u1.name.toUpperCase()} (Lv. ${u1.level || 1})`);
           this.p1TitleText.setColor('#38bdf8');
         }
-        this.drawBar(this.p1HpBar, 85, 21, 35, 4, u1.currentHp / u1.maxHp);
+
+        let hpColor = 0x22c55e;
+        if (u1.currentHp / u1.maxHp <= 0.25) hpColor = 0xef4444;
+        else if (u1.currentHp / u1.maxHp <= 0.5) hpColor = 0xf59e0b;
+
+        this.drawBar(this.p1HpBar, 34, 28, 40, 2, u1.currentHp / u1.maxHp, hpColor);
+        this.drawBar(this.p1SpBar, 80, 28, 40, 2, u1.currentSp / u1.maxSp, 0xc084fc);
       }
     }
 
@@ -191,13 +222,16 @@ export class PartyHudPresenter {
         this.p2TitleText.setColor('#ef4444');
         this.p2HpText.setText('HP 0/0');
         this.p2HpText.setColor('#ef4444');
+        this.p2SpText.setText('SP 0/0');
         this.p2StatsText.setText('---');
         this.p2BellyText.setText('');
-        this.drawBar(this.p2HpBar, 85, 21, 35, 4, 0);
+        this.drawBar(this.p2HpBar, 34, 28, 40, 2, 0, 0xef4444);
+        this.drawBar(this.p2SpBar, 80, 28, 40, 2, 0, 0xc084fc);
       } else {
         this.p2Avatar.clearTint();
         this.p2HpText.setColor('#e2e8f0');
         this.p2HpText.setText(`HP ${u2.currentHp}/${u2.maxHp}`);
+        this.p2SpText.setText(`SP ${u2.currentSp}/${u2.maxSp}`);
         this.p2StatsText.setText(`🔱${u2.attack} 🛡️${u2.defense}`);
         this.p2BellyText.setText(`🍞 ${u2.belly}%`);
         this.p2BellyText.setColor(u2.belly <= 20 ? '#ef4444' : '#f59e0b');
@@ -213,20 +247,22 @@ export class PartyHudPresenter {
           this.p2TitleText.setText(`🔵 ${u2.name.toUpperCase()} (Lv. ${u2.level || 1})`);
           this.p2TitleText.setColor('#38bdf8');
         }
-        this.drawBar(this.p2HpBar, 85, 21, 35, 4, u2.currentHp / u2.maxHp);
+
+        let hpColor = 0x22c55e;
+        if (u2.currentHp / u2.maxHp <= 0.25) hpColor = 0xef4444;
+        else if (u2.currentHp / u2.maxHp <= 0.5) hpColor = 0xf59e0b;
+
+        this.drawBar(this.p2HpBar, 34, 28, 40, 2, u2.currentHp / u2.maxHp, hpColor);
+        this.drawBar(this.p2SpBar, 80, 28, 40, 2, u2.currentSp / u2.maxSp, 0xc084fc);
       }
     }
   }
 
-  private drawBar(graphics: Phaser.GameObjects.Graphics, x: number, y: number, width: number, height: number, ratio: number): void {
+  private drawBar(graphics: Phaser.GameObjects.Graphics, x: number, y: number, width: number, height: number, ratio: number, color: number): void {
     graphics.clear();
     const clamped = Math.max(0, Math.min(1, ratio));
     graphics.fillStyle(0x334155, 1);
     graphics.fillRect(x, y, width, height);
-
-    let color = 0x22c55e; // Green
-    if (clamped <= 0.25) color = 0xef4444; // Red
-    else if (clamped <= 0.5) color = 0xf59e0b; // Yellow
 
     graphics.fillStyle(color, 1);
     graphics.fillRect(x, y, width * clamped, height);

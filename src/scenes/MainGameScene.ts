@@ -17,7 +17,9 @@ import { SettingsModalPresenter } from '../features/ui/presentation/SettingsModa
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
+import { ExecuteSkillUseCase, SkillTargetResult } from '../features/combat/application/ExecuteSkillUseCase';
 import { GainExpUseCase } from '../features/combat/application/GainExpUseCase';
+import skillsData from '../data/skills.json';
 import { LevelUpUseCase } from '../features/combat/application/LevelUpUseCase';
 import { ConsumeItemUseCase } from '../features/inventory/application/ConsumeItemUseCase';
 import { PickupItemUseCase } from '../features/inventory/application/PickupItemUseCase';
@@ -49,6 +51,7 @@ export class MainGameScene extends Phaser.Scene {
   private phaseManager!: PhaseManagerUseCase;
   private getValidMovesUseCase!: GetValidMovesUseCase;
   private attackUnitUseCase!: AttackUnitUseCase;
+  private executeSkillUseCase!: ExecuteSkillUseCase;
   private gainExpUseCase!: GainExpUseCase;
   private consumeItemUseCase!: ConsumeItemUseCase;
   private pickupItemUseCase!: PickupItemUseCase;
@@ -93,6 +96,8 @@ export class MainGameScene extends Phaser.Scene {
   private isProcessingAction: boolean = false;
   private isMenuOpen: boolean = false;
   private isTargeting: boolean = false;
+  private isSkillTargeting: boolean = false;
+  private selectedSkillId: string | null = null;
   private isEncounterActive: boolean = false;
   private stepCount: number = 0;
   private stepsSinceLastRespawn: number = 0;
@@ -113,6 +118,7 @@ export class MainGameScene extends Phaser.Scene {
     this.pathfinder = new Pathfinder();
     this.phaseManager = new PhaseManagerUseCase();
     this.attackUnitUseCase = new AttackUnitUseCase(this.audioService);
+    this.executeSkillUseCase = new ExecuteSkillUseCase(this.attackUnitUseCase, this.audioService);
     this.gainExpUseCase = new GainExpUseCase(new LevelUpUseCase());
     this.consumeItemUseCase = new ConsumeItemUseCase();
     this.pickupItemUseCase = new PickupItemUseCase();
@@ -281,6 +287,9 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
     this.isMenuOpen = false;
     this.isTargeting = false;
+    this.isSkillTargeting = false;
+    this.selectedSkillId = null;
+    this.gridPresenter.clearHighlights();
 
     if (this.isEncounterActive && this.selectedPlayerIndex !== null) {
       const activeHero = this.playerSquad[this.selectedPlayerIndex];
@@ -443,6 +452,8 @@ export class MainGameScene extends Phaser.Scene {
     this.isProcessingAction = false;
     this.isMenuOpen = false;
     this.isTargeting = false;
+    this.isSkillTargeting = false;
+    this.selectedSkillId = null;
     this.isEncounterActive = false;
     this.stepCount = 0;
     this.stepsSinceLastRespawn = 0;
@@ -762,6 +773,9 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
+    this.isTargeting = false;
+    this.isSkillTargeting = false;
+    this.selectedSkillId = null;
 
     this.phaseManager.advancePhase();
     this.hudPresenter.updatePhase('🔴 ENEMY');
@@ -823,8 +837,16 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isEncounterActive && this.isMenuOpen && !this.isTargeting) {
+    if (this.isEncounterActive && this.isMenuOpen && !this.isTargeting && !this.isSkillTargeting) {
       await this.cancelActionMenu();
+      return;
+    }
+
+    if (this.isSkillTargeting && this.selectedPlayerIndex !== null && this.selectedSkillId) {
+      const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
+      if (selectedPlayer) {
+        await this.executePlayerSkill(selectedPlayer, this.selectedSkillId, coord);
+      }
       return;
     }
 
@@ -1098,10 +1120,41 @@ export class MainGameScene extends Phaser.Scene {
       this.combatForecastPresenter.show(player.unit, adjacentEnemy.unit, enemyWorldX, enemyWorldY);
     }
 
+    // Load skills for this unit
+    const unitSkills = (skillsData as any[]).filter(s => {
+      // Very simple mapping for the two hardcoded units based on weapon/blueprint ID if needed.
+      // Easiest is mapping hero blueprint ID to skills JSON "heroId".
+      // But player.unit.id is "p1" or "p2" typically if customId is used.
+      // Need a way to match heroId. Let's match by weapon type or name if id is custom.
+      if (player.unit.name.includes("Sword")) return s.heroId === "hero_sword_fighter";
+      if (player.unit.name.includes("Lance")) return s.heroId === "hero_lance_knight";
+      return false;
+    });
+
+    this.actionMenuPresenter.updateSkills(unitSkills, player.unit.currentSp);
+
     this.actionMenuPresenter.onAttack = () => {
       this.actionMenuPresenter.hide();
       this.isMenuOpen = false;
       this.isTargeting = true;
+    };
+
+    this.actionMenuPresenter.onSkill = async (skillId: string) => {
+      this.actionMenuPresenter.hide();
+      this.isMenuOpen = false;
+
+      if (skillId === 'spin_slash' || skillId === 'iron_bulwark') {
+        // Instant cast skills
+        await this.executePlayerSkill(player, skillId);
+      } else {
+        // Targeted skills
+        this.isSkillTargeting = true;
+        this.selectedSkillId = skillId;
+        this.combatForecastPresenter.hide();
+        // Highlight skill range
+        const validMoves = this.getValidMovesUseCase.execute(player.coord, skillId === 'blade_dash' ? 2 : 2); // Simplistic range logic
+        this.gridPresenter.highlightWalkableArea(validMoves, player.coord);
+      }
     };
 
     this.actionMenuPresenter.onWait = () => {
@@ -1159,6 +1212,105 @@ export class MainGameScene extends Phaser.Scene {
     };
 
     this.inventoryMenuPresenter.show(player.unit, worldX, worldY);
+  }
+
+  private async executePlayerSkill(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }, skillId: string, targetCoord?: TileCoordinate) {
+    this.isProcessingAction = true;
+    this.combatForecastPresenter.hide();
+    this.gridPresenter.clearHighlights();
+    this.isSkillTargeting = false;
+    this.selectedSkillId = null;
+
+    const result = this.executeSkillUseCase.execute(
+      player.unit,
+      player.coord,
+      skillId,
+      this.gridMap,
+      this.enemySquad,
+      targetCoord
+    );
+
+    if (!result.success) {
+      this.isProcessingAction = false;
+      this.showActionMenuForPlayer(player);
+      return;
+    }
+
+    if (result.newPlayerCoord) {
+      player.coord = result.newPlayerCoord;
+      await player.graphic.moveTo(player.coord, true);
+      this.centerCameraOn(player.coord);
+    } else {
+      // Just a small bump animation if no move
+      if (targetCoord) await player.graphic.animateAttack(targetCoord);
+    }
+
+    if (result.buffApplied) {
+      const screenX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const screenY = player.coord.y * GridPresenter.TILE_SIZE - 15;
+      this.combatTextPresenter.showBanner(screenX, screenY, "🛡️ DEF UP!");
+    }
+
+    let totalExpGain = 0;
+
+    for (const targetResult of result.targetsAffected) {
+      const enemyData = this.enemySquad.find(e => e.unit.id === targetResult.unit.id);
+      if (!enemyData || !targetResult.summary) continue;
+
+      const screenX = enemyData.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+      const screenY = enemyData.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+
+      if (targetResult.summary.isHit) {
+        await enemyData.graphic.animateHit();
+        if (targetResult.summary.isCrit) {
+          this.combatTextPresenter.showCritical(screenX, screenY, targetResult.summary.damageDealt);
+        } else {
+          this.combatTextPresenter.showDamage(screenX, screenY, targetResult.summary.damageDealt, targetResult.summary.hasAdvantage, targetResult.summary.hasDisadvantage);
+        }
+        enemyData.graphic.updateHp(enemyData.unit.currentHp, enemyData.unit.maxHp);
+
+        totalExpGain += targetResult.summary.isFatal ? 50 : 20;
+
+        if (targetResult.summary.isFatal) {
+          enemyData.graphic.clear();
+          this.runMonstersSlain++;
+          if (this.floorCount === 10 && enemyData.unit.id.includes('boss')) {
+            this.triggerRunSummary(true);
+            return;
+          }
+        }
+      } else {
+        this.combatTextPresenter.showMiss(screenX, screenY);
+        await enemyData.graphic.animateHit();
+      }
+    }
+
+    if (totalExpGain > 0) {
+      this.runTotalExp += totalExpGain;
+      const expResult = this.gainExpUseCase.execute(player.unit, totalExpGain);
+      if (expResult.levelUps.length > 0) {
+        const accumulatedStats = { hpIncrease: 0, attackIncrease: 0, defenseIncrease: 0 };
+        for (const lu of expResult.levelUps) {
+          accumulatedStats.hpIncrease += lu.hpIncrease;
+          accumulatedStats.attackIncrease += lu.attackIncrease;
+          accumulatedStats.defenseIncrease += lu.defenseIncrease;
+        }
+        const playerScreenX = player.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+        const playerScreenY = player.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+        this.combatTextPresenter.showLevelUp(playerScreenX, playerScreenY - 20, accumulatedStats);
+
+        if (accumulatedStats.hpIncrease > 0) {
+          player.graphic.updateHp(player.unit.currentHp, player.unit.maxHp);
+        }
+      }
+    }
+
+    this.partyHudPresenter.updateParty(this.playerSquad);
+    this.isProcessingAction = false;
+    this.updateFogAndVisibility();
+    this.checkEncounterState();
+
+    this.finalizePlayerTurn(player);
   }
 
   private async executePlayerAttack(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }, enemy: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter }) {
@@ -1342,6 +1494,7 @@ export class MainGameScene extends Phaser.Scene {
 
     this.playerSquad.forEach(p => {
       if (p.unit.currentHp > 0) {
+        p.unit.tickBuffs();
         p.hasActed = false;
         p.graphic.setExhausted(false);
         this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
