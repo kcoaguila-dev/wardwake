@@ -40,22 +40,25 @@ export class UnitPresenter {
     this.updateHp(unit.currentHp, unit.maxHp);
   }
 
-  moveTo(coord: TileCoordinate): void {
-    const targetX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-    const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+  moveTo(coord: TileCoordinate): Promise<void> {
+    return new Promise((resolve) => {
+      const targetX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
-    this.container.setVisible(true);
-    this.scene.tweens.killTweensOf(this.container);
+      this.container.setVisible(true);
+      this.scene.tweens.killTweensOf(this.container);
 
-    this.scene.tweens.add({
-      targets: this.container,
-      x: targetX,
-      y: targetY,
-      duration: 150,
-      ease: 'Sine.easeInOut',
-      onComplete: () => {
-        this.container.setPosition(targetX, targetY);
-      }
+      this.scene.tweens.add({
+        targets: this.container,
+        x: targetX,
+        y: targetY,
+        duration: 150,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          this.container.setPosition(targetX, targetY);
+          resolve();
+        }
+      });
     });
   }
 

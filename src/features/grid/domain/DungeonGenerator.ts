@@ -3,11 +3,15 @@ import { TileCoordinate } from "./TileCoordinate";
 import { BspNode, Room } from "./BspNode";
 
 export class DungeonGenerator {
-  private readonly minNodeSize = 6;
+  private readonly minNodeSize = 4;
   private root!: BspNode;
   private rooms: Room[] = [];
 
   constructor(public readonly width: number, public readonly height: number) {}
+
+  public getRooms(): Room[] {
+    return this.rooms;
+  }
 
   public generate(): GridMap {
     this.root = new BspNode(0, 0, this.width, this.height);

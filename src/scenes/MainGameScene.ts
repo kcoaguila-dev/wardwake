@@ -10,7 +10,8 @@ import { CombatForecastPresenter } from '../features/ui/presentation/CombatForec
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
-import { ExecuteEnemyTurnUseCase, PlayerUnitInfo } from '../features/ai/application/ExecuteEnemyTurnUseCase';
+import { ExecuteEnemyTurnUseCase } from '../features/ai/application/ExecuteEnemyTurnUseCase';
+import { GenerateFloorUseCase } from '../features/grid/application/GenerateFloorUseCase';
 import { Unit } from '../features/combat/domain/Unit';
 import { WeaponType } from '../features/combat/domain/WeaponType';
 import { IAudioService } from '../features/combat/application/ports/IAudioService';
@@ -30,6 +31,7 @@ export class MainGameScene extends Phaser.Scene {
   private getValidMovesUseCase!: GetValidMovesUseCase;
   private attackUnitUseCase!: AttackUnitUseCase;
   private executeEnemyTurnUseCase!: ExecuteEnemyTurnUseCase;
+  private generateFloorUseCase!: GenerateFloorUseCase;
 
   // Presenters
   private gridPresenter!: GridPresenter;
@@ -43,98 +45,122 @@ export class MainGameScene extends Phaser.Scene {
   private pathfinder!: Pathfinder;
 
   // State
-  private playerSquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[];
-  private enemySquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[];
+  private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
+  private enemySquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private floorCount: number = 1;
   private staircaseCoord!: TileCoordinate;
   private selectedPlayerIndex: number | null = null;
+  private isProcessingAction: boolean = false;
 
   constructor() {
     super('MainGameScene');
   }
 
   create() {
-    // 1. Initialize Domain
-    this.gridMap = new GridMap(10, 10);
     this.pathfinder = new Pathfinder();
+    this.phaseManager = new PhaseManagerUseCase();
+    this.attackUnitUseCase = new AttackUnitUseCase(new DummyAudioService());
+    this.generateFloorUseCase = new GenerateFloorUseCase(10, 10);
 
-    // Setup Map Obstacles
-    // Room 1: x: 0-3, Room 2: x: 6-9
-    // Corridor: x: 4-5, y: 4-5
-    for (let y = 0; y < 10; y++) {
-      if (y !== 4 && y !== 5) {
-        this.gridMap.addObstacle(new TileCoordinate(4, y));
-        this.gridMap.addObstacle(new TileCoordinate(5, y));
-      }
-    }
-
-    this.staircaseCoord = new TileCoordinate(9, 9);
-
-    // 2. Initialize Presenters
+    // Presenters
     this.gridPresenter = new GridPresenter(this);
     this.inputPresenter = new InputPresenter(this);
     this.combatTextPresenter = new CombatTextPresenter(this);
     this.hudPresenter = new HudPresenter(this);
     this.combatForecastPresenter = new CombatForecastPresenter(this);
 
-    // Adjust Camera to make room for HUD
+    // Adjust Camera to make room for 40px top HUD
     this.cameras.main.scrollY = -40;
 
-    // 3. Initialize Units
-    const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
-    const p1Coord = new TileCoordinate(1, 1);
-    const p2Unit = new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE);
-    const p2Coord = new TileCoordinate(1, 2);
+    // Load Initial Procedural Floor
+    this.startFloor(1);
 
-    this.playerSquad = [
-      { unit: p1Unit, coord: p1Coord, hasActed: false, graphic: new UnitPresenter(this, p1Unit, p1Coord) },
-      { unit: p2Unit, coord: p2Coord, hasActed: false, graphic: new UnitPresenter(this, p2Unit, p2Coord) }
-    ];
-
-    const e1Unit = new Unit('e1', 'Axe Warrior', 15, 6, 1, WeaponType.AXE);
-    const e1Coord = new TileCoordinate(8, 7);
-    const e2Unit = new Unit('e2', 'Sword Guard', 18, 4, 3, WeaponType.SWORD);
-    const e2Coord = new TileCoordinate(8, 8);
-
-    this.enemySquad = [
-      { unit: e1Unit, coord: e1Coord, hasActed: false, graphic: new UnitPresenter(this, e1Unit, e1Coord) },
-      { unit: e2Unit, coord: e2Coord, hasActed: false, graphic: new UnitPresenter(this, e2Unit, e2Coord) }
-    ];
-
-    // 4. Initialize Use Cases
-    this.phaseManager = new PhaseManagerUseCase();
-    this.getValidMovesUseCase = new GetValidMovesUseCase(this.gridMap, this.pathfinder);
-    this.attackUnitUseCase = new AttackUnitUseCase(new DummyAudioService());
-
-    // Create player unit info array for enemy AI
-    const playerUnitInfos = this.playerSquad.map(p => ({ unit: p.unit, coord: p.coord }));
-    this.executeEnemyTurnUseCase = new ExecuteEnemyTurnUseCase(this.gridMap, this.pathfinder, playerUnitInfos);
-
-    // 5. Draw Initial State
-    this.gridPresenter.drawGrid(this.gridMap);
-    this.gridPresenter.drawStaircase(this.staircaseCoord);
-
-    this.playerSquad.forEach(p => {
-      p.graphic.setTint(0x0000ff);
-      p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
-    });
-
-    this.enemySquad.forEach(e => {
-      e.graphic.setTint(0xff0000);
-      e.graphic.updateHp(e.unit.currentHp, e.unit.maxHp);
-    });
-
-    this.hudPresenter.updateFloor(this.floorCount);
-    this.hudPresenter.updatePhase('🔵 PLAYER');
-    this.hudPresenter.updateEnemies(this.enemySquad.length);
-
-    // 6. Setup Input Listeners
+    // Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
     this.events.on('ON_TILE_HOVER', this.onTileHover, this);
   }
 
+  private startFloor(floorNumber: number): void {
+    this.floorCount = floorNumber;
+    this.selectedPlayerIndex = null;
+    this.isProcessingAction = false;
+    this.combatForecastPresenter.hide();
+    this.gridPresenter.clearHighlights();
+
+    // 1. Generate Procedural Layout & Dynamic Spawns
+    const enemyCount = Math.min(3, 2 + Math.floor((floorNumber - 1) / 2));
+    const floorData = this.generateFloorUseCase.execute(2, enemyCount);
+
+    this.gridMap = floorData.map;
+    this.staircaseCoord = floorData.staircase;
+    this.getValidMovesUseCase = new GetValidMovesUseCase(this.gridMap, this.pathfinder);
+
+    // 2. Draw Floor & Staircase
+    this.gridPresenter.drawGrid(this.gridMap);
+    this.gridPresenter.drawStaircase(this.staircaseCoord);
+
+    // 3. Spawn / Reset Players
+    if (this.playerSquad.length === 0) {
+      const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
+      const p2Unit = new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE);
+
+      this.playerSquad = [
+        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!) },
+        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!) }
+      ];
+    } else {
+      this.playerSquad.forEach((p, idx) => {
+        p.coord = floorData.playerSpawns[idx] || floorData.playerSpawns[0]!;
+        p.hasActed = false;
+        p.unit.currentHp = p.unit.maxHp; // Heal to full on new floor
+        p.graphic.moveTo(p.coord);
+        p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
+        p.graphic.setTint(0x0000ff);
+      });
+    }
+
+    // 4. Spawn / Reset Enemies
+    // Clear old enemy graphics if any
+    this.enemySquad.forEach(e => e.graphic.clear());
+    this.enemySquad = [];
+
+    for (let i = 0; i < floorData.enemySpawns.length; i++) {
+      const coord = floorData.enemySpawns[i]!;
+      const isAxe = i % 2 === 0;
+      const unit = isAxe
+        ? new Unit(`e${i + 1}`, 'Axe Warrior', 15 + floorNumber * 2, 5 + floorNumber, 1, WeaponType.AXE)
+        : new Unit(`e${i + 1}`, 'Sword Guard', 18 + floorNumber * 2, 4 + floorNumber, 2, WeaponType.SWORD);
+
+      const graphic = new UnitPresenter(this, unit, coord);
+      graphic.setTint(0xff0000);
+      graphic.updateHp(unit.currentHp, unit.maxHp);
+
+      this.enemySquad.push({
+        unit,
+        coord,
+        hasActed: false,
+        graphic
+      });
+    }
+
+    // 5. Update HUD & Phase
+    this.hudPresenter.updateFloor(this.floorCount);
+    this.hudPresenter.updatePhase('🔵 PLAYER');
+    this.hudPresenter.updateEnemies(this.enemySquad.length);
+
+    // Reset phase manager to PLAYER_PHASE
+    while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      this.phaseManager.advancePhase();
+    }
+
+    // Re-bind players to bright active color
+    this.playerSquad.forEach(p => {
+      p.graphic.setTint(0x0000ff);
+    });
+  }
+
   private onTileHover(coord: TileCoordinate) {
-    if (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       this.combatForecastPresenter.hide();
       return;
     }
@@ -164,7 +190,7 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private async onTileClicked(coord: TileCoordinate) {
-    if (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       return;
     }
 
@@ -183,13 +209,11 @@ export class MainGameScene extends Phaser.Scene {
       });
 
       this.gridPresenter.highlightWalkableArea(filteredMoves, coord);
-      // Trigger a hover update manually using the currently hovered coordinate if we just selected,
-      // but pointer move should handle most of it.
       return;
     }
 
     if (this.selectedPlayerIndex === null) {
-      return; // No unit selected
+      return;
     }
 
     const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
@@ -199,11 +223,14 @@ export class MainGameScene extends Phaser.Scene {
 
     let actionTaken = false;
 
-    // 2. If clicking on an alive enemy, try to attack
+    // 2. If clicking on an alive enemy within melee range, execute attack
     const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
     if (clickedEnemy) {
       const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
       if (dist === 1) { // Melee range
+        this.isProcessingAction = true;
+        this.combatForecastPresenter.hide();
+
         const summary = this.attackUnitUseCase.execute(selectedPlayer.unit, clickedEnemy.unit);
 
         const screenX = coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
@@ -213,21 +240,19 @@ export class MainGameScene extends Phaser.Scene {
         await clickedEnemy.graphic.animateHit();
 
         this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
-
         clickedEnemy.graphic.updateHp(clickedEnemy.unit.currentHp, clickedEnemy.unit.maxHp);
 
         if (summary.isFatal) {
           clickedEnemy.graphic.clear();
           this.hudPresenter.updateEnemies(this.enemySquad.filter(e => e.unit.currentHp > 0).length);
         }
+
         actionTaken = true;
-        this.combatForecastPresenter.hide();
+        this.isProcessingAction = false;
       }
     } else {
       // 3. Try to move to the empty valid tile
       const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
-
-      // Filter again just to be safe
       const filteredMoves = validMoves.filter(move => {
         const hasOtherPlayer = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move));
         const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
@@ -237,11 +262,12 @@ export class MainGameScene extends Phaser.Scene {
       const isReachable = filteredMoves.some(move => move.equals(coord));
 
       if (isReachable) {
-        selectedPlayer.coord = coord;
-        selectedPlayer.graphic.moveTo(coord);
-        selectedPlayer.graphic.setTint(0x0000ff);
-        actionTaken = true;
+        this.isProcessingAction = true;
         this.combatForecastPresenter.hide();
+        selectedPlayer.coord = coord;
+        await selectedPlayer.graphic.moveTo(coord);
+        actionTaken = true;
+        this.isProcessingAction = false;
       }
     }
 
@@ -249,7 +275,8 @@ export class MainGameScene extends Phaser.Scene {
       selectedPlayer.hasActed = true;
       this.selectedPlayerIndex = null;
       this.gridPresenter.clearHighlights();
-      selectedPlayer.graphic.setTint(0x5555ff); // Change color to indicate it acted
+      // Gray out / darken exhausted player unit
+      selectedPlayer.graphic.setTint(0x777777);
 
       if (this.checkWinCondition()) {
         return;
@@ -265,68 +292,15 @@ export class MainGameScene extends Phaser.Scene {
     }
   }
 
-  private checkWinCondition() {
+  private checkWinCondition(): boolean {
     const allEnemiesDead = this.enemySquad.every(e => e.unit.currentHp <= 0);
     const playerOnStaircase = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(this.staircaseCoord));
 
     if (allEnemiesDead || playerOnStaircase) {
-      this.floorCount++;
-      this.hudPresenter.updateFloor(this.floorCount);
-
-      const banner = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 40, 'FLOOR CLEARED', {
-        fontSize: '40px',
-        color: '#ffff00',
-        fontStyle: 'bold',
-        backgroundColor: '#000000',
-        padding: { x: 20, y: 10 }
-      }).setOrigin(0.5);
-
-      this.time.delayedCall(2000, () => {
-        banner.destroy();
-        this.resetFloor();
-      });
-
+      this.startFloor(this.floorCount + 1);
       return true;
     }
     return false;
-  }
-
-  private resetFloor() {
-    // Reset players
-    this.playerSquad[0]!.coord = new TileCoordinate(1, 1);
-    this.playerSquad[1]!.coord = new TileCoordinate(1, 2);
-
-    this.playerSquad.forEach(p => {
-      p.unit.currentHp = p.unit.maxHp;
-      p.hasActed = false;
-      p.graphic.moveTo(p.coord);
-      p.graphic.setTint(0x0000ff);
-      p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
-    });
-
-    // Reset enemies
-    this.enemySquad[0]!.coord = new TileCoordinate(8, 7);
-    this.enemySquad[1]!.coord = new TileCoordinate(8, 8);
-
-    this.enemySquad.forEach(e => {
-      e.unit.currentHp = e.unit.maxHp;
-      e.hasActed = false;
-      e.graphic.moveTo(e.coord);
-      e.graphic.setTint(0xff0000);
-      e.graphic.updateHp(e.unit.currentHp, e.unit.maxHp);
-    });
-
-    this.hudPresenter.updateFloor(this.floorCount);
-    this.hudPresenter.updateEnemies(this.enemySquad.length);
-
-    this.selectedPlayerIndex = null;
-    this.combatForecastPresenter.hide();
-    this.gridPresenter.clearHighlights();
-
-    // Ensure phase manager goes back to PLAYER_PHASE if it somehow wasn't (e.g. cleared on enemy turn)
-    while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
-      this.phaseManager.advancePhase();
-    }
   }
 
   private async executeEnemyPhase() {
@@ -334,13 +308,16 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
+    this.isProcessingAction = true;
     const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0);
 
+    // Restore enemies to bright red for their active turn
+    aliveEnemies.forEach(e => e.graphic.setTint(0xff0000));
+
     for (const enemyData of aliveEnemies) {
-      // Small delay between enemy actions
       await new Promise<void>(resolve => {
-        this.time.delayedCall(500, async () => {
-          // Re-update player info for the use case in case someone died or moved
+        this.time.delayedCall(400, async () => {
+          // Re-update player info in case someone moved or died
           const playerInfos = this.playerSquad
             .filter(p => p.unit.currentHp > 0)
             .map(p => ({ unit: p.unit, coord: p.coord }));
@@ -348,12 +325,11 @@ export class MainGameScene extends Phaser.Scene {
           this.executeEnemyTurnUseCase = new ExecuteEnemyTurnUseCase(this.gridMap, this.pathfinder, playerInfos);
           const result = this.executeEnemyTurnUseCase.execute(enemyData.unit, enemyData.coord);
 
-          // Move enemy
+          // Move enemy and await the tween to complete
           enemyData.coord = result.targetCoordinate;
-          enemyData.graphic.moveTo(enemyData.coord);
-          enemyData.graphic.setTint(0xff0000);
+          await enemyData.graphic.moveTo(enemyData.coord);
 
-          // Attack player if in range
+          // Attack player if adjacent
           if (result.targetToAttack) {
             const targetPlayer = this.playerSquad.find(p => p.unit.id === result.targetToAttack!.id);
             if (targetPlayer) {
@@ -366,7 +342,6 @@ export class MainGameScene extends Phaser.Scene {
               await targetPlayer.graphic.animateHit();
 
               this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
-
               targetPlayer.graphic.updateHp(targetPlayer.unit.currentHp, targetPlayer.unit.maxHp);
 
               if (summary.isFatal) {
@@ -374,15 +349,21 @@ export class MainGameScene extends Phaser.Scene {
               }
             }
           }
+
+          // Darken exhausted enemy unit
+          enemyData.graphic.setTint(0x777777);
           resolve();
         });
       });
     }
 
+    this.isProcessingAction = false;
+
     if (!this.checkWinCondition()) {
       this.phaseManager.advancePhase();
       this.hudPresenter.updatePhase('🔵 PLAYER');
-      // Reset player acted states
+
+      // Reset player acted states & restore bright blue colors
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
           p.hasActed = false;
