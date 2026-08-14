@@ -19,6 +19,10 @@ import { IAudioService } from '../features/combat/application/ports/IAudioServic
 import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
 import { HudPresenter } from '../features/ui/presentation/HudPresenter';
+import { ActionMenuPresenter } from '../features/ui/presentation/ActionMenuPresenter';
+import { InventoryMenuPresenter } from '../features/ui/presentation/InventoryMenuPresenter';
+import { ConsumeItemUseCase } from '../features/inventory/application/ConsumeItemUseCase';
+import { Item, ItemType } from '../features/inventory/domain/Item';
 
 class DummyAudioService implements IAudioService {
   playSound(soundId: string): void {
@@ -37,6 +41,7 @@ export class MainGameScene extends Phaser.Scene {
   private attackUnitUseCase!: AttackUnitUseCase;
   private executeEnemyTurnUseCase!: ExecuteEnemyTurnUseCase;
   private generateFloorUseCase!: GenerateFloorUseCase;
+  private consumeItemUseCase!: ConsumeItemUseCase;
 
   // Presenters
   private gridPresenter!: GridPresenter;
@@ -45,6 +50,8 @@ export class MainGameScene extends Phaser.Scene {
   private hudPresenter!: HudPresenter;
   private combatForecastPresenter!: CombatForecastPresenter;
   private minimapPresenter!: MinimapPresenter;
+  private actionMenuPresenter!: ActionMenuPresenter;
+  private inventoryMenuPresenter!: InventoryMenuPresenter;
 
   // Domain
   private gridMap!: GridMap;
@@ -57,6 +64,8 @@ export class MainGameScene extends Phaser.Scene {
   private staircaseCoord!: TileCoordinate;
   private selectedPlayerIndex: number | null = null;
   private isProcessingAction: boolean = false;
+  private isMenuOpen: boolean = false;
+  private isTargeting: boolean = false;
 
   constructor() {
     super('MainGameScene');
@@ -67,6 +76,7 @@ export class MainGameScene extends Phaser.Scene {
     this.phaseManager = new PhaseManagerUseCase();
     this.attackUnitUseCase = new AttackUnitUseCase(new DummyAudioService());
     this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
+    this.consumeItemUseCase = new ConsumeItemUseCase();
 
     // Presenters
     this.gridPresenter = new GridPresenter(this);
@@ -75,6 +85,8 @@ export class MainGameScene extends Phaser.Scene {
     this.hudPresenter = new HudPresenter(this);
     this.combatForecastPresenter = new CombatForecastPresenter(this);
     this.minimapPresenter = new MinimapPresenter(this);
+    this.actionMenuPresenter = new ActionMenuPresenter(this);
+    this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
 
     // Set Camera Bounds for Expanded 18x18 Map
     this.cameras.main.setBounds(
@@ -116,7 +128,11 @@ export class MainGameScene extends Phaser.Scene {
     // 3. Spawn / Reset Players
     if (this.playerSquad.length === 0) {
       const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
+      p1Unit.addItem(new Item('i1', 'Vulnerary', ItemType.HEAL, 10));
+      p1Unit.addItem(new Item('i2', 'Strength Ring', ItemType.ATTACK_BUFF, 2));
+
       const p2Unit = new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE);
+      p2Unit.addItem(new Item('i3', 'Elixir', ItemType.HEAL, 20));
 
       this.playerSquad = [
         { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true) },
@@ -196,7 +212,7 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private onTileHover(coord: TileCoordinate) {
-    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE || this.isMenuOpen) {
       this.combatForecastPresenter.hide();
       return;
     }
@@ -212,7 +228,21 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // Check if hovered tile has an alive enemy unit and is within melee range
+    // If we're targeting an attack, only show forecast for adjacent enemies
+    if (this.isTargeting) {
+      const hoveredEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
+      if (hoveredEnemy) {
+        const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
+        if (dist === 1) {
+          this.combatForecastPresenter.show(selectedPlayer.unit, hoveredEnemy.unit);
+          return;
+        }
+      }
+      this.combatForecastPresenter.hide();
+      return;
+    }
+
+    // Normal hover before move
     const hoveredEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
     if (hoveredEnemy) {
       const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
@@ -226,7 +256,27 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private async onTileClicked(coord: TileCoordinate) {
-    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE || this.isMenuOpen) {
+      return;
+    }
+
+    // If we're in targeting mode
+    if (this.isTargeting && this.selectedPlayerIndex !== null) {
+      const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
+      const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
+      if (clickedEnemy) {
+        const dist = Math.abs(selectedPlayer!.coord.x - coord.x) + Math.abs(selectedPlayer!.coord.y - coord.y);
+        if (dist === 1) {
+          this.isTargeting = false;
+          await this.executePlayerAttack(selectedPlayer!, clickedEnemy);
+          return;
+        }
+      }
+
+      // Clicked somewhere else, cancel targeting and show menu again
+      this.isTargeting = false;
+      this.combatForecastPresenter.hide();
+      this.showActionMenuForPlayer(selectedPlayer!);
       return;
     }
 
@@ -260,75 +310,138 @@ export class MainGameScene extends Phaser.Scene {
 
     let actionTaken = false;
 
-    // 2. If clicking on an alive enemy within melee range, execute attack
-    const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
-    if (clickedEnemy) {
-      const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
-      if (dist === 1) { // Melee range
-        this.isProcessingAction = true;
-        this.combatForecastPresenter.hide();
+    // 2. Try to move to the empty valid tile
+    const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
+    const filteredMoves = validMoves.filter(move => {
+      const hasOtherPlayer = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move));
+      const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
+      return !hasOtherPlayer && !hasEnemy;
+    });
 
-        const summary = this.attackUnitUseCase.execute(selectedPlayer.unit, clickedEnemy.unit);
+    const isReachable = filteredMoves.some(move => move.equals(coord));
 
-        const screenX = coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
-        const screenY = coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+    if (isReachable) {
+      this.isProcessingAction = true;
+      this.combatForecastPresenter.hide();
+      this.gridPresenter.clearHighlights();
+      selectedPlayer.coord = coord;
+      await selectedPlayer.graphic.moveTo(coord);
+      this.centerCameraOn(coord);
+      this.isProcessingAction = false;
+      this.updateMinimap();
 
-        await selectedPlayer.graphic.animateAttack(clickedEnemy.coord);
-        await clickedEnemy.graphic.animateHit();
+      // After moving, show the Action Menu
+      this.showActionMenuForPlayer(selectedPlayer);
+    }
+  }
 
-        this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
-        clickedEnemy.graphic.updateHp(clickedEnemy.unit.currentHp, clickedEnemy.unit.maxHp);
+  private showActionMenuForPlayer(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
+    this.isMenuOpen = true;
 
-        if (summary.isFatal) {
-          clickedEnemy.graphic.clear();
-          this.hudPresenter.updateEnemies(this.enemySquad.filter(e => e.unit.currentHp > 0).length);
-        }
+    // Check if there are enemies adjacent
+    const hasAdjacentEnemy = this.enemySquad.some(e => {
+      if (e.unit.currentHp <= 0) return false;
+      const dist = Math.abs(player.coord.x - e.coord.x) + Math.abs(player.coord.y - e.coord.y);
+      return dist === 1;
+    });
 
-        actionTaken = true;
-        this.isProcessingAction = false;
-        this.updateMinimap();
+    const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE;
+    const worldY = player.coord.y * GridPresenter.TILE_SIZE;
+
+    // Convert world coordinates to screen coordinates
+    const cam = this.cameras.main;
+    const screenX = worldX - cam.scrollX;
+    const screenY = worldY - cam.scrollY;
+
+    // Setup Menu Handlers
+    this.actionMenuPresenter.onAttack = () => {
+      this.actionMenuPresenter.hide();
+      this.isMenuOpen = false;
+      this.isTargeting = true;
+    };
+
+    this.actionMenuPresenter.onWait = () => {
+      this.actionMenuPresenter.hide();
+      this.isMenuOpen = false;
+      this.finalizePlayerTurn(player);
+    };
+
+    this.actionMenuPresenter.onItem = () => {
+      this.actionMenuPresenter.hide();
+      this.showInventoryMenu(player);
+    };
+
+    this.actionMenuPresenter.show(screenX, screenY, hasAdjacentEnemy);
+  }
+
+  private showInventoryMenu(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
+    this.inventoryMenuPresenter.onClose = () => {
+      this.inventoryMenuPresenter.hide();
+      this.showActionMenuForPlayer(player);
+    };
+
+    this.inventoryMenuPresenter.onSelectItem = (item: Item) => {
+      this.inventoryMenuPresenter.hide();
+      this.isMenuOpen = false;
+
+      // Consume Item
+      this.consumeItemUseCase.execute(player.unit, item);
+
+      const screenX = player.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+      const screenY = player.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+
+      if (item.type === ItemType.HEAL) {
+        player.graphic.updateHp(player.unit.currentHp, player.unit.maxHp);
+        this.combatTextPresenter.showHeal(screenX, screenY, item.value);
       }
-    } else {
-      // 3. Try to move to the empty valid tile
-      const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
-      const filteredMoves = validMoves.filter(move => {
-        const hasOtherPlayer = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move));
-        const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-        return !hasOtherPlayer && !hasEnemy;
-      });
 
-      const isReachable = filteredMoves.some(move => move.equals(coord));
+      this.finalizePlayerTurn(player);
+    };
 
-      if (isReachable) {
-        this.isProcessingAction = true;
-        this.combatForecastPresenter.hide();
-        selectedPlayer.coord = coord;
-        await selectedPlayer.graphic.moveTo(coord);
-        this.centerCameraOn(coord);
-        actionTaken = true;
-        this.isProcessingAction = false;
-        this.updateMinimap();
-      }
+    this.inventoryMenuPresenter.show(player.unit);
+  }
+
+  private async executePlayerAttack(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }, enemy: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter }) {
+    this.isProcessingAction = true;
+    this.combatForecastPresenter.hide();
+
+    const summary = this.attackUnitUseCase.execute(player.unit, enemy.unit);
+
+    const screenX = enemy.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+    const screenY = enemy.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
+
+    await player.graphic.animateAttack(enemy.coord);
+    await enemy.graphic.animateHit();
+
+    this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
+    enemy.graphic.updateHp(enemy.unit.currentHp, enemy.unit.maxHp);
+
+    if (summary.isFatal) {
+      enemy.graphic.clear();
+      this.hudPresenter.updateEnemies(this.enemySquad.filter(e => e.unit.currentHp > 0).length);
     }
 
-    if (actionTaken) {
-      selectedPlayer.hasActed = true;
-      this.selectedPlayerIndex = null;
-      this.gridPresenter.clearHighlights();
-      // Gray out / darken exhausted player unit
-      selectedPlayer.graphic.setExhausted(true);
+    this.isProcessingAction = false;
+    this.updateMinimap();
 
-      if (this.checkWinCondition()) {
-        return;
-      }
+    this.finalizePlayerTurn(player);
+  }
 
-      // Check if all active players have acted
-      const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
-      if (allActed) {
-        this.phaseManager.advancePhase();
-        this.hudPresenter.updatePhase('🔴 ENEMY');
-        this.executeEnemyPhase();
-      }
+  private finalizePlayerTurn(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
+    player.hasActed = true;
+    this.selectedPlayerIndex = null;
+    this.gridPresenter.clearHighlights();
+    player.graphic.setExhausted(true);
+
+    if (this.checkWinCondition()) {
+      return;
+    }
+
+    const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
+    if (allActed) {
+      this.phaseManager.advancePhase();
+      this.hudPresenter.updatePhase('🔴 ENEMY');
+      this.executeEnemyPhase();
     }
   }
 
