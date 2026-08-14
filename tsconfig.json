@@ -10,6 +10,8 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "target": "ES2022",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "types": ["jest"],
     // For nodejs:
     // "lib": ["esnext"],

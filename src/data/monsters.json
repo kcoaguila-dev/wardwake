@@ -1,0 +1,101 @@
+[
+  {
+    "id": "goblin_scout",
+    "name": "Goblin Scout",
+    "tier": 1,
+    "weaponType": "SWORD",
+    "baseHp": 8,
+    "baseAttack": 3,
+    "baseDefense": 0,
+    "expYield": 25,
+    "aiProfile": "AGGRESSIVE"
+  },
+  {
+    "id": "forest_brigand",
+    "name": "Forest Brigand",
+    "tier": 1,
+    "weaponType": "AXE",
+    "baseHp": 10,
+    "baseAttack": 4,
+    "baseDefense": 0,
+    "expYield": 30,
+    "aiProfile": "AGGRESSIVE"
+  },
+  {
+    "id": "bandit_trainee",
+    "name": "Bandit Trainee",
+    "tier": 1,
+    "weaponType": "LANCE",
+    "baseHp": 9,
+    "baseAttack": 3,
+    "baseDefense": 1,
+    "expYield": 25,
+    "aiProfile": "AGGRESSIVE"
+  },
+  {
+    "id": "armored_guard",
+    "name": "Armored Guard",
+    "tier": 2,
+    "weaponType": "AXE",
+    "baseHp": 16,
+    "baseAttack": 6,
+    "baseDefense": 2,
+    "expYield": 50,
+    "aiProfile": "TACTICAL"
+  },
+  {
+    "id": "iron_knight",
+    "name": "Iron Knight",
+    "tier": 2,
+    "weaponType": "LANCE",
+    "baseHp": 18,
+    "baseAttack": 6,
+    "baseDefense": 3,
+    "expYield": 55,
+    "aiProfile": "TACTICAL"
+  },
+  {
+    "id": "mercenary_blade",
+    "name": "Mercenary Blade",
+    "tier": 2,
+    "weaponType": "SWORD",
+    "baseHp": 15,
+    "baseAttack": 7,
+    "baseDefense": 1,
+    "expYield": 50,
+    "aiProfile": "TACTICAL"
+  },
+  {
+    "id": "dread_champion",
+    "name": "Dread Champion",
+    "tier": 3,
+    "weaponType": "SWORD",
+    "baseHp": 26,
+    "baseAttack": 9,
+    "baseDefense": 3,
+    "expYield": 100,
+    "aiProfile": "TACTICAL"
+  },
+  {
+    "id": "warlord_vanguard",
+    "name": "Warlord Vanguard",
+    "tier": 3,
+    "weaponType": "AXE",
+    "baseHp": 32,
+    "baseAttack": 10,
+    "baseDefense": 4,
+    "expYield": 120,
+    "aiProfile": "TACTICAL"
+  },
+  {
+    "id": "shadow_halberdier",
+    "name": "Shadow Halberdier",
+    "tier": 3,
+    "weaponType": "LANCE",
+    "baseHp": 28,
+    "baseAttack": 9,
+    "baseDefense": 4,
+    "expYield": 110,
+    "aiProfile": "TACTICAL"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "vulnerary",
+    "name": "Vulnerary",
+    "type": "HEAL",
+    "value": 10,
+    "description": "A restorative herb that heals 10 HP.",
+    "rarity": "COMMON",
+    "dropWeight": 60
+  },
+  {
+    "id": "elixir",
+    "name": "Elixir",
+    "type": "HEAL",
+    "value": 25,
+    "description": "A potent draught that fully heals a wounded warrior.",
+    "rarity": "RARE",
+    "dropWeight": 25
+  },
+  {
+    "id": "strength_herb",
+    "name": "Strength Herb",
+    "type": "ATTACK_BUFF",
+    "value": 2,
+    "description": "Increases Attack by +2.",
+    "rarity": "UNCOMMON",
+    "dropWeight": 15
+  }
+]

@@ -3,6 +3,7 @@ import { DungeonGenerator } from "../domain/DungeonGenerator";
 import { TileCoordinate } from "../domain/TileCoordinate";
 import { Room } from "../domain/BspNode";
 import { Item, ItemType } from "../../inventory/domain/Item";
+import { ItemRepository } from "../../inventory/domain/ItemRepository";
 
 export interface FloorGenerationResult {
   map: GridMap;
@@ -113,12 +114,8 @@ export class GenerateFloorUseCase {
         const coord = availableTiles[Math.floor(Math.random() * availableTiles.length)]!;
         usedSet.add(coord.toString());
 
-        // Randomly pick Item Type (Vulnerary/Heal or Attack Buff)
-        const isHeal = Math.random() > 0.5;
-        const item = isHeal
-          ? new Item(`item_${Math.random()}`, 'Vulnerary', ItemType.HEAL, 10)
-          : new Item(`item_${Math.random()}`, 'Strength Potion', ItemType.ATTACK_BUFF, 2);
-
+        // Spawn item from data-driven ItemRepository
+        const item = ItemRepository.getRandomLootItem();
         generatedItems.push({ coord, item });
       }
     }

@@ -1,0 +1,32 @@
+[
+  {
+    "tier": 1,
+    "minFloor": 1,
+    "maxFloor": 3,
+    "enemyCountMin": 2,
+    "enemyCountMax": 3,
+    "itemCountMin": 1,
+    "itemCountMax": 2,
+    "statScaleFactor": 1.0
+  },
+  {
+    "tier": 2,
+    "minFloor": 4,
+    "maxFloor": 6,
+    "enemyCountMin": 3,
+    "enemyCountMax": 4,
+    "itemCountMin": 1,
+    "itemCountMax": 2,
+    "statScaleFactor": 1.5
+  },
+  {
+    "tier": 3,
+    "minFloor": 7,
+    "maxFloor": 99,
+    "enemyCountMin": 4,
+    "enemyCountMax": 5,
+    "itemCountMin": 2,
+    "itemCountMax": 3,
+    "statScaleFactor": 2.0
+  }
+]

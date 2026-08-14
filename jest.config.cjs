@@ -9,9 +9,10 @@ module.exports = {
         tsconfig: {
           module: "commonjs",
           moduleResolution: "node",
+          resolveJsonModule: true,
+          esModuleInterop: true,
         },
       },
     ],
   },
 };
-
