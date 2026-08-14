@@ -57,7 +57,7 @@ describe('Data-Driven Repositories & Schemas', () => {
         const item = ItemRepository.getRandomLootItem();
         expect(item).toBeDefined();
         expect(item.name.length).toBeGreaterThan(0);
-        expect(item.value).toBeGreaterThan(0);
+        expect(item.value).toBeGreaterThanOrEqual(0);
       }
     });
   });

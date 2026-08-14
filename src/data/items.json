@@ -82,5 +82,45 @@
     "description": "Blessed impenetrable shield granting +5 DEF.",
     "rarity": "RARE",
     "dropWeight": 8
+  },
+  {
+    "id": "wand_slumber",
+    "name": "Wand of Slumber",
+    "type": "WAND",
+    "charges": 4,
+    "maxCharges": 4,
+    "description": "Shoots a beam that inflicts Sleep status on target enemy for 3 turns.",
+    "rarity": "UNCOMMON",
+    "dropWeight": 10,
+    "value": 0
+  },
+  {
+    "id": "scroll_petrify",
+    "name": "Scroll of Petrify",
+    "type": "SCROLL",
+    "description": "Turns all visible enemies in the current room into stone for 4 turns.",
+    "rarity": "RARE",
+    "dropWeight": 5,
+    "value": 0
+  },
+  {
+    "id": "throwing_javelin",
+    "name": "Throwing Javelin",
+    "type": "PROJECTILE",
+    "ammo": 3,
+    "maxAmmo": 3,
+    "value": 12,
+    "description": "Thrown in a straight line up to 5 tiles dealing 12 physical damage.",
+    "rarity": "COMMON",
+    "dropWeight": 20
+  },
+  {
+    "id": "warp_orb",
+    "name": "Warp Orb",
+    "type": "SCROLL",
+    "description": "Instantly teleports the party out of danger to a random safe room.",
+    "rarity": "UNCOMMON",
+    "dropWeight": 10,
+    "value": 0
   }
 ]

@@ -3,7 +3,10 @@ export enum ItemType {
   ATTACK_BUFF = 'ATTACK_BUFF',
   FOOD = 'FOOD',
   RELIC_WEAPON = 'RELIC_WEAPON',
-  RELIC_ARMOR = 'RELIC_ARMOR'
+  RELIC_ARMOR = 'RELIC_ARMOR',
+  WAND = 'WAND',
+  SCROLL = 'SCROLL',
+  PROJECTILE = 'PROJECTILE'
 }
 
 export class Item {
@@ -14,6 +17,10 @@ export class Item {
     public readonly value: number,
     public readonly critBonus: number = 0,
     public readonly doubleStrike: boolean = false,
-    public readonly lifeStealPercent: number = 0
+    public readonly lifeStealPercent: number = 0,
+    public charges?: number,
+    public readonly maxCharges?: number,
+    public ammo?: number,
+    public readonly maxAmmo?: number
   ) {}
 }

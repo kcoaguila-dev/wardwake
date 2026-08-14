@@ -4,6 +4,7 @@ import { Pathfinder } from '../../grid/domain/Pathfinder';
 import { TileCoordinate } from '../../grid/domain/TileCoordinate';
 import { Unit } from '../../combat/domain/Unit';
 import { WeaponType } from '../../combat/domain/WeaponType';
+import { StatusEffect } from '../../combat/domain/Unit';
 
 describe('ExecuteEnemyTurnUseCase', () => {
   let grid: GridMap;

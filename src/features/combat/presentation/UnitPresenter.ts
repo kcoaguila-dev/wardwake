@@ -232,6 +232,37 @@ export class UnitPresenter {
     });
   }
 
+  public animateProjectile(targetCoord: TileCoordinate, textureKey: string): Promise<void> {
+    return new Promise((resolve) => {
+      const originX = this.container.x;
+      const originY = this.container.y;
+
+      const targetWorldX = targetCoord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const targetWorldY = targetCoord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+
+      // Calculate angle for rotation
+      const angle = Phaser.Math.Angle.Between(originX, originY, targetWorldX, targetWorldY);
+
+      // Create a temporary projectile sprite at the unit's origin
+      const projectileSprite = this.scene.add.sprite(originX, originY, textureKey);
+      projectileSprite.setDepth(4);
+      projectileSprite.setRotation(angle);
+
+      // Animate to target
+      this.scene.tweens.add({
+        targets: projectileSprite,
+        x: targetWorldX,
+        y: targetWorldY,
+        duration: 150, // Keep snappy as per memory constraints
+        ease: 'Linear',
+        onComplete: () => {
+          projectileSprite.destroy();
+          resolve();
+        }
+      });
+    });
+  }
+
   public animateHit(): Promise<void> {
     return new Promise((resolve) => {
       this.scene.tweens.add({
