@@ -3,6 +3,9 @@ import { IAudioService } from '../application/ports/IAudioService';
 export class WebAudioSynthService implements IAudioService {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
+  public bgmVolume: number = 0.8;
+  public sfxVolume: number = 0.8;
+
   private bgmIntervalId: any = null;
   private currentBgmMode: 'explore' | 'combat' | null = null;
   private bgmStep: number = 0;
@@ -17,16 +20,54 @@ export class WebAudioSynthService implements IAudioService {
     } catch (e) {
       console.warn('Web Audio API not supported in this environment');
     }
+
+    this.loadSettings();
   }
 
-  toggleMute(): void {
+  private loadSettings(): void {
+    try {
+      const saved = localStorage.getItem('wardwake_audio_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.bgmVolume === 'number') this.bgmVolume = parsed.bgmVolume;
+        if (typeof parsed.sfxVolume === 'number') this.sfxVolume = parsed.sfxVolume;
+        if (typeof parsed.isMuted === 'boolean') this.isMuted = parsed.isMuted;
+      }
+    } catch (e) {}
+  }
+
+  private saveSettings(): void {
+    try {
+      localStorage.setItem('wardwake_audio_settings', JSON.stringify({
+        bgmVolume: this.bgmVolume,
+        sfxVolume: this.sfxVolume,
+        isMuted: this.isMuted
+      }));
+    } catch (e) {}
+  }
+
+  public setBgmVolume(volume: number): void {
+    this.bgmVolume = Math.max(0, Math.min(1, volume));
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
+    }
+    this.saveSettings();
+  }
+
+  public setSfxVolume(volume: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, volume));
+    this.saveSettings();
+  }
+
+  public toggleMute(): void {
     this.isMuted = !this.isMuted;
     if (this.bgmGain) {
-      this.bgmGain.gain.value = this.isMuted ? 0 : 0.06;
+      this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
     }
+    this.saveSettings();
   }
 
-  startBgm(mode: 'explore' | 'combat'): void {
+  public startBgm(mode: 'explore' | 'combat'): void {
     if (this.currentBgmMode === mode && this.bgmIntervalId) return;
     this.stopBgm();
     this.currentBgmMode = mode;
@@ -41,7 +82,7 @@ export class WebAudioSynthService implements IAudioService {
       this.bgmGain = this.ctx.createGain();
       this.bgmGain.connect(this.ctx.destination);
     }
-    this.bgmGain.gain.value = this.isMuted ? 0 : 0.06;
+    this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
 
     const intervalMs = mode === 'combat' ? 140 : 220;
     this.bgmIntervalId = setInterval(() => {
@@ -49,7 +90,7 @@ export class WebAudioSynthService implements IAudioService {
     }, intervalMs);
   }
 
-  stopBgm(): void {
+  public stopBgm(): void {
     if (this.bgmIntervalId) {
       clearInterval(this.bgmIntervalId);
       this.bgmIntervalId = null;
@@ -58,7 +99,7 @@ export class WebAudioSynthService implements IAudioService {
   }
 
   private tickBgm(): void {
-    if (this.isMuted || !this.ctx || !this.bgmGain) return;
+    if (this.isMuted || !this.ctx || !this.bgmGain || this.bgmVolume <= 0) return;
 
     const t = this.ctx.currentTime;
     const mode = this.currentBgmMode;
@@ -70,12 +111,12 @@ export class WebAudioSynthService implements IAudioService {
         130.81, 196.00, 261.63, 293.66, 329.63, 293.66, 261.63, 196.00  // C3, G3, C4, D4, E4, D4, C4, G3
       ];
       const freq = notes[this.bgmStep % notes.length]!;
-      this.playSynthPluck(freq, 'triangle', 0.18, t, 0.4);
+      this.playSynthPluck(freq, 'triangle', 0.22, t, 0.6);
 
       // Soft bass drone on every 8th step
       if (this.bgmStep % 8 === 0) {
         const root = (this.bgmStep % 16 === 0) ? 73.42 : 65.41; // D2 or C2
-        this.playSynthPluck(root, 'sine', 0.8, t, 0.8);
+        this.playSynthPluck(root, 'sine', 0.8, t, 0.9);
       }
     } else if (mode === 'combat') {
       // Driving Battle Bassline & Tension Lead
@@ -83,11 +124,11 @@ export class WebAudioSynthService implements IAudioService {
       const leadNotes = [293.66, 0, 349.23, 0, 440.00, 392.00, 349.23, 329.63];
 
       const bassFreq = bassNotes[this.bgmStep % bassNotes.length]!;
-      this.playSynthPluck(bassFreq, 'square', 0.12, t, 0.5);
+      this.playSynthPluck(bassFreq, 'square', 0.14, t, 0.7);
 
       const leadFreq = leadNotes[this.bgmStep % leadNotes.length]!;
       if (leadFreq > 0) {
-        this.playSynthPluck(leadFreq, 'sawtooth', 0.14, t, 0.3);
+        this.playSynthPluck(leadFreq, 'sawtooth', 0.16, t, 0.45);
       }
     }
 
@@ -102,8 +143,8 @@ export class WebAudioSynthService implements IAudioService {
       osc.frequency.setValueAtTime(freq, t);
 
       const noteGain = this.ctx.createGain();
-      noteGain.gain.setValueAtTime(0.01 * volScale, t);
-      noteGain.gain.linearRampToValueAtTime(0.12 * volScale, t + 0.02);
+      noteGain.gain.setValueAtTime(0.02 * volScale, t);
+      noteGain.gain.linearRampToValueAtTime(0.25 * volScale, t + 0.02);
       noteGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 
       osc.connect(noteGain);
@@ -114,8 +155,8 @@ export class WebAudioSynthService implements IAudioService {
     } catch (e) {}
   }
 
-  playSound(soundId: string): void {
-    if (this.isMuted || !this.ctx) return;
+  public playSound(soundId: string): void {
+    if (this.isMuted || !this.ctx || this.sfxVolume <= 0) return;
 
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
@@ -124,7 +165,7 @@ export class WebAudioSynthService implements IAudioService {
     const t = this.ctx.currentTime;
     const masterGain = this.ctx.createGain();
     masterGain.connect(this.ctx.destination);
-    masterGain.gain.value = 0.2;
+    masterGain.gain.value = 0.28 * this.sfxVolume;
 
     switch (soundId) {
       case 'sword_slash':
@@ -301,7 +342,6 @@ export class WebAudioSynthService implements IAudioService {
 
   private playTrapSpring(output: GainNode, t: number): void {
     if (!this.ctx) return;
-    // Metallic snap & clank
     const osc = this.ctx.createOscillator();
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(900, t);

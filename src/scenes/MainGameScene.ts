@@ -13,6 +13,7 @@ import { InventoryMenuPresenter } from '../features/ui/presentation/InventoryMen
 import { PartyHudPresenter } from '../features/ui/presentation/PartyHudPresenter';
 import { StairsModalPresenter } from '../features/ui/presentation/StairsModalPresenter';
 import { RunSummaryModalPresenter, RunSummaryStats } from '../features/ui/presentation/RunSummaryModalPresenter';
+import { SettingsModalPresenter } from '../features/ui/presentation/SettingsModalPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -67,6 +68,7 @@ export class MainGameScene extends Phaser.Scene {
   private inventoryMenuPresenter!: InventoryMenuPresenter;
   private stairsModalPresenter!: StairsModalPresenter;
   private runSummaryModalPresenter!: RunSummaryModalPresenter;
+  private settingsModalPresenter!: SettingsModalPresenter;
   private trapPresenter!: TrapPresenter;
   private fogPresenter!: FogPresenter;
 
@@ -123,6 +125,9 @@ export class MainGameScene extends Phaser.Scene {
     this.combatTextPresenter = new CombatTextPresenter(this);
     this.hudPresenter = new HudPresenter(this);
     this.hudPresenter.setOnMuteToggle(() => this.audioService.toggleMute());
+    this.hudPresenter.setOnSettingsClick(() => {
+      this.settingsModalPresenter.show();
+    });
     this.partyHudPresenter = new PartyHudPresenter(this);
     this.partyHudPresenter.onSelectHero = (idx) => this.selectHeroByIndex(idx);
 
@@ -133,6 +138,8 @@ export class MainGameScene extends Phaser.Scene {
 
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
     this.trapPresenter = new TrapPresenter(this);
+
+    this.settingsModalPresenter = new SettingsModalPresenter(this, this.audioService);
 
     this.stairsModalPresenter = new StairsModalPresenter(this);
     this.stairsModalPresenter.onDescend = () => {
@@ -199,7 +206,9 @@ export class MainGameScene extends Phaser.Scene {
 
     // ESC key to dismiss menus immediately
     this.input.keyboard?.on('keydown-ESCAPE', () => {
-      if (this.stairsModalPresenter.isVisible()) {
+      if (this.settingsModalPresenter.isVisible()) {
+        this.settingsModalPresenter.hide();
+      } else if (this.stairsModalPresenter.isVisible()) {
         this.stairsModalPresenter.onStay?.();
       } else {
         this.cancelActionMenu();
@@ -211,6 +220,15 @@ export class MainGameScene extends Phaser.Scene {
       const isShift = event.shiftKey;
       const key = event.key.toLowerCase();
       const code = event.code;
+
+      // Handle Settings Modal close with Esc
+      if (this.settingsModalPresenter.isVisible()) {
+        if (key === 'escape') {
+          this.settingsModalPresenter.hide();
+          return;
+        }
+        return;
+      }
 
       // Handle Run Summary Modal Restart with Enter
       if (this.runSummaryModalPresenter.isVisible()) {
@@ -290,19 +308,33 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
+    // In Combat mode, if Action Menu is open, block movement until action taken or ESC pressed
+    if (this.isEncounterActive && this.isMenuOpen) {
+      return;
+    }
+
     if (this.selectedPlayerIndex === null) {
       const firstAvailableIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed);
       if (firstAvailableIdx === -1) return;
-      this.selectedPlayerIndex = firstAvailableIdx;
+      this.selectHeroByIndex(firstAvailableIdx);
     }
 
-    const player = this.playerSquad[this.selectedPlayerIndex];
+    const player = this.playerSquad[this.selectedPlayerIndex!];
     if (!player || player.hasActed || player.unit.currentHp <= 0) return;
 
     const targetCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
 
     if (!this.gridMap.isWalkable(targetCoord)) {
       return;
+    }
+
+    // In combat, limit movement to movement budget (3 tiles) from turn start position
+    if (this.isEncounterActive) {
+      const startCoord = this.turnStartCoords.get(player.unit.id) || player.coord;
+      const distFromStart = Math.abs(targetCoord.x - startCoord.x) + Math.abs(targetCoord.y - startCoord.y);
+      if (distFromStart > 3) {
+        return;
+      }
     }
 
     // 1. Check for Friendly Position Swap (works even with Shift held!)
@@ -676,16 +708,24 @@ export class MainGameScene extends Phaser.Scene {
   private selectHeroByIndex(index: number): void {
     this.selectedPlayerIndex = index;
     const selectedPlayer = this.playerSquad[index];
-    if (!selectedPlayer) return;
+    if (!selectedPlayer || selectedPlayer.unit.currentHp <= 0) {
+      const aliveIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0);
+      if (aliveIdx !== -1 && aliveIdx !== index) {
+        this.selectHeroByIndex(aliveIdx);
+        return;
+      }
+      return;
+    }
 
     this.playerSquad.forEach((p, idx) => {
       p.graphic.setSelected(idx === index);
+      p.graphic.setLeader(idx === index); // Radiant Gold Ring for Active Leader
       if (!this.isEncounterActive) {
-        p.graphic.setLeader(idx === index);
         p.graphic.setExhausted(false);
       }
     });
 
+    this.partyHudPresenter.updateParty(this.playerSquad, this.selectedPlayerIndex);
     this.combatForecastPresenter.hide();
 
     if (this.isEncounterActive) {
@@ -780,6 +820,11 @@ export class MainGameScene extends Phaser.Scene {
 
   private async onTileClicked(coord: TileCoordinate) {
     if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    if (this.isEncounterActive && this.isMenuOpen && !this.isTargeting) {
+      await this.cancelActionMenu();
       return;
     }
 
@@ -914,7 +959,7 @@ export class MainGameScene extends Phaser.Scene {
         for (let y = 0; y < this.gridMap.height; y++) {
           for (let x = 0; x < this.gridMap.width; x++) {
             const c = new TileCoordinate(x, y);
-            if (this.gridMap.isWalkable(c) && !this.staircaseCoord.equals(c)) {
+            if (this.gridMap.isWalkable(c) && !this.staircaseCoord.equals(c) && !c.equals(coord)) {
               safeCoords.push(c);
             }
           }
@@ -922,8 +967,10 @@ export class MainGameScene extends Phaser.Scene {
         if (safeCoords.length > 0) {
           const warpTarget = safeCoords[Math.floor(Math.random() * safeCoords.length)]!;
           selectedPlayer.coord = warpTarget;
-          await selectedPlayer.graphic.moveTo(warpTarget);
+          await selectedPlayer.graphic.moveTo(warpTarget, true);
+          coord = warpTarget;
           this.centerCameraOn(warpTarget);
+          this.updateFogAndVisibility();
         }
       }
     }

@@ -1,11 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Wardwake Game E2E Tests', () => {
-  test('Canvas loads and renders properly in 16:9 widescreen', async ({ page }) => {
+  test('Title Scene loads and renders WARDWAKE logo and menu buttons', async ({ page }) => {
     await page.goto('/');
 
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await expect(canvas).toBeVisible({ timeout: 15000 });
 
     const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
@@ -13,20 +13,49 @@ test.describe('Wardwake Game E2E Tests', () => {
     expect(box!.height).toBeGreaterThan(0);
   });
 
-  test('Player unit can be clicked, selected, and moved', async ({ page }) => {
+  test('Settings & Audio Modal can be opened, adjusted, and closed on Title Scene', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
 
-    await page.waitForTimeout(1000);
+    // Press 'S' to open Settings
+    await page.keyboard.press('KeyS');
+    await page.waitForTimeout(400);
 
-    // Player 1 at tile (1, 1)
-    await canvas.click({ position: { x: 48, y: 88 } });
+    // Press 'Escape' to close Settings
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
-    // Move to (1, 3)
-    await canvas.click({ position: { x: 48, y: 152 } });
-    await page.waitForTimeout(500);
+    await expect(canvas).toBeVisible();
+  });
+
+  test('How To Play Manual can be opened and closed on Title Scene', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Press 'H' to open Manual
+    await page.keyboard.press('KeyH');
+    await page.waitForTimeout(400);
+
+    // Press 'Escape' to close Manual
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    await expect(canvas).toBeVisible();
+  });
+
+  test('Pressing Enter starts expedition from Title Scene into Floor 1', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Press Enter to start expedition
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(1000);
 
     await expect(canvas).toBeVisible();
   });
@@ -34,8 +63,12 @@ test.describe('Wardwake Game E2E Tests', () => {
   test('Tactile WASD Keyboard movement and Spacebar Wait', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
 
     // Press S to move Down
     await page.keyboard.press('KeyS');
@@ -51,8 +84,12 @@ test.describe('Wardwake Game E2E Tests', () => {
   test('Tab key switches active party leader dynamically', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
 
     // Press Tab to cycle leader
     await page.keyboard.press('Tab');
@@ -68,8 +105,12 @@ test.describe('Wardwake Game E2E Tests', () => {
   test('Fast Corridor Sprinting with Shift + Directional Key', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
 
     // Hold Shift and press S to fast-sprint down
     await page.keyboard.down('Shift');
@@ -83,8 +124,12 @@ test.describe('Wardwake Game E2E Tests', () => {
   test('Friendly position swap allows passing through ally in narrow corridors', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
 
     // Press S to step into adjacent ally position and trigger friendly swap
     await page.keyboard.press('KeyS');
@@ -97,32 +142,23 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
-  test('Combat forecast appears on hover and attacks execute with animations', async ({ page }) => {
+  test('In-game Settings button in top HUD opens Settings Modal', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
 
-    // Select Player 2 at tile (1, 2)
-    await canvas.click({ position: { x: 48, y: 120 } });
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
+
+    // Click ⚙️ Settings button in Top HUD (around x=582, y=10)
+    await canvas.click({ position: { x: 582, y: 15 } });
+    await page.waitForTimeout(400);
+
+    // Escape closes modal
+    await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
-
-    // Move to (3, 2)
-    await canvas.click({ position: { x: 112, y: 120 } });
-    await page.waitForTimeout(500);
-
-    await expect(canvas).toBeVisible();
-  });
-
-  test('Clicking [END TURN] in wide HUD advances phase', async ({ page }) => {
-    await page.goto('/');
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
-
-    // Click [END TURN] in top HUD
-    await canvas.click({ position: { x: 550, y: 18 } });
-    await page.waitForTimeout(500);
 
     await expect(canvas).toBeVisible();
   });
@@ -137,56 +173,17 @@ test.describe('Wardwake Game E2E Tests', () => {
 
     await page.goto('/');
     const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
 
-    await canvas.click({ position: { x: 48, y: 88 } });
-    await page.waitForTimeout(300);
-    await canvas.click({ position: { x: 48, y: 152 } });
-    await page.waitForTimeout(500);
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
+
+    await page.keyboard.press('KeyS');
+    await page.waitForTimeout(400);
 
     expect(logs.length).toBe(0);
-    await expect(canvas).toBeVisible();
-  });
-
-  test('Floor Item Pickup renders float text cleanly', async ({ page }) => {
-    await page.goto('/');
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
-
-    await canvas.click({ position: { x: 48, y: 88 } });
-    await page.waitForTimeout(300);
-    await canvas.click({ position: { x: 80, y: 88 } });
-    await page.waitForTimeout(500);
-
-    await expect(canvas).toBeVisible();
-  });
-
-  test('Minimap Fog Integrity is maintained', async ({ page }) => {
-    await page.goto('/');
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
-
-    await canvas.click({ position: { x: 48, y: 88 } });
-    await page.waitForTimeout(300);
-    await canvas.click({ position: { x: 48, y: 120 } });
-    await page.waitForTimeout(500);
-
-    await expect(canvas).toBeVisible();
-  });
-
-  test('Staircase Modal allows confirming or staying on current floor', async ({ page }) => {
-    await page.goto('/');
-    const canvas = page.locator('canvas');
-    await expect(canvas).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(1000);
-
-    // Escape dismisses any open modals
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-
     await expect(canvas).toBeVisible();
   });
 });

@@ -122,7 +122,7 @@ export class PreloaderScene extends Phaser.Scene {
         gMinotaur.generateTexture('enemy_dread_minotaur', 16, 16);
         gMinotaur.destroy();
 
-        // Transition to MainGameScene when loading is complete
-        this.scene.start('MainGameScene');
+        // Transition to TitleScene when loading is complete
+        this.scene.start('TitleScene');
     }
 }

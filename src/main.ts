@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { MainGameScene } from './scenes/MainGameScene';
 import { PreloaderScene } from './scenes/PreloaderScene';
+import { TitleScene } from './scenes/TitleScene';
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
@@ -17,7 +18,7 @@ const config: Phaser.Types.Core.GameConfig = {
     },
     backgroundColor: '#0a0e17',
     parent: 'app',
-    scene: [PreloaderScene, MainGameScene]
+    scene: [PreloaderScene, TitleScene, MainGameScene]
 };
 
 new Phaser.Game(config);

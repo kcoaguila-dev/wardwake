@@ -5,8 +5,10 @@ export class HudPresenter {
   private phaseText: Phaser.GameObjects.Text;
   private turnText: Phaser.GameObjects.Text;
   private endTurnButton: Phaser.GameObjects.Text;
+  private settingsButton: Phaser.GameObjects.Text;
   private muteButton: Phaser.GameObjects.Text;
   private onMuteToggleCallback?: () => void;
+  private onSettingsClickCallback?: () => void;
   private isMuted: boolean = false;
 
   constructor(private scene: Phaser.Scene) {
@@ -40,7 +42,7 @@ export class HudPresenter {
     this.turnText.setDepth(11);
 
     // End Turn Button
-    this.endTurnButton = this.scene.add.text(width - 130, 10, '[⏳ END TURN]', {
+    this.endTurnButton = this.scene.add.text(width - 160, 10, '[⏳ END TURN]', {
       fontSize: '12px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -57,8 +59,23 @@ export class HudPresenter {
       this.scene.events.emit('ON_END_TURN_CLICKED');
     });
 
-    // Mute Button
-    this.muteButton = this.scene.add.text(width - 32, 10, '🔊', {
+    // Settings Button (⚙️)
+    this.settingsButton = this.scene.add.text(width - 58, 10, '⚙️', {
+      fontSize: '14px',
+      fontFamily: 'monospace',
+      padding: { x: 4, y: 2 }
+    });
+    this.settingsButton.setScrollFactor(0);
+    this.settingsButton.setDepth(11);
+    this.settingsButton.setInteractive({ useHandCursor: true });
+    this.settingsButton.on('pointerdown', () => {
+      if (this.onSettingsClickCallback) {
+        this.onSettingsClickCallback();
+      }
+    });
+
+    // Mute Button (🔊)
+    this.muteButton = this.scene.add.text(width - 30, 10, '🔊', {
       fontSize: '14px',
       fontFamily: 'monospace',
       padding: { x: 4, y: 2 }
@@ -79,6 +96,10 @@ export class HudPresenter {
     this.onMuteToggleCallback = callback;
   }
 
+  setOnSettingsClick(callback: () => void): void {
+    this.onSettingsClickCallback = callback;
+  }
+
   updateFloor(floor: number): void {
     this.floorText.setText(`🏰 Floor ${floor}`);
   }
@@ -92,6 +113,6 @@ export class HudPresenter {
   }
 
   updateEnemies(count: number): void {
-    // Deprecated for fog of war mystery, replaced with turn count or no-op
+    // Deprecated for fog of war mystery
   }
 }

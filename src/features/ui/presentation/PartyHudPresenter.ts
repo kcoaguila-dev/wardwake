@@ -6,11 +6,17 @@ export class PartyHudPresenter {
   private p1Card!: Phaser.GameObjects.Container;
   private p2Card!: Phaser.GameObjects.Container;
 
+  private p1Bg!: Phaser.GameObjects.Rectangle;
+  private p1Avatar!: Phaser.GameObjects.Sprite;
+  private p1TitleText!: Phaser.GameObjects.Text;
   private p1HpText!: Phaser.GameObjects.Text;
   private p1HpBar!: Phaser.GameObjects.Graphics;
   private p1StatsText!: Phaser.GameObjects.Text;
   private p1BellyText!: Phaser.GameObjects.Text;
 
+  private p2Bg!: Phaser.GameObjects.Rectangle;
+  private p2Avatar!: Phaser.GameObjects.Sprite;
+  private p2TitleText!: Phaser.GameObjects.Text;
   private p2HpText!: Phaser.GameObjects.Text;
   private p2HpBar!: Phaser.GameObjects.Graphics;
   private p2StatsText!: Phaser.GameObjects.Text;
@@ -35,34 +41,31 @@ export class PartyHudPresenter {
 
     this.container.add(bg);
 
-    // Build P1 Card (Leader - Left side)
+    // Build P1 Card (Left side)
     this.createP1Card(20);
 
-    // Build P2 Card (Companion - Right side)
+    // Build P2 Card (Right side)
     this.createP2Card(330);
   }
 
   private createP1Card(startX: number): void {
     this.p1Card = this.scene.add.container(startX, 4);
 
-    const cardBg = this.scene.add.rectangle(0, 0, 290, 34, 0x111622, 0.9)
+    this.p1Bg = this.scene.add.rectangle(0, 0, 290, 34, 0x111622, 0.9)
       .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0xffd700) // Gold Leader Border
+      .setStrokeStyle(2, 0xffd700)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.onSelectHero?.(0));
 
-    // Avatar Thumbnail
-    const avatar = this.scene.add.sprite(16, 17, 'unit_sword').setScale(1.5);
+    this.p1Avatar = this.scene.add.sprite(16, 17, 'unit_sword').setScale(1.5);
 
-    // Name & Title
-    const titleText = this.scene.add.text(34, 3, '👑 SWORD FIGHTER (Lv. 1)', {
+    this.p1TitleText = this.scene.add.text(34, 3, '👑 SWORD FIGHTER (Lv. 1)', {
       fontSize: '10px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffd700'
     });
 
-    // HP Bar
     this.p1HpBar = this.scene.add.graphics();
 
     this.p1HpText = this.scene.add.text(34, 18, 'HP 24/24', {
@@ -72,14 +75,12 @@ export class PartyHudPresenter {
       color: '#e2e8f0'
     });
 
-    // Stats (ATK/DEF)
     this.p1StatsText = this.scene.add.text(125, 18, '⚔️8 🛡️2', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#94a3b8'
     });
 
-    // Belly Gauge
     this.p1BellyText = this.scene.add.text(205, 18, '🍞 100%', {
       fontSize: '9px',
       fontFamily: 'monospace',
@@ -87,31 +88,28 @@ export class PartyHudPresenter {
       color: '#f59e0b'
     });
 
-    this.p1Card.add([cardBg, avatar, titleText, this.p1HpBar, this.p1HpText, this.p1StatsText, this.p1BellyText]);
+    this.p1Card.add([this.p1Bg, this.p1Avatar, this.p1TitleText, this.p1HpBar, this.p1HpText, this.p1StatsText, this.p1BellyText]);
     this.container.add(this.p1Card);
   }
 
   private createP2Card(startX: number): void {
     this.p2Card = this.scene.add.container(startX, 4);
 
-    const cardBg = this.scene.add.rectangle(0, 0, 290, 34, 0x111622, 0.9)
+    this.p2Bg = this.scene.add.rectangle(0, 0, 290, 34, 0x111622, 0.9)
       .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0x00d4ff) // Cyan Ally Border
+      .setStrokeStyle(1.5, 0x00d4ff)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.onSelectHero?.(1));
 
-    // Avatar Thumbnail
-    const avatar = this.scene.add.sprite(16, 17, 'unit_lance').setScale(1.5);
+    this.p2Avatar = this.scene.add.sprite(16, 17, 'unit_lance').setScale(1.5);
 
-    // Name & Title
-    const titleText = this.scene.add.text(34, 3, '🛡️ LANCE KNIGHT (Lv. 1)', {
+    this.p2TitleText = this.scene.add.text(34, 3, '🔵 LANCE KNIGHT (Lv. 1)', {
       fontSize: '10px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#38bdf8'
     });
 
-    // HP Bar
     this.p2HpBar = this.scene.add.graphics();
 
     this.p2HpText = this.scene.add.text(34, 18, 'HP 22/22', {
@@ -121,14 +119,12 @@ export class PartyHudPresenter {
       color: '#e2e8f0'
     });
 
-    // Stats (ATK/DEF)
     this.p2StatsText = this.scene.add.text(125, 18, '🔱8 🛡️3', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#94a3b8'
     });
 
-    // Belly Gauge
     this.p2BellyText = this.scene.add.text(205, 18, '🍞 100%', {
       fontSize: '9px',
       fontFamily: 'monospace',
@@ -136,35 +132,89 @@ export class PartyHudPresenter {
       color: '#f59e0b'
     });
 
-    this.p2Card.add([cardBg, avatar, titleText, this.p2HpBar, this.p2HpText, this.p2StatsText, this.p2BellyText]);
+    this.p2Card.add([this.p2Bg, this.p2Avatar, this.p2TitleText, this.p2HpBar, this.p2HpText, this.p2StatsText, this.p2BellyText]);
     this.container.add(this.p2Card);
   }
 
-  public updateParty(players: { unit: Unit }[]): void {
+  public updateParty(players: { unit: Unit }[], activeLeaderIndex: number | null = null): void {
+    // 1. Update Card 1
     if (players[0]) {
       const u1 = players[0].unit;
-      this.p1HpText.setText(`HP ${u1.currentHp}/${u1.maxHp}`);
-      this.p1StatsText.setText(`⚔️${u1.attack} 🛡️${u1.defense}`);
-      this.p1BellyText.setText(`🍞 ${u1.belly}%`);
-      if (u1.belly <= 20) {
-        this.p1BellyText.setColor('#ef4444');
+      const isDead = u1.currentHp <= 0;
+      const isLeader = !isDead && (activeLeaderIndex === 0 || (activeLeaderIndex === null && !isDead));
+
+      if (isDead) {
+        this.p1Bg.setStrokeStyle(1, 0x475569);
+        this.p1Bg.setFillStyle(0x0a0d14, 0.85);
+        this.p1Avatar.setTint(0x64748b);
+        this.p1TitleText.setText(`💀 ${u1.name.toUpperCase()} (FALLEN)`);
+        this.p1TitleText.setColor('#ef4444');
+        this.p1HpText.setText('HP 0/0');
+        this.p1HpText.setColor('#ef4444');
+        this.p1StatsText.setText('---');
+        this.p1BellyText.setText('');
+        this.drawBar(this.p1HpBar, 85, 21, 35, 4, 0);
       } else {
-        this.p1BellyText.setColor('#f59e0b');
+        this.p1Avatar.clearTint();
+        this.p1HpText.setColor('#e2e8f0');
+        this.p1HpText.setText(`HP ${u1.currentHp}/${u1.maxHp}`);
+        this.p1StatsText.setText(`⚔️${u1.attack} 🛡️${u1.defense}`);
+        this.p1BellyText.setText(`🍞 ${u1.belly}%`);
+        this.p1BellyText.setColor(u1.belly <= 20 ? '#ef4444' : '#f59e0b');
+
+        if (isLeader) {
+          this.p1Bg.setStrokeStyle(2, 0xffd700); // Radiant Gold
+          this.p1Bg.setFillStyle(0x1a2333, 0.95);
+          this.p1TitleText.setText(`👑 ${u1.name.toUpperCase()} (Lv. ${u1.level || 1})`);
+          this.p1TitleText.setColor('#ffd700');
+        } else {
+          this.p1Bg.setStrokeStyle(1.5, 0x00d4ff); // Cyan Ally
+          this.p1Bg.setFillStyle(0x111622, 0.9);
+          this.p1TitleText.setText(`🔵 ${u1.name.toUpperCase()} (Lv. ${u1.level || 1})`);
+          this.p1TitleText.setColor('#38bdf8');
+        }
+        this.drawBar(this.p1HpBar, 85, 21, 35, 4, u1.currentHp / u1.maxHp);
       }
-      this.drawBar(this.p1HpBar, 85, 21, 35, 4, u1.currentHp / u1.maxHp);
     }
 
+    // 2. Update Card 2
     if (players[1]) {
       const u2 = players[1].unit;
-      this.p2HpText.setText(`HP ${u2.currentHp}/${u2.maxHp}`);
-      this.p2StatsText.setText(`🔱${u2.attack} 🛡️${u2.defense}`);
-      this.p2BellyText.setText(`🍞 ${u2.belly}%`);
-      if (u2.belly <= 20) {
-        this.p2BellyText.setColor('#ef4444');
+      const isDead = u2.currentHp <= 0;
+      const isLeader = !isDead && (activeLeaderIndex === 1 || (activeLeaderIndex === null && (players[0]?.unit?.currentHp ?? 0) <= 0));
+
+      if (isDead) {
+        this.p2Bg.setStrokeStyle(1, 0x475569);
+        this.p2Bg.setFillStyle(0x0a0d14, 0.85);
+        this.p2Avatar.setTint(0x64748b);
+        this.p2TitleText.setText(`💀 ${u2.name.toUpperCase()} (FALLEN)`);
+        this.p2TitleText.setColor('#ef4444');
+        this.p2HpText.setText('HP 0/0');
+        this.p2HpText.setColor('#ef4444');
+        this.p2StatsText.setText('---');
+        this.p2BellyText.setText('');
+        this.drawBar(this.p2HpBar, 85, 21, 35, 4, 0);
       } else {
-        this.p2BellyText.setColor('#f59e0b');
+        this.p2Avatar.clearTint();
+        this.p2HpText.setColor('#e2e8f0');
+        this.p2HpText.setText(`HP ${u2.currentHp}/${u2.maxHp}`);
+        this.p2StatsText.setText(`🔱${u2.attack} 🛡️${u2.defense}`);
+        this.p2BellyText.setText(`🍞 ${u2.belly}%`);
+        this.p2BellyText.setColor(u2.belly <= 20 ? '#ef4444' : '#f59e0b');
+
+        if (isLeader) {
+          this.p2Bg.setStrokeStyle(2, 0xffd700); // Radiant Gold
+          this.p2Bg.setFillStyle(0x1a2333, 0.95);
+          this.p2TitleText.setText(`👑 ${u2.name.toUpperCase()} (Lv. ${u2.level || 1})`);
+          this.p2TitleText.setColor('#ffd700');
+        } else {
+          this.p2Bg.setStrokeStyle(1.5, 0x00d4ff); // Cyan Ally
+          this.p2Bg.setFillStyle(0x111622, 0.9);
+          this.p2TitleText.setText(`🔵 ${u2.name.toUpperCase()} (Lv. ${u2.level || 1})`);
+          this.p2TitleText.setColor('#38bdf8');
+        }
+        this.drawBar(this.p2HpBar, 85, 21, 35, 4, u2.currentHp / u2.maxHp);
       }
-      this.drawBar(this.p2HpBar, 85, 21, 35, 4, u2.currentHp / u2.maxHp);
     }
   }
 
