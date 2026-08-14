@@ -122,6 +122,22 @@ npm install
 
 ---
 
+## 🐛 Bug Reports & Playtest Feedback
+
+Found a bug, visual glitch, or have gameplay balance suggestions?
+Please open an issue on the official [GitHub Issues Tracker](https://github.com/kcoaguila-dev/wardwake/issues).
+
+> [!NOTE]
+> **Wardwake** is an independently developed commercial project. While this repository is publicly viewable for portfolio and playtesting purposes, it is **All Rights Reserved** and does not accept external code Pull Requests. Please submit all feedback via GitHub Issues.
+
+---
+
+## 📚 Design & Technical Documentation
+- 🎮 [Game Design Document (GDD)](./docs/GDD.md) — Gameplay mechanics, weapon formulas, and production roadmap.
+- 🏛️ [Technical Architecture](./docs/ARCHITECTURE.md) — Clean Architecture layers, event pipelines, and test suites.
+
+---
+
 ## 📄 License & Intellectual Property
 
 Copyright © 2026 **Kazuo Coaguila**. All rights reserved.
