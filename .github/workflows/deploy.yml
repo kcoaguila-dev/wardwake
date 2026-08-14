@@ -37,8 +37,14 @@ jobs:
       - name: Type Check
         run: npx tsc --noEmit
 
-      - name: Run Tests
+      - name: Run Unit Tests
         run: npm test
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Tests
+        run: npm run test:e2e
 
       - name: Build Project
         run: npm run build
