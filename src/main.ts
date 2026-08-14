@@ -5,7 +5,7 @@ import { PreloaderScene } from './scenes/PreloaderScene';
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
     width: 320,
-    height: 320,
+    height: 360,
     parent: 'app',
     scene: [PreloaderScene, MainGameScene]
 };

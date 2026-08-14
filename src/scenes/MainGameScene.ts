@@ -15,6 +15,7 @@ import { WeaponType } from '../features/combat/domain/WeaponType';
 import { IAudioService } from '../features/combat/application/ports/IAudioService';
 import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
+import { HudPresenter } from '../features/ui/presentation/HudPresenter';
 
 class DummyAudioService implements IAudioService {
   playSound(soundId: string): void {
@@ -33,6 +34,7 @@ export class MainGameScene extends Phaser.Scene {
   private gridPresenter!: GridPresenter;
   private inputPresenter!: InputPresenter;
   private combatTextPresenter!: CombatTextPresenter;
+  private hudPresenter!: HudPresenter;
 
   // Domain
   private gridMap!: GridMap;
@@ -42,7 +44,6 @@ export class MainGameScene extends Phaser.Scene {
   private playerSquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[];
   private enemySquad!: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[];
   private floorCount: number = 1;
-  private floorText!: Phaser.GameObjects.Text;
   private staircaseCoord!: TileCoordinate;
   private selectedPlayerIndex: number | null = null;
 
@@ -71,6 +72,10 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter = new GridPresenter(this);
     this.inputPresenter = new InputPresenter(this);
     this.combatTextPresenter = new CombatTextPresenter(this);
+    this.hudPresenter = new HudPresenter(this);
+
+    // Adjust Camera to make room for HUD
+    this.cameras.main.scrollY = -40;
 
     // 3. Initialize Units
     const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
@@ -106,11 +111,19 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter.drawGrid(this.gridMap);
     this.gridPresenter.drawStaircase(this.staircaseCoord);
 
-    this.playerSquad.forEach(p => p.graphic.setTint(0x0000ff)); // Blue
-    this.enemySquad.forEach(e => e.graphic.setTint(0xff0000)); // Red
+    this.playerSquad.forEach(p => {
+      p.graphic.setTint(0x0000ff);
+      p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
+    });
 
-    // Display floor
-    this.floorText = this.add.text(10, 330, `Floor ${this.floorCount}`, { fontSize: '20px', color: '#ffffff' });
+    this.enemySquad.forEach(e => {
+      e.graphic.setTint(0xff0000);
+      e.graphic.updateHp(e.unit.currentHp, e.unit.maxHp);
+    });
+
+    this.hudPresenter.updateFloor(this.floorCount);
+    this.hudPresenter.updatePhase('🔵 PLAYER PHASE');
+    this.hudPresenter.updateEnemies(this.enemySquad.length);
 
     // 6. Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
@@ -160,8 +173,11 @@ export class MainGameScene extends Phaser.Scene {
         const screenY = coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
         this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt);
 
+        clickedEnemy.graphic.updateHp(clickedEnemy.unit.currentHp, clickedEnemy.unit.maxHp);
+
         if (summary.isFatal) {
           clickedEnemy.graphic.clear();
+          this.hudPresenter.updateEnemies(this.enemySquad.filter(e => e.unit.currentHp > 0).length);
         }
         actionTaken = true;
       }
@@ -200,6 +216,7 @@ export class MainGameScene extends Phaser.Scene {
       const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
       if (allActed) {
         this.phaseManager.advancePhase();
+        this.hudPresenter.updatePhase('🔴 ENEMY PHASE');
         this.executeEnemyPhase();
       }
     }
@@ -211,9 +228,9 @@ export class MainGameScene extends Phaser.Scene {
 
     if (allEnemiesDead || playerOnStaircase) {
       this.floorCount++;
-      this.floorText.setText(`Floor ${this.floorCount}`);
+      this.hudPresenter.updateFloor(this.floorCount);
 
-      const banner = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY, 'FLOOR CLEARED', {
+      const banner = this.add.text(this.cameras.main.centerX, this.cameras.main.centerY - 40, 'FLOOR CLEARED', {
         fontSize: '40px',
         color: '#ffff00',
         fontStyle: 'bold',
@@ -241,6 +258,7 @@ export class MainGameScene extends Phaser.Scene {
       p.hasActed = false;
       p.graphic.moveTo(p.coord);
       p.graphic.setTint(0x0000ff);
+      p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
     });
 
     // Reset enemies
@@ -252,7 +270,11 @@ export class MainGameScene extends Phaser.Scene {
       e.hasActed = false;
       e.graphic.moveTo(e.coord);
       e.graphic.setTint(0xff0000);
+      e.graphic.updateHp(e.unit.currentHp, e.unit.maxHp);
     });
+
+    this.hudPresenter.updateFloor(this.floorCount);
+    this.hudPresenter.updateEnemies(this.enemySquad.length);
 
     this.selectedPlayerIndex = null;
     this.gridPresenter.clearHighlights();
@@ -297,6 +319,8 @@ export class MainGameScene extends Phaser.Scene {
               const screenY = targetPlayer.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
               this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt);
 
+              targetPlayer.graphic.updateHp(targetPlayer.unit.currentHp, targetPlayer.unit.maxHp);
+
               if (summary.isFatal) {
                 targetPlayer.graphic.clear();
               }
@@ -309,6 +333,7 @@ export class MainGameScene extends Phaser.Scene {
 
     if (!this.checkWinCondition()) {
       this.phaseManager.advancePhase();
+      this.hudPresenter.updatePhase('🔵 PLAYER PHASE');
       // Reset player acted states
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
