@@ -122,6 +122,10 @@ npm install
 
 ---
 
-## 📄 License
+## 📄 License & Intellectual Property
 
-This project is licensed under the [ISC License](LICENSE).
+Copyright © 2026 **Kazuo Coaguila**. All rights reserved.
+
+The source code, game design, character sprites, art assets, and documentation in this repository are proprietary. This repository is made publicly accessible strictly for portfolio, educational, and evaluation purposes. 
+
+No permission is granted to copy, modify, distribute, sublicense, re-host, or commercially exploit any part of this game or its assets without prior express written permission from the author.
