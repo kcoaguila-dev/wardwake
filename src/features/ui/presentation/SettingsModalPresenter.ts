@@ -38,7 +38,7 @@ export class SettingsModalPresenter {
       .setInteractive();
 
     // 1. Title
-    this.titleText = this.scene.add.text(screenWidth / 2, modalY + 20, '⚙️ SETTINGS & AUDIO', {
+    this.titleText = this.scene.add.text(screenWidth / 2, modalY + 20, '⚙️ SETTINGS', {
       fontSize: '14px',
       fontFamily: 'monospace',
       fontStyle: 'bold',

@@ -23,7 +23,7 @@ export class TitleScene extends Phaser.Scene {
     this.howToPlayModal = new HowToPlayModalPresenter(this);
 
     // 1. Background gradient & Dungeon Grid silhouette
-    const bg = this.add.rectangle(0, 0, screenWidth, screenHeight, 0x070a12).setOrigin(0, 0);
+    this.add.rectangle(0, 0, screenWidth, screenHeight, 0x070a12).setOrigin(0, 0);
 
     // Subtle grid overlay for tactical dungeon feel
     const gridGraphics = this.add.graphics();
@@ -65,9 +65,9 @@ export class TitleScene extends Phaser.Scene {
     }
 
     // 3. Grand Title Banner
-    const titleY = 85;
+    const titleY = 95;
     const titleText = this.add.text(screenWidth / 2, titleY, 'WARDWAKE', {
-      fontSize: '36px',
+      fontSize: '38px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffd700',
@@ -86,43 +86,37 @@ export class TitleScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    const subtitleText = this.add.text(screenWidth / 2, titleY + 38, '⚔️ TACTICAL ROGUELIKE EXPEDITION ⚔️', {
+    this.add.text(screenWidth / 2, titleY + 38, '⚔️ TACTICAL ROGUELIKE ⚔️', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#38bdf8'
     }).setOrigin(0.5, 0.5);
 
-    const versionText = this.add.text(screenWidth / 2, titleY + 56, 'v1.2.0 • Data-Driven Clean Engine', {
-      fontSize: '9px',
-      fontFamily: 'monospace',
-      color: '#64748b'
-    }).setOrigin(0.5, 0.5);
-
     // 4. Menu Options Buttons
-    const btnW = 220;
+    const btnW = 200;
     const btnH = 34;
     const btnX = (screenWidth - btnW) / 2;
-    const startBtnY = 195;
-    const settingsBtnY = 240;
-    const manualBtnY = 285;
+    const startBtnY = 185;
+    const settingsBtnY = 230;
+    const manualBtnY = 275;
 
-    // A. [ START EXPEDITION ] Button
+    // A. [ NEW GAME ] Button
     const startBtn = this.add.rectangle(btnX, startBtnY, btnW, btnH, 0x1e3a8a)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x38bdf8);
-    const startText = this.add.text(screenWidth / 2, startBtnY + btnH / 2, '⚔️ START EXPEDITION', {
+    this.add.text(screenWidth / 2, startBtnY + btnH / 2, '⚔️ NEW GAME', {
       fontSize: '12px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5, 0.5);
 
-    // B. [ SETTINGS & AUDIO ] Button
+    // B. [ SETTINGS ] Button
     const settingsBtn = this.add.rectangle(btnX, settingsBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
-    const settingsText = this.add.text(screenWidth / 2, settingsBtnY + btnH / 2, '⚙️ SETTINGS & AUDIO', {
+    this.add.text(screenWidth / 2, settingsBtnY + btnH / 2, '⚙️ SETTINGS', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -133,15 +127,15 @@ export class TitleScene extends Phaser.Scene {
     const manualBtn = this.add.rectangle(btnX, manualBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
-    const manualText = this.add.text(screenWidth / 2, manualBtnY + btnH / 2, '📖 HOW TO PLAY', {
+    this.add.text(screenWidth / 2, manualBtnY + btnH / 2, '📖 HOW TO PLAY', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#cbd5e1'
     }).setOrigin(0.5, 0.5);
 
-    // Footer copyright / instructions
-    this.add.text(screenWidth / 2, screenHeight - 14, '[ENTER / SPACE] Start   [S] Settings   [H] Manual', {
+    // Footer instructions
+    this.add.text(screenWidth / 2, screenHeight - 16, '[ENTER / SPACE] Play   [S] Settings   [H] Help', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#475569'
