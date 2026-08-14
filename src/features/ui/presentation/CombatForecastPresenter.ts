@@ -14,16 +14,17 @@ export class CombatForecastPresenter {
   constructor(private scene: Phaser.Scene) {
     this.container = this.scene.add.container(0, 0);
     this.container.setDepth(100);
+    this.container.setScrollFactor(0);
     this.container.setVisible(false);
 
     // Box dimensions
-    const width = 250;
-    const height = 120;
+    const width = 280;
+    const height = 105;
 
     // Create UI elements
-    this.background = this.scene.add.rectangle(0, 0, width, height, 0x000000, 0.8)
+    this.background = this.scene.add.rectangle(0, 0, width, height, 0x111622, 0.92)
       .setOrigin(0, 0)
-      .setStrokeStyle(2, 0xffffff);
+      .setStrokeStyle(1.5, 0x4466aa);
 
     this.attackerText = this.scene.add.text(10, 10, '', {
       fontSize: '14px',

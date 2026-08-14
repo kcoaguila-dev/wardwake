@@ -125,7 +125,7 @@ export class MainGameScene extends Phaser.Scene {
     });
 
     this.hudPresenter.updateFloor(this.floorCount);
-    this.hudPresenter.updatePhase('🔵 PLAYER PHASE');
+    this.hudPresenter.updatePhase('🔵 PLAYER');
     this.hudPresenter.updateEnemies(this.enemySquad.length);
 
     // 6. Setup Input Listeners
@@ -259,7 +259,7 @@ export class MainGameScene extends Phaser.Scene {
       const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
       if (allActed) {
         this.phaseManager.advancePhase();
-        this.hudPresenter.updatePhase('🔴 ENEMY PHASE');
+        this.hudPresenter.updatePhase('🔴 ENEMY');
         this.executeEnemyPhase();
       }
     }
@@ -381,7 +381,7 @@ export class MainGameScene extends Phaser.Scene {
 
     if (!this.checkWinCondition()) {
       this.phaseManager.advancePhase();
-      this.hudPresenter.updatePhase('🔵 PLAYER PHASE');
+      this.hudPresenter.updatePhase('🔵 PLAYER');
       // Reset player acted states
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
