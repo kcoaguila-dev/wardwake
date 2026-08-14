@@ -22,6 +22,14 @@ export class ExecuteEnemyTurnUseCase {
   ) {}
 
   execute(enemyUnit: Unit, enemyCoord: TileCoordinate): EnemyTurnResult {
+    if (enemyUnit.statusTurns > 0 && (enemyUnit.statusEffect === 'SLEEP' || enemyUnit.statusEffect === 'PETRIFIED')) {
+      enemyUnit.decrementStatus();
+      return {
+        targetCoordinate: enemyCoord,
+        targetToAttack: null
+      };
+    }
+
     if (this.playerUnits.length === 0) {
       return {
         targetCoordinate: enemyCoord,

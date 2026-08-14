@@ -7,6 +7,11 @@ export interface StatGrowths {
   defense: number;
 }
 
+export enum StatusEffect {
+  SLEEP = 'SLEEP',
+  PETRIFIED = 'PETRIFIED'
+}
+
 export class Unit {
   public readonly id: string;
   public readonly name: string;
@@ -33,6 +38,10 @@ export class Unit {
   // Belly / Hunger properties
   public belly: number = 100;
   public maxBelly: number = 100;
+
+  // Status effect properties
+  public statusEffect: StatusEffect | null = null;
+  public statusTurns: number = 0;
 
   constructor(
     id: string,
@@ -120,5 +129,19 @@ export class Unit {
 
   public removeItem(itemId: string): void {
     this.inventory = this.inventory.filter(i => i.id !== itemId);
+  }
+
+  public applyStatus(effect: StatusEffect, turns: number): void {
+    this.statusEffect = effect;
+    this.statusTurns = turns;
+  }
+
+  public decrementStatus(): void {
+    if (this.statusTurns > 0) {
+      this.statusTurns--;
+      if (this.statusTurns === 0) {
+        this.statusEffect = null;
+      }
+    }
   }
 }
