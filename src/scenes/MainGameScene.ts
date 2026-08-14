@@ -7,6 +7,7 @@ import { GridPresenter } from '../features/grid/presentation/GridPresenter';
 import { InputPresenter } from '../features/ui/presentation/InputPresenter';
 import { CombatTextPresenter } from '../features/ui/presentation/CombatTextPresenter';
 import { CombatForecastPresenter } from '../features/ui/presentation/CombatForecastPresenter';
+import { MinimapPresenter } from '../features/ui/presentation/MinimapPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -26,6 +27,10 @@ class DummyAudioService implements IAudioService {
 }
 
 export class MainGameScene extends Phaser.Scene {
+  // Map Dimensions (Expanded to 18x18 for 3x3 Chunsoft Macro-Grid)
+  public static readonly MAP_WIDTH = 18;
+  public static readonly MAP_HEIGHT = 18;
+
   // Use Cases
   private phaseManager!: PhaseManagerUseCase;
   private getValidMovesUseCase!: GetValidMovesUseCase;
@@ -39,6 +44,7 @@ export class MainGameScene extends Phaser.Scene {
   private combatTextPresenter!: CombatTextPresenter;
   private hudPresenter!: HudPresenter;
   private combatForecastPresenter!: CombatForecastPresenter;
+  private minimapPresenter!: MinimapPresenter;
 
   // Domain
   private gridMap!: GridMap;
@@ -60,17 +66,23 @@ export class MainGameScene extends Phaser.Scene {
     this.pathfinder = new Pathfinder();
     this.phaseManager = new PhaseManagerUseCase();
     this.attackUnitUseCase = new AttackUnitUseCase(new DummyAudioService());
-    this.generateFloorUseCase = new GenerateFloorUseCase(10, 10);
+    this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
 
     // Presenters
     this.gridPresenter = new GridPresenter(this);
-    this.inputPresenter = new InputPresenter(this);
+    this.inputPresenter = new InputPresenter(this, MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
     this.combatTextPresenter = new CombatTextPresenter(this);
     this.hudPresenter = new HudPresenter(this);
     this.combatForecastPresenter = new CombatForecastPresenter(this);
+    this.minimapPresenter = new MinimapPresenter(this);
 
-    // Adjust Camera to make room for 40px top HUD
-    this.cameras.main.scrollY = -40;
+    // Set Camera Bounds for Expanded 18x18 Map
+    this.cameras.main.setBounds(
+      0,
+      -40,
+      MainGameScene.MAP_WIDTH * GridPresenter.TILE_SIZE,
+      MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
+    );
 
     // Load Initial Procedural Floor
     this.startFloor(1);
@@ -87,17 +99,19 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
     this.gridPresenter.clearHighlights();
 
-    // 1. Generate Procedural Layout & Dynamic Spawns
-    const enemyCount = Math.min(3, 2 + Math.floor((floorNumber - 1) / 2));
+    // 1. Generate Procedural Layout & Dynamic Spawns (3-4 Enemies on 18x18)
+    const enemyCount = Math.min(5, 3 + Math.floor((floorNumber - 1) / 2));
     const floorData = this.generateFloorUseCase.execute(2, enemyCount);
 
     this.gridMap = floorData.map;
     this.staircaseCoord = floorData.staircase;
     this.getValidMovesUseCase = new GetValidMovesUseCase(this.gridMap, this.pathfinder);
+    this.inputPresenter.setBounds(this.gridMap.width, this.gridMap.height);
 
     // 2. Draw Floor & Staircase
     this.gridPresenter.drawGrid(this.gridMap);
     this.gridPresenter.drawStaircase(this.staircaseCoord);
+    this.minimapPresenter.drawMap(this.gridMap, this.staircaseCoord);
 
     // 3. Spawn / Reset Players
     if (this.playerSquad.length === 0) {
@@ -155,6 +169,30 @@ export class MainGameScene extends Phaser.Scene {
     this.playerSquad.forEach(p => {
       p.graphic.setExhausted(false);
     });
+
+    // Center camera on the first player
+    if (this.playerSquad[0]) {
+      this.centerCameraOn(this.playerSquad[0].coord, false);
+    }
+
+    this.updateMinimap();
+  }
+
+  private centerCameraOn(coord: TileCoordinate, animate: boolean = true): void {
+    const worldX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+    const worldY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+
+    if (animate) {
+      this.cameras.main.pan(worldX, worldY, 200, 'Sine.easeInOut');
+    } else {
+      this.cameras.main.centerOn(worldX, worldY);
+    }
+  }
+
+  private updateMinimap(): void {
+    const playerCoords = this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord);
+    const enemyCoords = this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord);
+    this.minimapPresenter.updateEntities(playerCoords, enemyCoords);
   }
 
   private onTileHover(coord: TileCoordinate) {
@@ -207,6 +245,7 @@ export class MainGameScene extends Phaser.Scene {
       });
 
       this.gridPresenter.highlightWalkableArea(filteredMoves, coord);
+      this.centerCameraOn(coord);
       return;
     }
 
@@ -247,6 +286,7 @@ export class MainGameScene extends Phaser.Scene {
 
         actionTaken = true;
         this.isProcessingAction = false;
+        this.updateMinimap();
       }
     } else {
       // 3. Try to move to the empty valid tile
@@ -264,8 +304,10 @@ export class MainGameScene extends Phaser.Scene {
         this.combatForecastPresenter.hide();
         selectedPlayer.coord = coord;
         await selectedPlayer.graphic.moveTo(coord);
+        this.centerCameraOn(coord);
         actionTaken = true;
         this.isProcessingAction = false;
+        this.updateMinimap();
       }
     }
 
@@ -331,6 +373,7 @@ export class MainGameScene extends Phaser.Scene {
           // Move enemy and await the movement tween to complete
           enemyData.coord = result.targetCoordinate;
           await enemyData.graphic.moveTo(enemyData.coord);
+          this.updateMinimap();
 
           // Attack player if adjacent
           if (result.targetToAttack) {
@@ -361,6 +404,7 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     this.isProcessingAction = false;
+    this.updateMinimap();
 
     if (!this.checkWinCondition()) {
       this.phaseManager.advancePhase();
@@ -373,6 +417,12 @@ export class MainGameScene extends Phaser.Scene {
           p.graphic.setExhausted(false);
         }
       });
+
+      // Center camera back on active player
+      const nextActivePlayer = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
+      if (nextActivePlayer) {
+        this.centerCameraOn(nextActivePlayer.coord);
+      }
     }
   }
 }

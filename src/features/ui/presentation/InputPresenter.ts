@@ -3,10 +3,19 @@ import { TileCoordinate } from "../../grid/domain/TileCoordinate";
 
 export class InputPresenter {
   private lastHoveredTile: TileCoordinate | null = null;
+  private mapWidth: number = 18;
+  private mapHeight: number = 18;
 
-  constructor(private scene: Phaser.Scene) {
+  constructor(private scene: Phaser.Scene, width: number = 18, height: number = 18) {
+    this.mapWidth = width;
+    this.mapHeight = height;
     this.scene.input.on("pointerdown", this.handlePointerDown, this);
     this.scene.input.on("pointermove", this.handlePointerMove, this);
+  }
+
+  public setBounds(width: number, height: number): void {
+    this.mapWidth = width;
+    this.mapHeight = height;
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
@@ -14,7 +23,7 @@ export class InputPresenter {
     const tileX = Math.floor(worldPoint.x / 32);
     const tileY = Math.floor(worldPoint.y / 32);
 
-    if (tileX < 0 || tileX >= 10 || tileY < 0 || tileY >= 10) {
+    if (tileX < 0 || tileX >= this.mapWidth || tileY < 0 || tileY >= this.mapHeight) {
       return;
     }
 
@@ -27,7 +36,7 @@ export class InputPresenter {
     const tileX = Math.floor(worldPoint.x / 32);
     const tileY = Math.floor(worldPoint.y / 32);
 
-    if (tileX < 0 || tileX >= 10 || tileY < 0 || tileY >= 10) {
+    if (tileX < 0 || tileX >= this.mapWidth || tileY < 0 || tileY >= this.mapHeight) {
       if (this.lastHoveredTile) {
         this.lastHoveredTile = null;
         this.scene.events.emit("ON_TILE_HOVER", new TileCoordinate(-1, -1));
