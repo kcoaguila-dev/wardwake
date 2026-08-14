@@ -4,6 +4,7 @@ export class HudPresenter {
   private floorText: Phaser.GameObjects.Text;
   private phaseText: Phaser.GameObjects.Text;
   private enemiesText: Phaser.GameObjects.Text;
+  private endTurnButton: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene) {
     const graphics = this.scene.add.graphics();
@@ -32,6 +33,29 @@ export class HudPresenter {
     this.enemiesText = this.scene.add.text(215, 12, '⚔️ Left: 0', fontStyle);
     this.enemiesText.setScrollFactor(0);
     this.enemiesText.setDepth(11);
+
+    // Create [⏳ END TURN] button
+    this.endTurnButton = this.scene.add.text(8, 48, '[⏳ END TURN]', {
+      ...fontStyle,
+      color: '#fbbf24', // Golden color for interactivity
+      backgroundColor: '#1e293b',
+      padding: { x: 4, y: 2 }
+    });
+    this.endTurnButton.setScrollFactor(0);
+    this.endTurnButton.setDepth(11);
+    this.endTurnButton.setInteractive({ useHandCursor: true });
+
+    this.endTurnButton.on('pointerdown', () => {
+      this.scene.events.emit('ON_END_TURN_CLICKED');
+    });
+
+    this.endTurnButton.on('pointerover', () => {
+      this.endTurnButton.setStyle({ color: '#ffffff' });
+    });
+
+    this.endTurnButton.on('pointerout', () => {
+      this.endTurnButton.setStyle({ color: '#fbbf24' });
+    });
   }
 
   updateFloor(floor: number): void {

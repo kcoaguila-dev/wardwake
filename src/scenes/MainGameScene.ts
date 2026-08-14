@@ -19,6 +19,7 @@ import { IAudioService } from '../features/combat/application/ports/IAudioServic
 import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
 import { HudPresenter } from '../features/ui/presentation/HudPresenter';
+import { FollowFormationCalculator } from '../features/ai/domain/FollowFormationCalculator';
 
 class DummyAudioService implements IAudioService {
   playSound(soundId: string): void {
@@ -49,6 +50,7 @@ export class MainGameScene extends Phaser.Scene {
   // Domain
   private gridMap!: GridMap;
   private pathfinder!: Pathfinder;
+  private followFormationCalculator!: FollowFormationCalculator;
 
   // State
   private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
@@ -64,6 +66,7 @@ export class MainGameScene extends Phaser.Scene {
 
   create() {
     this.pathfinder = new Pathfinder();
+    this.followFormationCalculator = new FollowFormationCalculator(this.pathfinder);
     this.phaseManager = new PhaseManagerUseCase();
     this.attackUnitUseCase = new AttackUnitUseCase(new DummyAudioService());
     this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
@@ -90,6 +93,82 @@ export class MainGameScene extends Phaser.Scene {
     // Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
     this.events.on('ON_TILE_HOVER', this.onTileHover, this);
+    this.events.on('ON_END_TURN_CLICKED', this.onEndTurnClicked, this);
+
+    // Setup Keyboard Listeners for Unit Cycling
+    if (this.input.keyboard) {
+      this.input.keyboard.on('keydown-TAB', (event: KeyboardEvent) => {
+        event.preventDefault();
+        this.cycleToNextUnactedPlayer();
+      });
+      this.input.keyboard.on('keydown-SPACE', (event: KeyboardEvent) => {
+        event.preventDefault();
+        this.cycleToNextUnactedPlayer();
+      });
+    }
+  }
+
+  private cycleToNextUnactedPlayer(): void {
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    const unactedPlayers = this.playerSquad.map((p, index) => ({ p, index })).filter(item => item.p.unit.currentHp > 0 && !item.p.hasActed);
+
+    if (unactedPlayers.length === 0) {
+      return;
+    }
+
+    let nextIndex = 0;
+    if (this.selectedPlayerIndex !== null) {
+      const currentIndexInUnacted = unactedPlayers.findIndex(item => item.index === this.selectedPlayerIndex);
+      if (currentIndexInUnacted !== -1) {
+        nextIndex = (currentIndexInUnacted + 1) % unactedPlayers.length;
+      }
+    }
+
+    const nextItem = unactedPlayers[nextIndex];
+    if (!nextItem) return;
+
+    this.selectedPlayerIndex = nextItem.index;
+    const selectedPlayer = nextItem.p;
+
+    this.combatForecastPresenter.hide();
+
+    const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3); // 3 move range
+
+    // Filter out tiles occupied by other alive units
+    const filteredMoves = validMoves.filter(move => {
+      const hasOtherPlayer = this.playerSquad.some((p, i) => i !== nextItem.index && p.unit.currentHp > 0 && p.coord.equals(move));
+      const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
+      return !hasOtherPlayer && !hasEnemy;
+    });
+
+    this.gridPresenter.highlightWalkableArea(filteredMoves, selectedPlayer.coord);
+    this.centerCameraOn(selectedPlayer.coord);
+  }
+
+  private onEndTurnClicked(): void {
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    // Set all alive players to acted and exhaust them
+    this.playerSquad.forEach(p => {
+      if (p.unit.currentHp > 0 && !p.hasActed) {
+        p.hasActed = true;
+        p.graphic.setExhausted(true);
+      }
+    });
+
+    this.selectedPlayerIndex = null;
+    this.gridPresenter.clearHighlights();
+    this.combatForecastPresenter.hide();
+
+    // Advance to enemy phase
+    this.phaseManager.advancePhase();
+    this.hudPresenter.updatePhase('🔴 ENEMY');
+    this.executeEnemyPhase();
   }
 
   private startFloor(floorNumber: number): void {
@@ -230,22 +309,25 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 1. If clicking on an active, unacted player unit, select it
-    const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed && p.coord.equals(coord));
+    // 1. If clicking on an active player unit, select them (if unacted) and pan
+    const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
-      this.selectedPlayerIndex = clickedPlayerIndex;
-      this.combatForecastPresenter.hide();
-      const validMoves = this.getValidMovesUseCase.execute(coord, 3); // 3 move range
+      this.centerCameraOn(coord); // Pan the camera immediately to the clicked ally
+      const clickedPlayer = this.playerSquad[clickedPlayerIndex];
+      if (clickedPlayer && !clickedPlayer.hasActed) {
+        this.selectedPlayerIndex = clickedPlayerIndex;
+        this.combatForecastPresenter.hide();
+        const validMoves = this.getValidMovesUseCase.execute(coord, 3); // 3 move range
 
-      // Filter out tiles occupied by other alive units
-      const filteredMoves = validMoves.filter(move => {
-        const hasOtherPlayer = this.playerSquad.some((p, i) => i !== clickedPlayerIndex && p.unit.currentHp > 0 && p.coord.equals(move));
-        const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-        return !hasOtherPlayer && !hasEnemy;
-      });
+        // Filter out tiles occupied by other alive units
+        const filteredMoves = validMoves.filter(move => {
+          const hasOtherPlayer = this.playerSquad.some((p, i) => i !== clickedPlayerIndex && p.unit.currentHp > 0 && p.coord.equals(move));
+          const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
+          return !hasOtherPlayer && !hasEnemy;
+        });
 
-      this.gridPresenter.highlightWalkableArea(filteredMoves, coord);
-      this.centerCameraOn(coord);
+        this.gridPresenter.highlightWalkableArea(filteredMoves, coord);
+      }
       return;
     }
 
@@ -259,6 +341,7 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     let actionTaken = false;
+    let leaderPreviousCoord: TileCoordinate | null = null;
 
     // 2. If clicking on an alive enemy within melee range, execute attack
     const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
@@ -302,6 +385,7 @@ export class MainGameScene extends Phaser.Scene {
       if (isReachable) {
         this.isProcessingAction = true;
         this.combatForecastPresenter.hide();
+        leaderPreviousCoord = selectedPlayer.coord;
         selectedPlayer.coord = coord;
         await selectedPlayer.graphic.moveTo(coord);
         this.centerCameraOn(coord);
@@ -322,12 +406,58 @@ export class MainGameScene extends Phaser.Scene {
         return;
       }
 
+      // Auto-Follow / Party March logic
+      if (leaderPreviousCoord) {
+        await this.handlePartyMarch(leaderPreviousCoord);
+      }
+
       // Check if all active players have acted
       const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
       if (allActed) {
         this.phaseManager.advancePhase();
         this.hudPresenter.updatePhase('🔴 ENEMY');
         this.executeEnemyPhase();
+      } else {
+        // Auto-Focus Next Active Hero if there are still players left to act
+        const nextUnactedPlayer = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
+        if (nextUnactedPlayer) {
+          this.cycleToNextUnactedPlayer();
+        }
+      }
+    }
+  }
+
+  private async handlePartyMarch(leaderPreviousCoord: TileCoordinate): Promise<void> {
+    const unactedCompanions = this.playerSquad.filter(p => p.unit.currentHp > 0 && !p.hasActed);
+    const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord);
+    const maxMovement = 3; // Hardcoded default movement for now
+
+    for (const companion of unactedCompanions) {
+      const occupiedTiles = [
+        ...this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord),
+        ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
+      ];
+
+      const targetCoord = this.followFormationCalculator.calculateFollowerDestination(
+        companion.coord,
+        leaderPreviousCoord,
+        aliveEnemies,
+        occupiedTiles,
+        this.gridMap,
+        maxMovement
+      );
+
+      if (targetCoord && !targetCoord.equals(companion.coord)) {
+        this.isProcessingAction = true;
+        companion.coord = targetCoord;
+        await companion.graphic.moveTo(targetCoord);
+        companion.hasActed = true;
+        companion.graphic.setExhausted(true);
+        this.isProcessingAction = false;
+        this.updateMinimap();
+
+        // Update leaderPreviousCoord for the next companion to follow the "trail"
+        leaderPreviousCoord = targetCoord;
       }
     }
   }

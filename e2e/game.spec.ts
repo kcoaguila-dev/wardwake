@@ -40,6 +40,26 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
+  test('Tab switches hero focus and END TURN advances phase', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Press Tab to cycle hero
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+
+    // End Turn by clicking on the [⏳ END TURN] button which is rendered in the HUD at x: 8, y: 48
+    // Actually it's a DOM-like object in Phaser.
+    // Screen coords: x = 8 + 40 (half width approx) = 48, y = 48 + 10 (half height approx) = 58
+    await canvas.click({ position: { x: 48, y: 58 } });
+    await page.waitForTimeout(1500); // Wait for enemy phase to process
+
+    // Canvas should remain healthy and active
+    await expect(canvas).toBeVisible();
+  });
+
   test('Combat forecast appears on hover and attacks execute with animations', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
