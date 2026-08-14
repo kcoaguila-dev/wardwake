@@ -5,6 +5,7 @@ import { TileCoordinate } from '../../grid/domain/TileCoordinate';
 import { GridPresenter } from '../../grid/presentation/GridPresenter';
 
 export class UnitPresenter {
+  private container: Phaser.GameObjects.Container;
   private sprite: Phaser.GameObjects.Sprite;
   private healthBar: Phaser.GameObjects.Graphics;
 
@@ -25,41 +26,41 @@ export class UnitPresenter {
     const x = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
     const y = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
-    this.sprite = this.scene.add.sprite(x, y, textureKey);
+    this.container = this.scene.add.container(x, y);
+    this.container.setDepth(2);
+
+    this.sprite = this.scene.add.sprite(0, 0, textureKey);
     this.sprite.setScale(2);
-    this.sprite.setDepth(2);
 
     this.healthBar = this.scene.add.graphics();
     this.healthBar.setDepth(3);
-    this.healthBar.setPosition(x, y);
+
+    this.container.add([this.sprite, this.healthBar]);
+
+    this.updateHp(unit.currentHp, unit.maxHp);
   }
 
   moveTo(coord: TileCoordinate): void {
     const targetX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
     const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
-    this.sprite.setVisible(true);
+    this.container.setVisible(true);
+    this.scene.tweens.killTweensOf(this.container);
 
     this.scene.tweens.add({
-      targets: this.sprite,
+      targets: this.container,
       x: targetX,
       y: targetY,
       duration: 150,
-      ease: 'Sine.easeInOut'
-    });
-
-    this.scene.tweens.add({
-      targets: this.healthBar,
-      x: targetX,
-      y: targetY,
-      duration: 150,
-      ease: 'Sine.easeInOut'
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.container.setPosition(targetX, targetY);
+      }
     });
   }
 
   clear(): void {
-    this.sprite.setVisible(false);
-    this.healthBar.setVisible(false);
+    this.container.setVisible(false);
   }
 
   setTint(color: number): void {
@@ -68,19 +69,19 @@ export class UnitPresenter {
 
   updateHp(currentHp: number, maxHp: number): void {
     this.healthBar.clear();
-    this.healthBar.setVisible(true);
-
     if (currentHp <= 0) {
+      this.healthBar.setVisible(false);
       return;
     }
 
+    this.healthBar.setVisible(true);
     const hpRatio = Math.max(0, Math.min(1, currentHp / maxHp));
 
     let color = 0x00ff00; // Green
     if (hpRatio <= 0.25) {
-      color = 0xff0000; // Red
+      color = 0xff3b30; // Red
     } else if (hpRatio <= 0.5) {
-      color = 0xffff00; // Yellow
+      color = 0xffcc00; // Yellow
     }
 
     const barWidth = 24;
@@ -88,9 +89,9 @@ export class UnitPresenter {
     const offsetX = -barWidth / 2;
     const offsetY = -20;
 
-    // Draw background (black)
-    this.healthBar.fillStyle(0x000000, 1);
-    this.healthBar.fillRect(offsetX, offsetY, barWidth, barHeight);
+    // Draw background border & fill
+    this.healthBar.fillStyle(0x000000, 0.85);
+    this.healthBar.fillRect(offsetX - 1, offsetY - 1, barWidth + 2, barHeight + 2);
 
     // Draw fill
     this.healthBar.fillStyle(color, 1);
@@ -99,17 +100,14 @@ export class UnitPresenter {
 
   animateAttack(targetCoord: TileCoordinate): Promise<void> {
     return new Promise((resolve) => {
-      const startX = this.sprite.x;
-      const startY = this.sprite.y;
+      const targetWorldX = targetCoord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const targetWorldY = targetCoord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
-      const targetX = targetCoord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-      const targetY = targetCoord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-
-      const angle = Phaser.Math.Angle.Between(startX, startY, targetX, targetY);
+      const angle = Phaser.Math.Angle.Between(this.container.x, this.container.y, targetWorldX, targetWorldY);
       const lungeDistance = 8;
 
-      const lungeX = startX + Math.cos(angle) * lungeDistance;
-      const lungeY = startY + Math.sin(angle) * lungeDistance;
+      const lungeX = Math.cos(angle) * lungeDistance;
+      const lungeY = Math.sin(angle) * lungeDistance;
 
       this.scene.tweens.add({
         targets: this.sprite,
@@ -119,7 +117,7 @@ export class UnitPresenter {
         yoyo: true,
         ease: 'Sine.easeInOut',
         onComplete: () => {
-          this.sprite.setPosition(startX, startY);
+          this.sprite.setPosition(0, 0);
           resolve();
         }
       });
@@ -128,17 +126,15 @@ export class UnitPresenter {
 
   animateHit(): Promise<void> {
     return new Promise((resolve) => {
-      const originalX = this.sprite.x;
-
       this.scene.tweens.add({
         targets: this.sprite,
-        x: originalX + 2,
+        x: 2,
         duration: 20,
         yoyo: true,
         repeat: 3,
         ease: 'Sine.easeInOut',
         onComplete: () => {
-          this.sprite.setX(originalX);
+          this.sprite.setPosition(0, 0);
           resolve();
         }
       });
@@ -150,9 +146,9 @@ export class UnitPresenter {
         this.sprite.setTint(0xff0000);
         this.scene.time.delayedCall(50, () => {
           if (originalTint === 0xffffff) {
-              this.sprite.clearTint();
+            this.sprite.clearTint();
           } else {
-              this.sprite.setTint(originalTint);
+            this.sprite.setTint(originalTint);
           }
         });
       });
