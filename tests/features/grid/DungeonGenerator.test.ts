@@ -19,6 +19,8 @@ describe("DungeonGenerator", () => {
         const r1 = rooms[i];
         const r2 = rooms[j];
 
+        if (!r1 || !r2) continue;
+
         const overlap = !(
           r1.x >= r2.x + r2.width ||
           r1.x + r1.width <= r2.x ||

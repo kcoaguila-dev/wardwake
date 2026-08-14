@@ -143,6 +143,10 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
+    if (!selectedPlayer) {
+      return;
+    }
+
     let actionTaken = false;
 
     // 2. If clicking on an alive enemy, try to attack
@@ -229,8 +233,8 @@ export class MainGameScene extends Phaser.Scene {
 
   private resetFloor() {
     // Reset players
-    this.playerSquad[0].coord = new TileCoordinate(1, 1);
-    this.playerSquad[1].coord = new TileCoordinate(1, 2);
+    this.playerSquad[0]!.coord = new TileCoordinate(1, 1);
+    this.playerSquad[1]!.coord = new TileCoordinate(1, 2);
 
     this.playerSquad.forEach(p => {
       p.unit.currentHp = p.unit.maxHp;
@@ -240,8 +244,8 @@ export class MainGameScene extends Phaser.Scene {
     });
 
     // Reset enemies
-    this.enemySquad[0].coord = new TileCoordinate(8, 7);
-    this.enemySquad[1].coord = new TileCoordinate(8, 8);
+    this.enemySquad[0]!.coord = new TileCoordinate(8, 7);
+    this.enemySquad[1]!.coord = new TileCoordinate(8, 8);
 
     this.enemySquad.forEach(e => {
       e.unit.currentHp = e.unit.maxHp;
