@@ -32,6 +32,24 @@ export class HudPresenter {
     this.enemiesText = this.scene.add.text(215, 12, '⚔️ Left: 0', fontStyle);
     this.enemiesText.setScrollFactor(0);
     this.enemiesText.setDepth(11);
+
+    const endTurnText = this.scene.add.text(285, 12, '[⏳ END TURN]', fontStyle);
+    endTurnText.setScrollFactor(0);
+    endTurnText.setDepth(11);
+    endTurnText.setOrigin(1, 0);
+    endTurnText.setInteractive({ useHandCursor: true });
+
+    endTurnText.on('pointerover', () => {
+      endTurnText.setColor('#ffff00');
+    });
+
+    endTurnText.on('pointerout', () => {
+      endTurnText.setColor('#e2e8f0');
+    });
+
+    endTurnText.on('pointerdown', () => {
+      this.scene.events.emit('ON_END_TURN_CLICKED');
+    });
   }
 
   updateFloor(floor: number): void {

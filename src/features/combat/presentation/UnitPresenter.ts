@@ -11,6 +11,7 @@ export class UnitPresenter {
   private healthBar: Phaser.GameObjects.Graphics;
   private isExhausted: boolean = false;
   private isPlayer: boolean;
+  private isSelected: boolean = false;
 
   constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate, isPlayer: boolean = true) {
     this.isPlayer = isPlayer;
@@ -61,8 +62,16 @@ export class UnitPresenter {
     this.factionRing.fillStyle(ringColor, alpha);
     this.factionRing.fillEllipse(0, 11, 20, 9);
 
-    this.factionRing.lineStyle(1.5, borderColor, this.isExhausted ? 0.4 : 0.95);
+    const activeBorderColor = this.isSelected ? 0xffff00 : borderColor;
+    const borderThickness = this.isSelected ? 2.5 : 1.5;
+
+    this.factionRing.lineStyle(borderThickness, activeBorderColor, this.isExhausted ? 0.4 : 0.95);
     this.factionRing.strokeEllipse(0, 11, 20, 9);
+  }
+
+  public setSelected(selected: boolean): void {
+    this.isSelected = selected;
+    this.drawFactionRing();
   }
 
   public setExhausted(exhausted: boolean): void {
