@@ -31,12 +31,12 @@ export class GenerateFloorUseCase {
     // Shuffle the walkable coordinates to pick random ones
     for (let i = walkableCoords.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [walkableCoords[i], walkableCoords[j]] = [walkableCoords[j], walkableCoords[i]];
+      [walkableCoords[i], walkableCoords[j]] = [walkableCoords[j]!, walkableCoords[i]!];
     }
 
-    const playerSpawn = walkableCoords[0];
-    const enemySpawn = walkableCoords[1];
-    const staircase = walkableCoords[2];
+    const playerSpawn = walkableCoords[0]!;
+    const enemySpawn = walkableCoords[1]!;
+    const staircase = walkableCoords[2]!;
 
     return { map, playerSpawn, enemySpawn, staircase };
   }

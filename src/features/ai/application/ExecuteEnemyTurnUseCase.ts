@@ -95,6 +95,10 @@ export class ExecuteEnemyTurnUseCase {
       }
 
       const nextCoord = path[i];
+      if (!nextCoord) {
+        break;
+      }
+
       if (nextCoord.equals(closestPlayer.coord)) {
         // we are adjacent to the player (this step would land on the player)
         targetToAttack = closestPlayer.unit;
