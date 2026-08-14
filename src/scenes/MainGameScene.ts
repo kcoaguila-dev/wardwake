@@ -39,6 +39,8 @@ import { GameDatabase } from '../core/domain/GameDatabase';
 import { Trap, TrapType } from '../features/traps/domain/Trap';
 import { TrapRepository } from '../features/traps/domain/TrapRepository';
 import { TrapPresenter } from '../features/traps/presentation/TrapPresenter';
+import { GamepadInputService, GamepadAction } from '../features/ui/infrastructure/GamepadInputService';
+import { VirtualPadPresenter } from '../features/ui/presentation/VirtualPadPresenter';
 
 export class MainGameScene extends Phaser.Scene {
   // Map Dimensions (Expansive 24x24 for 3x3 Chunsoft Macro-Grid with Winding Hallways)
@@ -71,6 +73,12 @@ export class MainGameScene extends Phaser.Scene {
   private settingsModalPresenter!: SettingsModalPresenter;
   private trapPresenter!: TrapPresenter;
   private fogPresenter!: FogPresenter;
+  private virtualPadPresenter!: VirtualPadPresenter;
+
+  // Input
+  private gamepadInputService!: GamepadInputService;
+  private isBButtonDown: boolean = false;
+  private virtualBButtonDown: boolean = false;
 
   // Audio
   private audioService!: WebAudioSynthService;
@@ -189,6 +197,17 @@ export class MainGameScene extends Phaser.Scene {
     this.events.on('ON_TILE_HOVER', this.onTileHover, this);
     this.events.on('ON_END_TURN_CLICKED', this.onEndTurnClicked, this);
 
+    this.gamepadInputService = new GamepadInputService((action) => this.handleGamepadAction(action));
+    this.virtualPadPresenter = new VirtualPadPresenter(this);
+
+    this.events.on('VIRTUAL_PAD_ACTION', (action: GamepadAction) => this.handleGamepadAction(action));
+    this.events.on('VIRTUAL_PAD_ACTION_DOWN', (action: GamepadAction) => {
+        if (action === 'B') this.virtualBButtonDown = true;
+    });
+    this.events.on('VIRTUAL_PAD_ACTION_UP', (action: GamepadAction) => {
+        if (action === 'B') this.virtualBButtonDown = false;
+    });
+
     // Tab key to cycle / switch active heroes
     this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
       event.preventDefault();
@@ -272,6 +291,88 @@ export class MainGameScene extends Phaser.Scene {
         }
       }
     });
+  }
+
+  update(time: number, delta: number) {
+    if (this.gamepadInputService) {
+        this.gamepadInputService.update(time);
+        this.isBButtonDown = this.virtualBButtonDown || this.gamepadInputService.isActionPressed('B');
+    }
+  }
+
+  private handleGamepadAction(action: GamepadAction): void {
+    if (this.settingsModalPresenter.isVisible()) {
+      if (action === 'B') {
+        this.settingsModalPresenter.hide();
+      }
+      return;
+    }
+
+    if (this.runSummaryModalPresenter.isVisible()) {
+      if (action === 'A') {
+        this.runSummaryModalPresenter.onRestart?.();
+      }
+      return;
+    }
+
+    if (this.stairsModalPresenter.isVisible()) {
+      if (action === 'A') {
+        this.stairsModalPresenter.onDescend?.();
+      } else if (action === 'B') {
+        this.stairsModalPresenter.onStay?.();
+      }
+      return;
+    }
+
+    if (action === 'B') {
+        this.cancelActionMenu();
+        // Shift hold is handled by isBButtonDown polling in update
+    }
+
+    if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) return;
+
+    const isShift = this.isBButtonDown; // Use B button state for sprint
+
+    if (action === 'UP') this.handleKeyboardStep(0, -1, isShift);
+    else if (action === 'DOWN') this.handleKeyboardStep(0, 1, isShift);
+    else if (action === 'LEFT') this.handleKeyboardStep(-1, 0, isShift);
+    else if (action === 'RIGHT') this.handleKeyboardStep(1, 0, isShift);
+    else if (action === 'A') {
+      if (this.isMenuOpen) {
+        // If ActionMenu is open, assuming 'A' can confirm the currently selected option, but ActionMenu doesn't have selection yet
+        // In this architecture, we might just default to wait if 'A' is pressed or map 'X' to wait
+      } else {
+        const activeHero = this.getActiveHero();
+        if (activeHero) {
+          // Confirm/Interact
+          if (this.isEncounterActive) {
+              this.showActionMenuForPlayer(activeHero);
+          } else {
+              this.finalizePlayerTurn(activeHero);
+          }
+        }
+      }
+    }
+    else if (action === 'X') {
+        // Wait Turn
+        if (this.isMenuOpen) {
+            this.actionMenuPresenter.onWait?.();
+        } else {
+            const activeHero = this.getActiveHero();
+            if (activeHero) {
+                this.finalizePlayerTurn(activeHero);
+            }
+        }
+    }
+    else if (action === 'Y') {
+        const activeHero = this.getActiveHero();
+        if (activeHero) {
+            this.showInventoryMenu(activeHero);
+        }
+    }
+    else if (action === 'LB' || action === 'RB') {
+        this.cycleNextHero();
+    }
   }
 
   private async cancelActionMenu(): Promise<void> {
