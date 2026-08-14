@@ -7,7 +7,7 @@ export class WebAudioSynthService implements IAudioService {
   public sfxVolume: number = 0.8;
 
   private bgmIntervalId: any = null;
-  private currentBgmMode: 'title' | 'explore' | 'combat' | null = null;
+  private currentBgmMode: 'title' | 'explore' | 'combat' | 'town' | null = null;
   private bgmStep: number = 0;
   private bgmGain: GainNode | null = null;
 
@@ -67,7 +67,7 @@ export class WebAudioSynthService implements IAudioService {
     this.saveSettings();
   }
 
-  public startBgm(mode: 'title' | 'explore' | 'combat'): void {
+  public startBgm(mode: 'title' | 'explore' | 'combat' | 'town'): void {
     if (this.currentBgmMode === mode && this.bgmIntervalId) return;
     this.stopBgm();
     this.currentBgmMode = mode;
