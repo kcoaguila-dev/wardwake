@@ -116,7 +116,7 @@ export class MainGameScene extends Phaser.Scene {
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
   }
 
-  private onTileClicked(coord: TileCoordinate) {
+  private async onTileClicked(coord: TileCoordinate) {
     if (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       return;
     }
@@ -158,7 +158,11 @@ export class MainGameScene extends Phaser.Scene {
 
         const screenX = coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
         const screenY = coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
-        this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt);
+
+        await selectedPlayer.graphic.animateAttack(clickedEnemy.coord);
+        await clickedEnemy.graphic.animateHit();
+
+        this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
 
         if (summary.isFatal) {
           clickedEnemy.graphic.clear();
@@ -273,7 +277,7 @@ export class MainGameScene extends Phaser.Scene {
     for (const enemyData of aliveEnemies) {
       // Small delay between enemy actions
       await new Promise<void>(resolve => {
-        this.time.delayedCall(500, () => {
+        this.time.delayedCall(500, async () => {
           // Re-update player info for the use case in case someone died or moved
           const playerInfos = this.playerSquad
             .filter(p => p.unit.currentHp > 0)
@@ -295,7 +299,11 @@ export class MainGameScene extends Phaser.Scene {
 
               const screenX = targetPlayer.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
               const screenY = targetPlayer.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
-              this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt);
+
+              await enemyData.graphic.animateAttack(targetPlayer.coord);
+              await targetPlayer.graphic.animateHit();
+
+              this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
 
               if (summary.isFatal) {
                 targetPlayer.graphic.clear();
