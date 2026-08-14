@@ -22,6 +22,10 @@ export class Unit {
   public level: number = 1;
   public statGrowths: StatGrowths = { hp: 0.8, attack: 0.6, defense: 0.4 };
 
+  // Belly / Hunger properties
+  public belly: number = 100;
+  public maxBelly: number = 100;
+
   constructor(
     id: string,
     name: string,
@@ -45,10 +49,8 @@ export class Unit {
    * @returns boolean true if the unit dies as a result of this damage, false otherwise.
    */
   public applyDamage(amount: number): boolean {
-    // Ensure amount is at least 0 (no negative damage)
     const damageToApply = Math.max(0, amount);
     this.currentHp = Math.max(0, this.currentHp - damageToApply);
-
     return this.currentHp === 0;
   }
 
@@ -68,6 +70,25 @@ export class Unit {
   public buffAttack(amount: number): void {
     if (amount < 0) return;
     this.attack += amount;
+  }
+
+  /**
+   * Decreases belly fullness per step.
+   * @param amount The amount of belly to decrease.
+   * @returns boolean true if the unit is starving (belly === 0).
+   */
+  public decreaseBelly(amount: number = 1): boolean {
+    this.belly = Math.max(0, this.belly - amount);
+    return this.belly === 0;
+  }
+
+  /**
+   * Restores belly to the unit, clamped to maxBelly.
+   * @param amount The amount of food restored.
+   */
+  public feed(amount: number): void {
+    if (amount < 0) return;
+    this.belly = Math.min(this.maxBelly, this.belly + amount);
   }
 
   /**

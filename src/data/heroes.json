@@ -3,18 +3,18 @@
     "id": "hero_sword_fighter",
     "name": "Sword Fighter",
     "weaponType": "SWORD",
-    "baseHp": 20,
-    "baseAttack": 5,
+    "baseHp": 24,
+    "baseAttack": 8,
     "baseDefense": 2,
-    "startingInventory": ["vulnerary"]
+    "startingInventory": ["vulnerary", "big_apple"]
   },
   {
     "id": "hero_lance_knight",
     "name": "Lance Knight",
     "weaponType": "LANCE",
     "baseHp": 22,
-    "baseAttack": 6,
+    "baseAttack": 8,
     "baseDefense": 3,
-    "startingInventory": ["vulnerary"]
+    "startingInventory": ["vulnerary", "big_apple"]
   }
 ]

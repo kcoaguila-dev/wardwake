@@ -51,8 +51,8 @@ describe('Generic DataRegistry & GameDatabase', () => {
       const hero = GameDatabase.createHeroUnit('hero_sword_fighter', 'player_1');
       expect(hero.id).toBe('player_1');
       expect(hero.name).toBe('Sword Fighter');
-      expect(hero.maxHp).toBe(20);
-      expect(hero.attack).toBe(5);
+      expect(hero.maxHp).toBe(24);
+      expect(hero.attack).toBe(8);
       expect(hero.defense).toBe(2);
       expect(hero.weaponType).toBe(WeaponType.SWORD);
     });

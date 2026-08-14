@@ -10,6 +10,7 @@ import { CombatForecastPresenter } from '../features/ui/presentation/CombatForec
 import { MinimapPresenter } from '../features/ui/presentation/MinimapPresenter';
 import { ActionMenuPresenter } from '../features/ui/presentation/ActionMenuPresenter';
 import { InventoryMenuPresenter } from '../features/ui/presentation/InventoryMenuPresenter';
+import { PartyHudPresenter } from '../features/ui/presentation/PartyHudPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -53,6 +54,7 @@ export class MainGameScene extends Phaser.Scene {
   private inputPresenter!: InputPresenter;
   private combatTextPresenter!: CombatTextPresenter;
   private hudPresenter!: HudPresenter;
+  private partyHudPresenter!: PartyHudPresenter;
   private combatForecastPresenter!: CombatForecastPresenter;
   private minimapPresenter!: MinimapPresenter;
   private actionMenuPresenter!: ActionMenuPresenter;
@@ -79,6 +81,8 @@ export class MainGameScene extends Phaser.Scene {
   private isMenuOpen: boolean = false;
   private isTargeting: boolean = false;
   private isEncounterActive: boolean = false;
+  private stepCount: number = 0;
+  private shiftKey: Phaser.Input.Keyboard.Key | undefined = undefined;
 
   constructor() {
     super('MainGameScene');
@@ -102,6 +106,9 @@ export class MainGameScene extends Phaser.Scene {
     this.combatTextPresenter = new CombatTextPresenter(this);
     this.hudPresenter = new HudPresenter(this);
     this.hudPresenter.setOnMuteToggle(() => this.audioService.toggleMute());
+    this.partyHudPresenter = new PartyHudPresenter(this);
+    this.partyHudPresenter.onSelectHero = (idx) => this.selectHeroByIndex(idx);
+
     this.combatForecastPresenter = new CombatForecastPresenter(this);
     this.minimapPresenter = new MinimapPresenter(this);
     this.actionMenuPresenter = new ActionMenuPresenter(this);
@@ -115,6 +122,9 @@ export class MainGameScene extends Phaser.Scene {
       MainGameScene.MAP_WIDTH * GridPresenter.TILE_SIZE,
       MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
     );
+
+    // Shift Key for Corridor Sprinting
+    this.shiftKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
 
     // Load Initial Procedural Floor
     this.startFloor(1);
@@ -139,7 +149,7 @@ export class MainGameScene extends Phaser.Scene {
       }
     });
 
-    // WASD & Arrow Keys for tactical exploration movement
+    // WASD & Arrow Keys for tactical exploration & sprinting
     const handleDirectionalMove = (dx: number, dy: number) => {
       this.handleKeyboardStep(dx, dy);
     };
@@ -166,7 +176,7 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private getActiveHero() {
-    if (this.selectedPlayerIndex !== null) {
+    if (this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
       return this.playerSquad[this.selectedPlayerIndex];
     }
     return this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
@@ -186,13 +196,19 @@ export class MainGameScene extends Phaser.Scene {
     const player = this.playerSquad[this.selectedPlayerIndex];
     if (!player || player.hasActed || player.unit.currentHp <= 0) return;
 
+    // Check if player is holding Shift for Corridor Sprint
+    if (this.shiftKey?.isDown && !this.isEncounterActive) {
+      await this.handleCorridorSprint(player, dx, dy);
+      return;
+    }
+
     const targetCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
 
     if (!this.gridMap.isWalkable(targetCoord)) {
       return;
     }
 
-    // 1. Check for Friendly Position Swap (Mystery Dungeon & Shiren standard)
+    // 1. Check for Friendly Position Swap
     const allyAtTarget = this.playerSquad.find(p => p.unit.id !== player.unit.id && p.unit.currentHp > 0 && p.coord.equals(targetCoord));
     if (allyAtTarget) {
       await this.swapPlayerPositions(player, allyAtTarget);
@@ -208,6 +224,44 @@ export class MainGameScene extends Phaser.Scene {
 
     // 3. Move to free tile
     await this.movePlayerUnit(player, targetCoord);
+  }
+
+  private async handleCorridorSprint(player: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, dx: number, dy: number): Promise<void> {
+    const maxSprintSteps = 8;
+    for (let step = 0; step < maxSprintSteps; step++) {
+      const nextCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
+
+      if (!this.gridMap.isWalkable(nextCoord)) break;
+
+      // Stop if ally or enemy at next tile
+      const hasAlly = this.playerSquad.some(p => p.unit.id !== player.unit.id && p.unit.currentHp > 0 && p.coord.equals(nextCoord));
+      const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(nextCoord) && this.visibilityMap.isVisible(nextCoord));
+      if (hasAlly || hasEnemy) break;
+
+      // Stop if item at next tile
+      const hasItem = this.floorItems.some(fi => fi.coord.equals(nextCoord));
+
+      await this.movePlayerUnit(player, nextCoord);
+
+      if (hasItem || this.isEncounterActive) break;
+
+      // Check if hallway branches into multiple directions
+      let walkableNeighbors = 0;
+      const neighbors = [
+        new TileCoordinate(player.coord.x + 1, player.coord.y),
+        new TileCoordinate(player.coord.x - 1, player.coord.y),
+        new TileCoordinate(player.coord.x, player.coord.y + 1),
+        new TileCoordinate(player.coord.x, player.coord.y - 1)
+      ];
+      for (const n of neighbors) {
+        if (this.gridMap.isWalkable(n)) walkableNeighbors++;
+      }
+
+      if (walkableNeighbors > 2) {
+        // Reached an intersection or room opening: stop sprint safely
+        break;
+      }
+    }
   }
 
   private async swapPlayerPositions(
@@ -344,6 +398,7 @@ export class MainGameScene extends Phaser.Scene {
     this.hudPresenter.updateFloor(this.floorCount);
     this.hudPresenter.updatePhase('🔵 EXPLORE');
     this.hudPresenter.updateEnemies(this.enemySquad.length);
+    this.partyHudPresenter.updateParty(this.playerSquad);
 
     while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       this.phaseManager.advancePhase();
@@ -404,7 +459,6 @@ export class MainGameScene extends Phaser.Scene {
     if (enemyNearby && !this.isEncounterActive) {
       this.isEncounterActive = true;
       this.hudPresenter.updatePhase('⚔️ COMBAT');
-      this.audioService.playSound('enemy_alert');
       const activePlayer = this.getActiveHero();
       if (activePlayer) {
         const screenX = activePlayer.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
@@ -655,6 +709,24 @@ export class MainGameScene extends Phaser.Scene {
       this.combatTextPresenter.showBanner(screenX, screenY, `+ Obtained ${floorItem.item.name}!`);
     }
 
+    // Hunger / Belly Decay every 10 steps
+    this.stepCount++;
+    if (this.stepCount % 10 === 0) {
+      this.playerSquad.forEach(p => {
+        if (p.unit.currentHp > 0) {
+          const starving = p.unit.decreaseBelly(1);
+          if (starving) {
+            p.unit.applyDamage(1);
+            p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
+            const screenX = p.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+            const screenY = p.coord.y * GridPresenter.TILE_SIZE - 10;
+            this.combatTextPresenter.showDamage(screenX, screenY, 1, false, false);
+          }
+        }
+      });
+    }
+
+    this.partyHudPresenter.updateParty(this.playerSquad);
     this.isProcessingAction = false;
     this.updateFogAndVisibility();
     this.checkEncounterState();
@@ -730,8 +802,11 @@ export class MainGameScene extends Phaser.Scene {
       if (item.type === ItemType.HEAL) {
         player.graphic.updateHp(player.unit.currentHp, player.unit.maxHp);
         this.combatTextPresenter.showHeal(screenX, screenY, item.value);
+      } else if (item.type === ItemType.FOOD) {
+        this.combatTextPresenter.showBanner(screenX, screenY, `+ Restored ${item.value}% Belly!`);
       }
 
+      this.partyHudPresenter.updateParty(this.playerSquad);
       this.finalizePlayerTurn(player);
     };
 
@@ -778,6 +853,7 @@ export class MainGameScene extends Phaser.Scene {
       this.hudPresenter.updateEnemies(this.enemySquad.filter(e => e.unit.currentHp > 0).length);
     }
 
+    this.partyHudPresenter.updateParty(this.playerSquad);
     this.isProcessingAction = false;
     this.updateFogAndVisibility();
     this.checkEncounterState();
@@ -879,6 +955,7 @@ export class MainGameScene extends Phaser.Scene {
       });
     }
 
+    this.partyHudPresenter.updateParty(this.playerSquad);
     this.isProcessingAction = false;
     this.updateFogAndVisibility();
     this.checkEncounterState();

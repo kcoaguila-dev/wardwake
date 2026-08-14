@@ -44,6 +44,19 @@ describe('ConsumeItemUseCase', () => {
     expect(unit.inventory).not.toContainEqual(buffItem);
   });
 
+  it('should restore belly fullness when consuming a FOOD item', () => {
+    unit.decreaseBelly(60);
+    expect(unit.belly).toBe(40);
+
+    const foodItem = new Item('i3', 'Big Apple', ItemType.FOOD, 50);
+    unit.addItem(foodItem);
+
+    useCase.execute(unit, foodItem);
+
+    expect(unit.belly).toBe(90);
+    expect(unit.inventory).not.toContainEqual(foodItem);
+  });
+
   it('should remove the item from inventory upon successful consumption', () => {
     const healItem = new Item('i1', 'Potion', ItemType.HEAL, 20);
     unit.addItem(healItem);
@@ -56,8 +69,6 @@ describe('ConsumeItemUseCase', () => {
 
   it('should throw an error if the unit does not have the item in inventory', () => {
     const healItem = new Item('i1', 'Potion', ItemType.HEAL, 20);
-    // Note: item is not added to the unit's inventory
-
     expect(() => useCase.execute(unit, healItem)).toThrow(
       'Unit TestUnit does not have item Potion in inventory.'
     );

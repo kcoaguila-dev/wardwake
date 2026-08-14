@@ -6,7 +6,25 @@
     "value": 10,
     "description": "A restorative herb that heals 10 HP.",
     "rarity": "COMMON",
-    "dropWeight": 60
+    "dropWeight": 40
+  },
+  {
+    "id": "big_apple",
+    "name": "Big Apple",
+    "type": "FOOD",
+    "value": 50,
+    "description": "A crunchy, sweet apple that restores +50 Fullness.",
+    "rarity": "COMMON",
+    "dropWeight": 35
+  },
+  {
+    "id": "dungeon_ration",
+    "name": "Dungeon Ration",
+    "type": "FOOD",
+    "value": 100,
+    "description": "Hearty dried meat and hardtack that fully restores +100 Fullness.",
+    "rarity": "UNCOMMON",
+    "dropWeight": 15
   },
   {
     "id": "elixir",
@@ -15,7 +33,7 @@
     "value": 25,
     "description": "A potent draught that fully heals a wounded warrior.",
     "rarity": "RARE",
-    "dropWeight": 25
+    "dropWeight": 15
   },
   {
     "id": "strength_herb",
@@ -24,6 +42,6 @@
     "value": 2,
     "description": "Increases Attack by +2.",
     "rarity": "UNCOMMON",
-    "dropWeight": 15
+    "dropWeight": 10
   }
 ]

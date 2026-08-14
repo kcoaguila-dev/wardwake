@@ -48,6 +48,21 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
+  test('Fast Corridor Sprinting with Shift + Directional Key', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Hold Shift and press S to fast-sprint down
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('KeyS');
+    await page.keyboard.up('Shift');
+    await page.waitForTimeout(500);
+
+    await expect(canvas).toBeVisible();
+  });
+
   test('Friendly position swap allows passing through ally in narrow corridors', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');

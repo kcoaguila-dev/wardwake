@@ -55,5 +55,25 @@ describe('Unit domain entity', () => {
       unit.buffAttack(-5);
       expect(unit.attack).toBe(10);
     });
+
+    it('decreaseBelly() should reduce fullness and return starving flag when 0', () => {
+      expect(unit.belly).toBe(100);
+      const notStarving = unit.decreaseBelly(10);
+      expect(unit.belly).toBe(90);
+      expect(notStarving).toBe(false);
+
+      const isStarving = unit.decreaseBelly(100);
+      expect(unit.belly).toBe(0);
+      expect(isStarving).toBe(true);
+    });
+
+    it('feed() should restore belly up to maxBelly', () => {
+      unit.decreaseBelly(60);
+      expect(unit.belly).toBe(40);
+      unit.feed(50);
+      expect(unit.belly).toBe(90);
+      unit.feed(50);
+      expect(unit.belly).toBe(100);
+    });
   });
 });

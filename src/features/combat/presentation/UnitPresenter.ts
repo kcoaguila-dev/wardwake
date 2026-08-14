@@ -19,16 +19,30 @@ export class UnitPresenter {
     this.isLeader = isLeader;
 
     let textureKey = 'unit_sword';
-    switch (unit.weaponType) {
-      case WeaponType.SWORD:
-        textureKey = 'unit_sword';
-        break;
-      case WeaponType.LANCE:
-        textureKey = 'unit_lance';
-        break;
-      case WeaponType.AXE:
-        textureKey = 'unit_axe';
-        break;
+    if (this.isPlayer) {
+      switch (unit.weaponType) {
+        case WeaponType.SWORD:
+          textureKey = 'unit_sword';
+          break;
+        case WeaponType.LANCE:
+          textureKey = 'unit_lance';
+          break;
+        case WeaponType.AXE:
+          textureKey = 'unit_axe';
+          break;
+      }
+    } else {
+      switch (unit.weaponType) {
+        case WeaponType.SWORD:
+          textureKey = 'enemy_goblin_sword';
+          break;
+        case WeaponType.AXE:
+          textureKey = 'enemy_orc_axe';
+          break;
+        case WeaponType.LANCE:
+          textureKey = 'enemy_skeleton_lance';
+          break;
+      }
     }
 
     const x = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
