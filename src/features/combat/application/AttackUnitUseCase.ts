@@ -1,6 +1,7 @@
 import { Unit } from '../domain/Unit';
 import { CombatResolver } from '../domain/CombatResolver';
 import { IAudioService } from './ports/IAudioService';
+import { WeaponType } from '../domain/WeaponType';
 
 export interface CombatSummary {
   damageDealt: number;
@@ -20,8 +21,14 @@ export class AttackUnitUseCase {
     const combatResult = CombatResolver.calculateDamage(attacker, defender);
     const isFatal = defender.applyDamage(combatResult.damageDealt);
 
-    // Play sword slash sound as required by specs
-    this.audioService.playSound('SWORD_SLASH');
+    let soundId = 'sword_slash';
+    if (attacker.weaponType === WeaponType.AXE) {
+      soundId = 'axe_smash';
+    } else if (attacker.weaponType === WeaponType.LANCE) {
+      soundId = 'lance_pierce';
+    }
+
+    this.audioService.playSound(soundId);
 
     return {
       damageDealt: combatResult.damageDealt,

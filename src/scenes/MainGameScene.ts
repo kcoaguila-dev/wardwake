@@ -19,12 +19,7 @@ import { IAudioService } from '../features/combat/application/ports/IAudioServic
 import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
 import { HudPresenter } from '../features/ui/presentation/HudPresenter';
-
-class DummyAudioService implements IAudioService {
-  playSound(soundId: string): void {
-    console.log(`Sound played: ${soundId}`);
-  }
-}
+import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudioSynthService';
 
 export class MainGameScene extends Phaser.Scene {
   // Map Dimensions (Expanded to 18x18 for 3x3 Chunsoft Macro-Grid)
@@ -46,6 +41,9 @@ export class MainGameScene extends Phaser.Scene {
   private combatForecastPresenter!: CombatForecastPresenter;
   private minimapPresenter!: MinimapPresenter;
 
+  // Audio
+  private audioService!: WebAudioSynthService;
+
   // Domain
   private gridMap!: GridMap;
   private pathfinder!: Pathfinder;
@@ -63,9 +61,11 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   create() {
+    this.audioService = new WebAudioSynthService();
+
     this.pathfinder = new Pathfinder();
     this.phaseManager = new PhaseManagerUseCase();
-    this.attackUnitUseCase = new AttackUnitUseCase(new DummyAudioService());
+    this.attackUnitUseCase = new AttackUnitUseCase(this.audioService);
     this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
 
     // Presenters
@@ -73,6 +73,7 @@ export class MainGameScene extends Phaser.Scene {
     this.inputPresenter = new InputPresenter(this, MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
     this.combatTextPresenter = new CombatTextPresenter(this);
     this.hudPresenter = new HudPresenter(this);
+    this.hudPresenter.setOnMuteToggle(() => this.audioService.toggleMute());
     this.combatForecastPresenter = new CombatForecastPresenter(this);
     this.minimapPresenter = new MinimapPresenter(this);
 
@@ -303,6 +304,7 @@ export class MainGameScene extends Phaser.Scene {
         this.isProcessingAction = true;
         this.combatForecastPresenter.hide();
         selectedPlayer.coord = coord;
+        this.audioService.playSound('hero_step');
         await selectedPlayer.graphic.moveTo(coord);
         this.centerCameraOn(coord);
         actionTaken = true;
@@ -337,6 +339,9 @@ export class MainGameScene extends Phaser.Scene {
     const playerOnStaircase = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(this.staircaseCoord));
 
     if (allEnemiesDead || playerOnStaircase) {
+      if (playerOnStaircase) {
+        this.audioService.playSound('staircase_descend');
+      }
       this.startFloor(this.floorCount + 1);
       return true;
     }
@@ -372,6 +377,7 @@ export class MainGameScene extends Phaser.Scene {
 
           // Move enemy and await the movement tween to complete
           enemyData.coord = result.targetCoordinate;
+          this.audioService.playSound('hero_step');
           await enemyData.graphic.moveTo(enemyData.coord);
           this.updateMinimap();
 

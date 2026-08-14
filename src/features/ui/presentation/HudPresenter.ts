@@ -4,6 +4,9 @@ export class HudPresenter {
   private floorText: Phaser.GameObjects.Text;
   private phaseText: Phaser.GameObjects.Text;
   private enemiesText: Phaser.GameObjects.Text;
+  private muteButton: Phaser.GameObjects.Text;
+  private onMuteToggleCallback?: () => void;
+  private isMuted: boolean = false;
 
   constructor(private scene: Phaser.Scene) {
     const graphics = this.scene.add.graphics();
@@ -29,9 +32,25 @@ export class HudPresenter {
     this.phaseText.setScrollFactor(0);
     this.phaseText.setDepth(11);
 
-    this.enemiesText = this.scene.add.text(215, 12, '⚔️ Left: 0', fontStyle);
+    this.enemiesText = this.scene.add.text(195, 12, '⚔️ Left: 0', fontStyle);
     this.enemiesText.setScrollFactor(0);
     this.enemiesText.setDepth(11);
+
+    this.muteButton = this.scene.add.text(290, 12, '🔊', fontStyle);
+    this.muteButton.setScrollFactor(0);
+    this.muteButton.setDepth(11);
+    this.muteButton.setInteractive({ useHandCursor: true });
+    this.muteButton.on('pointerdown', () => {
+      this.isMuted = !this.isMuted;
+      this.muteButton.setText(this.isMuted ? '🔇' : '🔊');
+      if (this.onMuteToggleCallback) {
+        this.onMuteToggleCallback();
+      }
+    });
+  }
+
+  setOnMuteToggle(callback: () => void): void {
+    this.onMuteToggleCallback = callback;
   }
 
   updateFloor(floor: number): void {

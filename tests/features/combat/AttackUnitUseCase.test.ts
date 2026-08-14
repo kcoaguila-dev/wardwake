@@ -9,18 +9,40 @@ describe('AttackUnitUseCase', () => {
 
   beforeEach(() => {
     mockAudioService = {
+      isMuted: false,
+      toggleMute: jest.fn(),
       playSound: jest.fn(),
     };
     useCase = new AttackUnitUseCase(mockAudioService);
   });
 
-  it('Mock IAudioService and verify playSound is called on attack', () => {
+  it('Mock IAudioService and verify playSound is called on attack (sword)', () => {
     const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.SWORD);
     const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.AXE);
 
     useCase.execute(attacker, defender);
 
-    expect(mockAudioService.playSound).toHaveBeenCalledWith('SWORD_SLASH');
+    expect(mockAudioService.playSound).toHaveBeenCalledWith('sword_slash');
+    expect(mockAudioService.playSound).toHaveBeenCalledTimes(1);
+  });
+
+  it('Mock IAudioService and verify playSound is called on attack (axe)', () => {
+    const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.AXE);
+    const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.LANCE);
+
+    useCase.execute(attacker, defender);
+
+    expect(mockAudioService.playSound).toHaveBeenCalledWith('axe_smash');
+    expect(mockAudioService.playSound).toHaveBeenCalledTimes(1);
+  });
+
+  it('Mock IAudioService and verify playSound is called on attack (lance)', () => {
+    const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.LANCE);
+    const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.SWORD);
+
+    useCase.execute(attacker, defender);
+
+    expect(mockAudioService.playSound).toHaveBeenCalledWith('lance_pierce');
     expect(mockAudioService.playSound).toHaveBeenCalledTimes(1);
   });
 
