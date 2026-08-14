@@ -130,6 +130,61 @@ export class MainGameScene extends Phaser.Scene {
       event.preventDefault();
       this.cycleNextHero();
     });
+
+    // WASD & Arrow Keys for tactile exploration movement
+    const handleDirectionalMove = (dx: number, dy: number) => {
+      this.handleKeyboardStep(dx, dy);
+    };
+
+    this.input.keyboard?.on('keydown-W', () => handleDirectionalMove(0, -1));
+    this.input.keyboard?.on('keydown-UP', () => handleDirectionalMove(0, -1));
+    this.input.keyboard?.on('keydown-S', () => handleDirectionalMove(0, 1));
+    this.input.keyboard?.on('keydown-DOWN', () => handleDirectionalMove(0, 1));
+    this.input.keyboard?.on('keydown-A', () => handleDirectionalMove(-1, 0));
+    this.input.keyboard?.on('keydown-LEFT', () => handleDirectionalMove(-1, 0));
+    this.input.keyboard?.on('keydown-D', () => handleDirectionalMove(1, 0));
+    this.input.keyboard?.on('keydown-RIGHT', () => handleDirectionalMove(1, 0));
+
+    this.input.keyboard?.on('keydown-SPACE', () => {
+      if (this.isMenuOpen) {
+        this.actionMenuPresenter.onWait?.();
+      }
+    });
+  }
+
+  private async handleKeyboardStep(dx: number, dy: number): Promise<void> {
+    if (this.isProcessingAction || this.isMenuOpen || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    if (this.selectedPlayerIndex === null) {
+      const firstAvailableIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed);
+      if (firstAvailableIdx === -1) return;
+      this.selectedPlayerIndex = firstAvailableIdx;
+    }
+
+    const player = this.playerSquad[this.selectedPlayerIndex];
+    if (!player || player.hasActed || player.unit.currentHp <= 0) return;
+
+    const targetCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
+
+    if (!this.gridMap.isWalkable(targetCoord)) {
+      return;
+    }
+
+    const isOccupiedByAlly = this.playerSquad.some(p => p.unit.id !== player.unit.id && p.unit.currentHp > 0 && p.coord.equals(targetCoord));
+    if (isOccupiedByAlly) {
+      return;
+    }
+
+    const enemyAtTarget = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(targetCoord) && this.visibilityMap.isVisible(targetCoord));
+    if (enemyAtTarget) {
+      // Direct melee strike when stepping into enemy tile
+      await this.executePlayerAttack(player, enemyAtTarget);
+      return;
+    }
+
+    await this.movePlayerUnit(player, targetCoord);
   }
 
   private startFloor(floorNumber: number): void {
@@ -455,46 +510,50 @@ export class MainGameScene extends Phaser.Scene {
     const isReachable = filteredMoves.some(move => move.equals(coord));
 
     if (isReachable) {
-      this.isProcessingAction = true;
-      this.combatForecastPresenter.hide();
-      this.gridPresenter.clearHighlights();
-
-      const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
-      selectedPlayer.coord = coord;
-      this.audioService.playSound('hero_step');
-      await selectedPlayer.graphic.moveTo(coord);
-      this.centerCameraOn(coord);
-
-      // In Exploration Mode, companion auto-follows
-      if (!this.isEncounterActive) {
-        const companion = this.playerSquad.find((p, i) => i !== this.selectedPlayerIndex && p.unit.currentHp > 0 && !p.hasActed);
-        if (companion && !companion.coord.equals(leaderPreviousCoord)) {
-          const followTarget = this.followFormationCalculator.calculate(leaderPreviousCoord);
-          companion.coord = followTarget;
-          await companion.graphic.moveTo(followTarget);
-        }
-      }
-
-      // Check Floor Item Pickup
-      const itemIndex = this.floorItems.findIndex(fi => fi.coord.equals(coord));
-      if (itemIndex !== -1) {
-        const floorItem = this.floorItems[itemIndex]!;
-        this.pickupItemUseCase.execute(selectedPlayer.unit, floorItem.item);
-        floorItem.sprite.destroy();
-        this.floorItems.splice(itemIndex, 1);
-        this.audioService.playSound('item_pickup');
-        const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-        const screenY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-        this.combatTextPresenter.showBanner(screenX, screenY, `+ Obtained ${floorItem.item.name}!`);
-      }
-
-      this.isProcessingAction = false;
-      this.updateFogAndVisibility();
-      this.checkEncounterState();
-
-      // Show Action Menu after moving
-      this.showActionMenuForPlayer(selectedPlayer);
+      await this.movePlayerUnit(selectedPlayer, coord);
     }
+  }
+
+  private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, coord: TileCoordinate): Promise<void> {
+    this.isProcessingAction = true;
+    this.combatForecastPresenter.hide();
+    this.gridPresenter.clearHighlights();
+
+    const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
+    selectedPlayer.coord = coord;
+    this.audioService.playSound('hero_step');
+    await selectedPlayer.graphic.moveTo(coord);
+    this.centerCameraOn(coord);
+
+    // In Exploration Mode, companion auto-follows
+    if (!this.isEncounterActive) {
+      const companion = this.playerSquad.find(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && !p.hasActed);
+      if (companion && !companion.coord.equals(leaderPreviousCoord)) {
+        const followTarget = this.followFormationCalculator.calculate(leaderPreviousCoord);
+        companion.coord = followTarget;
+        await companion.graphic.moveTo(followTarget);
+      }
+    }
+
+    // Check Floor Item Pickup
+    const itemIndex = this.floorItems.findIndex(fi => fi.coord.equals(coord));
+    if (itemIndex !== -1) {
+      const floorItem = this.floorItems[itemIndex]!;
+      this.pickupItemUseCase.execute(selectedPlayer.unit, floorItem.item);
+      floorItem.sprite.destroy();
+      this.floorItems.splice(itemIndex, 1);
+      this.audioService.playSound('item_pickup');
+      const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const screenY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      this.combatTextPresenter.showBanner(screenX, screenY, `+ Obtained ${floorItem.item.name}!`);
+    }
+
+    this.isProcessingAction = false;
+    this.updateFogAndVisibility();
+    this.checkEncounterState();
+
+    // Show Action Menu after moving
+    this.showActionMenuForPlayer(selectedPlayer);
   }
 
   private showActionMenuForPlayer(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Wardwake Game E2E Tests', () => {
-  test('Canvas loads and renders properly', async ({ page }) => {
+  test('Canvas loads and renders properly in 16:9 widescreen', async ({ page }) => {
     await page.goto('/');
 
     const canvas = page.locator('canvas');
@@ -31,6 +31,23 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
+  test('Tactile WASD Keyboard movement and Spacebar Wait', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Press S to move Down
+    await page.keyboard.press('KeyS');
+    await page.waitForTimeout(400);
+
+    // Press Space to Wait
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(400);
+
+    await expect(canvas).toBeVisible();
+  });
+
   test('Combat forecast appears on hover and attacks execute with animations', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
@@ -48,14 +65,14 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
-  test('Clicking [END TURN] immediately advances phase', async ({ page }) => {
+  test('Clicking [END TURN] in wide HUD advances phase', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
     await expect(canvas).toBeVisible({ timeout: 10000 });
     await page.waitForTimeout(1000);
 
     // Click [END TURN] in top HUD
-    await canvas.click({ position: { x: 230, y: 18 } });
+    await canvas.click({ position: { x: 550, y: 18 } });
     await page.waitForTimeout(500);
 
     await expect(canvas).toBeVisible();

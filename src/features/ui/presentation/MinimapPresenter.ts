@@ -17,7 +17,8 @@ export class MinimapPresenter {
   private isVisible: boolean = true;
 
   constructor(private scene: Phaser.Scene) {
-    this.container = this.scene.add.container(320 - this.boxSize - 6, 44);
+    const width = this.scene.scale.width || 640;
+    this.container = this.scene.add.container(width - this.boxSize - 10, 48);
     this.container.setScrollFactor(0);
     this.container.setDepth(50);
 
