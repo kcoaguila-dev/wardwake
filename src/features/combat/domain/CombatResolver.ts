@@ -1,6 +1,7 @@
 import { Unit } from './Unit';
 import { WeaponType } from './WeaponType';
 import { GameDatabase } from '../../../core/domain/GameDatabase';
+import { TerrainType } from '../../grid/domain/TerrainType';
 
 export interface CombatResult {
   damageDealt: number;
@@ -58,7 +59,13 @@ export class CombatResolver {
     return this.hasAdvantage(defenderWeapon, attackerWeapon);
   }
 
-  public static calculateRates(attacker: Unit, defender: Unit): { hitChance: number; critChance: number; hasAdvantage: boolean; hasDisadvantage: boolean } {
+  public static calculateRates(
+    attacker: Unit,
+    defender: Unit,
+    attackerTerrain: TerrainType = TerrainType.NONE,
+    defenderTerrain: TerrainType = TerrainType.NONE,
+    distance: number = 1
+  ): { hitChance: number; critChance: number; hasAdvantage: boolean; hasDisadvantage: boolean } {
     const advantage = this.hasAdvantage(attacker.weaponType, defender.weaponType);
     const disadvantage = this.hasDisadvantage(attacker.weaponType, defender.weaponType);
 
@@ -67,6 +74,10 @@ export class CombatResolver {
       hitChance = Math.min(1.0, hitChance + this.ADVANTAGE_ACCURACY_BONUS);
     } else if (disadvantage) {
       hitChance = Math.max(0.1, hitChance - this.DISADVANTAGE_ACCURACY_PENALTY);
+    }
+
+    if (defenderTerrain === TerrainType.TALL_GRASS && distance > 1) {
+      hitChance = Math.max(0, hitChance - 0.3);
     }
 
     let critChance = this.BASE_CRIT_CHANCE;
@@ -82,8 +93,16 @@ export class CombatResolver {
     return { hitChance, critChance, hasAdvantage: advantage, hasDisadvantage: disadvantage };
   }
 
-  public static calculateDamage(attacker: Unit, defender: Unit, rollHit?: number, rollCrit?: number): CombatResult {
-    const { hitChance, critChance, hasAdvantage, hasDisadvantage } = this.calculateRates(attacker, defender);
+  public static calculateDamage(
+    attacker: Unit,
+    defender: Unit,
+    rollHit?: number,
+    rollCrit?: number,
+    attackerTerrain: TerrainType = TerrainType.NONE,
+    defenderTerrain: TerrainType = TerrainType.NONE,
+    distance: number = 1
+  ): CombatResult {
+    const { hitChance, critChance, hasAdvantage, hasDisadvantage } = this.calculateRates(attacker, defender, attackerTerrain, defenderTerrain, distance);
 
     const hitRoll = rollHit !== undefined ? rollHit : Math.random();
     const isHit = hitRoll <= hitChance;
@@ -109,7 +128,12 @@ export class CombatResolver {
       bonusDamage = this.DISADVANTAGE_PENALTY_DAMAGE;
     }
 
-    const baseDamage = Math.max(GameDatabase.combatRules?.minDamage ?? 1, (attacker.attack + bonusDamage) - defender.defense);
+    let terrainDamageBonus = 0;
+    if (attackerTerrain === TerrainType.WATER_PUDDLE && attacker.weaponType === WeaponType.LANCE) {
+      terrainDamageBonus = 2;
+    }
+
+    const baseDamage = Math.max(GameDatabase.combatRules?.minDamage ?? 1, (attacker.attack + bonusDamage + terrainDamageBonus) - defender.defense);
 
     const critRoll = rollCrit !== undefined ? rollCrit : Math.random();
     const isCrit = critRoll <= critChance;

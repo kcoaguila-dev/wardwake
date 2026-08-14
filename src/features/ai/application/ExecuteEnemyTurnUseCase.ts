@@ -2,6 +2,7 @@ import { GridMap } from '../../grid/domain/GridMap';
 import { Pathfinder } from '../../grid/domain/Pathfinder';
 import { TileCoordinate } from '../../grid/domain/TileCoordinate';
 import { Unit } from '../../combat/domain/Unit';
+import { TerrainType } from '../../grid/domain/TerrainType';
 
 export interface PlayerUnitInfo {
   unit: Unit;
@@ -99,10 +100,7 @@ export class ExecuteEnemyTurnUseCase {
         break;
       }
 
-      const nextCoord = path[i];
-      if (!nextCoord) {
-        break;
-      }
+      const nextCoord = path[i]!;
 
       if (nextCoord.equals(closestPlayer.coord)) {
         // Adjacent to player (this step would land on player)
@@ -118,6 +116,39 @@ export class ExecuteEnemyTurnUseCase {
       }
 
       targetCoordinate = nextCoord;
+
+      // ICE sliding logic
+      if (this.grid.getTerrain(targetCoordinate) === TerrainType.ICE) {
+        let slideX = nextCoord.x;
+        let slideY = nextCoord.y;
+        const dx = nextCoord.x - path[i-1]!.x;
+        const dy = nextCoord.y - path[i-1]!.y;
+
+        while (true) {
+          const checkCoord = new TileCoordinate(slideX + dx, slideY + dy);
+
+          if (!this.grid.isWalkable(checkCoord)) {
+            break; // Hit a wall
+          }
+
+          const hitOccupied = this.occupiedTiles.some(o => !o.equals(enemyCoord) && o.equals(checkCoord));
+          if (hitOccupied) {
+             if (checkCoord.equals(closestPlayer.coord)) {
+               targetToAttack = closestPlayer.unit;
+             }
+             break; // Hit a unit
+          }
+
+          slideX += dx;
+          slideY += dy;
+          targetCoordinate = new TileCoordinate(slideX, slideY);
+
+          if (this.grid.getTerrain(targetCoordinate) !== TerrainType.ICE) {
+            break; // Slid off ice
+          }
+        }
+        break; // End movement after a slide
+      }
     }
 
     // After moving, check if adjacent to the player to strike

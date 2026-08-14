@@ -30,6 +30,8 @@ export class Unit {
   public belly: number = 100;
   public maxBelly: number = 100;
 
+  public isBurned: boolean = false;
+
   constructor(
     id: string,
     name: string,

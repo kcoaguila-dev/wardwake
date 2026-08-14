@@ -2,6 +2,7 @@ import { Unit } from '../domain/Unit';
 import { CombatResolver } from '../domain/CombatResolver';
 import { IAudioService } from './ports/IAudioService';
 import { WeaponType } from '../domain/WeaponType';
+import { TerrainType } from '../../grid/domain/TerrainType';
 
 export interface CombatSummary {
   damageDealt: number;
@@ -21,8 +22,16 @@ export class AttackUnitUseCase {
     this.audioService = audioService;
   }
 
-  public execute(attacker: Unit, defender: Unit, rollHit?: number, rollCrit?: number): CombatSummary {
-    const combatResult = CombatResolver.calculateDamage(attacker, defender, rollHit, rollCrit);
+  public execute(
+    attacker: Unit,
+    defender: Unit,
+    rollHit?: number,
+    rollCrit?: number,
+    attackerTerrain: TerrainType = TerrainType.NONE,
+    defenderTerrain: TerrainType = TerrainType.NONE,
+    distance: number = 1
+  ): CombatSummary {
+    const combatResult = CombatResolver.calculateDamage(attacker, defender, rollHit, rollCrit, attackerTerrain, defenderTerrain, distance);
     const isFatal = defender.applyDamage(combatResult.damageDealt);
 
     if (combatResult.isHit) {
