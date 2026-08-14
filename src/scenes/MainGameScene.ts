@@ -131,6 +131,15 @@ export class MainGameScene extends Phaser.Scene {
       this.cycleNextHero();
     });
 
+    // 'I' key for opening Inventory directly
+    this.input.keyboard?.on('keydown-I', () => {
+      if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) return;
+      const activeHero = this.getActiveHero();
+      if (activeHero) {
+        this.showInventoryMenu(activeHero);
+      }
+    });
+
     // WASD & Arrow Keys for tactile exploration movement
     const handleDirectionalMove = (dx: number, dy: number) => {
       this.handleKeyboardStep(dx, dy);
@@ -148,8 +157,20 @@ export class MainGameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SPACE', () => {
       if (this.isMenuOpen) {
         this.actionMenuPresenter.onWait?.();
+      } else {
+        const activeHero = this.getActiveHero();
+        if (activeHero) {
+          this.finalizePlayerTurn(activeHero);
+        }
       }
     });
+  }
+
+  private getActiveHero() {
+    if (this.selectedPlayerIndex !== null) {
+      return this.playerSquad[this.selectedPlayerIndex];
+    }
+    return this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
   }
 
   private async handleKeyboardStep(dx: number, dy: number): Promise<void> {
@@ -486,7 +507,12 @@ export class MainGameScene extends Phaser.Scene {
     // 2. Select an active unacted player
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
-      this.selectHeroByIndex(clickedPlayerIndex);
+      if (this.selectedPlayerIndex === clickedPlayerIndex) {
+        // Clicking already selected hero opens tactical action menu
+        this.showActionMenuForPlayer(this.playerSquad[clickedPlayerIndex]!);
+      } else {
+        this.selectHeroByIndex(clickedPlayerIndex);
+      }
       return;
     }
 
@@ -552,8 +578,21 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
-    // Show Action Menu after moving
-    this.showActionMenuForPlayer(selectedPlayer);
+    // Check if an enemy is in melee range (1 tile)
+    const hasAdjacentEnemy = this.enemySquad.some(e => {
+      if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
+      const dist = Math.abs(selectedPlayer.coord.x - e.coord.x) + Math.abs(selectedPlayer.coord.y - e.coord.y);
+      return dist === 1;
+    });
+
+    // In Exploration mode (no enemies adjacent), DO NOT popup menu. Keep walking freely!
+    // Only popup menu if an enemy is adjacent or in encounter threat!
+    if (hasAdjacentEnemy) {
+      this.showActionMenuForPlayer(selectedPlayer);
+    } else {
+      // Free exploration step completed. Allow next step immediately!
+      if (this.checkWinCondition()) return;
+    }
   }
 
   private showActionMenuForPlayer(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
@@ -565,12 +604,8 @@ export class MainGameScene extends Phaser.Scene {
       return dist === 1;
     });
 
-    const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE;
+    const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE + 4;
     const worldY = player.coord.y * GridPresenter.TILE_SIZE;
-
-    const cam = this.cameras.main;
-    const screenX = worldX - cam.scrollX;
-    const screenY = worldY - cam.scrollY;
 
     this.actionMenuPresenter.onAttack = () => {
       this.actionMenuPresenter.hide();
@@ -589,12 +624,18 @@ export class MainGameScene extends Phaser.Scene {
       this.showInventoryMenu(player);
     };
 
-    this.actionMenuPresenter.show(screenX, screenY, hasAdjacentEnemy);
+    this.actionMenuPresenter.show(worldX, worldY, hasAdjacentEnemy);
   }
 
   private showInventoryMenu(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
+    this.isMenuOpen = true;
+
+    const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE + 4;
+    const worldY = player.coord.y * GridPresenter.TILE_SIZE;
+
     this.inventoryMenuPresenter.onClose = () => {
       this.inventoryMenuPresenter.hide();
+      this.isMenuOpen = false;
       this.showActionMenuForPlayer(player);
     };
 
@@ -615,7 +656,7 @@ export class MainGameScene extends Phaser.Scene {
       this.finalizePlayerTurn(player);
     };
 
-    this.inventoryMenuPresenter.show(player.unit);
+    this.inventoryMenuPresenter.show(player.unit, worldX, worldY);
   }
 
   private async executePlayerAttack(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }, enemy: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter }) {

@@ -19,29 +19,28 @@ export class ActionMenuPresenter {
   constructor(private scene: Phaser.Scene) {
     this.container = this.scene.add.container(0, 0);
     this.container.setDepth(200);
-    this.container.setScrollFactor(0);
     this.container.setVisible(false);
 
-    const width = 130;
-    const height = 120;
+    const width = 120;
+    const height = 110;
     this.bg = this.scene.add.rectangle(0, 0, width, height, 0x111622, 0.96)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0x4466aa)
-      .setInteractive(); // Blocks clicks to the underlying game world
+      .setInteractive(); // Shield against clicking world underneath
 
     this.container.add(this.bg);
 
-    const btnWidth = 110;
-    const btnHeight = 28;
+    const btnWidth = 100;
+    const btnHeight = 26;
     const startX = 10;
 
-    // 1. ATTACK Button (y = 12)
-    const attackY = 12;
+    // 1. ATTACK Button (y = 10)
+    const attackY = 10;
     this.attackBtn = this.scene.add.rectangle(startX, attackY, btnWidth, btnHeight, 0x2a3b5c)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
 
-    this.attackText = this.scene.add.text(startX + 12, attackY + 6, '⚔️ ATTACK', {
+    this.attackText = this.scene.add.text(startX + 10, attackY + 5, '⚔️ ATTACK', {
       fontSize: '13px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -56,13 +55,13 @@ export class ActionMenuPresenter {
     this.attackBtn.on('pointerover', () => { if (this.canAttack) this.attackBtn.setFillStyle(0x3f5b8a); });
     this.attackBtn.on('pointerout', () => { if (this.canAttack) this.attackBtn.setFillStyle(0x2a3b5c); });
 
-    // 2. ITEM Button (y = 46)
-    const itemY = 46;
+    // 2. ITEM Button (y = 42)
+    const itemY = 42;
     this.itemBtn = this.scene.add.rectangle(startX, itemY, btnWidth, btnHeight, 0x2a3b5c)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
 
-    this.itemText = this.scene.add.text(startX + 12, itemY + 6, '🎒 ITEM', {
+    this.itemText = this.scene.add.text(startX + 10, itemY + 5, '🎒 ITEM', {
       fontSize: '13px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -77,13 +76,13 @@ export class ActionMenuPresenter {
     this.itemBtn.on('pointerover', () => this.itemBtn.setFillStyle(0x3f5b8a));
     this.itemBtn.on('pointerout', () => this.itemBtn.setFillStyle(0x2a3b5c));
 
-    // 3. WAIT Button (y = 80)
-    const waitY = 80;
+    // 3. WAIT Button (y = 74)
+    const waitY = 74;
     this.waitBtn = this.scene.add.rectangle(startX, waitY, btnWidth, btnHeight, 0x2a3b5c)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
 
-    this.waitText = this.scene.add.text(startX + 12, waitY + 6, '⏳ WAIT', {
+    this.waitText = this.scene.add.text(startX + 10, waitY + 5, '⏳ WAIT', {
       fontSize: '13px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -105,7 +104,7 @@ export class ActionMenuPresenter {
     ]);
   }
 
-  public show(x: number, y: number, canAttack: boolean): void {
+  public show(worldX: number, worldY: number, canAttack: boolean): void {
     this.canAttack = canAttack;
     if (this.canAttack) {
       this.attackBtn.setFillStyle(0x2a3b5c);
@@ -115,17 +114,17 @@ export class ActionMenuPresenter {
       this.attackText.setColor('#556677');
     }
 
-    const cam = this.scene.cameras.main;
-    let finalX = x;
-    let finalY = y;
+    // Anchor action menu right next to unit in world coordinates
+    let finalX = worldX;
+    let finalY = worldY;
 
-    const width = 130;
-    const height = 120;
-
-    if (finalX + width > cam.width) finalX = cam.width - width - 10;
-    if (finalY + height > cam.height) finalY = cam.height - height - 10;
-    if (finalY < 42) finalY = 42;
-    if (finalX < 10) finalX = 10;
+    // Keep menu inside world map boundaries
+    const mapMaxX = 18 * 32 - 125;
+    const mapMaxY = 18 * 32 - 115;
+    if (finalX > mapMaxX) finalX = worldX - 125;
+    if (finalY > mapMaxY) finalY = mapMaxY;
+    if (finalX < 5) finalX = 5;
+    if (finalY < 5) finalY = 5;
 
     this.container.setPosition(finalX, finalY);
     this.container.setVisible(true);
