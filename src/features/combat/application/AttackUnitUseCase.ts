@@ -25,6 +25,25 @@ export class AttackUnitUseCase {
     const combatResult = CombatResolver.calculateDamage(attacker, defender, rollHit, rollCrit);
     const isFatal = defender.applyDamage(combatResult.damageDealt);
 
+    if (isFatal) {
+      if (defender.id.startsWith('enemy_') || defender.id.startsWith('boss_')) {
+        let bestiary: string[] = [];
+        try {
+          const stored = localStorage.getItem('wardwake_bestiary');
+          if (stored) {
+            bestiary = JSON.parse(stored);
+          }
+        } catch (e) {
+          bestiary = [];
+        }
+
+        if (!bestiary.includes(defender.id)) {
+          bestiary.push(defender.id);
+          localStorage.setItem('wardwake_bestiary', JSON.stringify(bestiary));
+        }
+      }
+    }
+
     if (combatResult.isHit) {
       let soundId = 'sword_slash';
       if (attacker.weaponType === WeaponType.AXE) {

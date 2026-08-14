@@ -2,11 +2,13 @@ import * as Phaser from 'phaser';
 import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudioSynthService';
 import { SettingsModalPresenter } from '../features/ui/presentation/SettingsModalPresenter';
 import { HowToPlayModalPresenter } from '../features/ui/presentation/HowToPlayModalPresenter';
+import { BestiaryModalPresenter } from '../features/ui/presentation/BestiaryModalPresenter';
 
 export class TitleScene extends Phaser.Scene {
   private audioService!: WebAudioSynthService;
   private settingsModal!: SettingsModalPresenter;
   private howToPlayModal!: HowToPlayModalPresenter;
+  private bestiaryModal!: BestiaryModalPresenter;
 
   private embers: Phaser.GameObjects.Arc[] = [];
 
@@ -21,6 +23,7 @@ export class TitleScene extends Phaser.Scene {
     this.audioService = new WebAudioSynthService();
     this.settingsModal = new SettingsModalPresenter(this, this.audioService);
     this.howToPlayModal = new HowToPlayModalPresenter(this);
+    this.bestiaryModal = new BestiaryModalPresenter(this);
 
     // Start Heroic Title Prelude Theme
     this.audioService.startBgm('title');
@@ -107,9 +110,10 @@ export class TitleScene extends Phaser.Scene {
     const btnW = 200;
     const btnH = 34;
     const btnX = (screenWidth - btnW) / 2;
-    const startBtnY = 185;
-    const settingsBtnY = 230;
-    const manualBtnY = 275;
+    const startBtnY = 165;
+    const bestiaryBtnY = 205;
+    const settingsBtnY = 245;
+    const manualBtnY = 285;
 
     // A. [ NEW GAME ] Button
     const startBtn = this.add.rectangle(btnX, startBtnY, btnW, btnH, 0x1e3a8a)
@@ -122,7 +126,18 @@ export class TitleScene extends Phaser.Scene {
       color: '#ffffff'
     }).setOrigin(0.5, 0.5);
 
-    // B. [ SETTINGS ] Button
+    // B. [ BESTIARY ] Button
+    const bestiaryBtn = this.add.rectangle(btnX, bestiaryBtnY, btnW, btnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1.5, 0x475569);
+    this.add.text(screenWidth / 2, bestiaryBtnY + btnH / 2, '📖 BESTIARY', {
+      fontSize: '11px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#cbd5e1'
+    }).setOrigin(0.5, 0.5);
+
+    // C. [ SETTINGS ] Button
     const settingsBtn = this.add.rectangle(btnX, settingsBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
@@ -133,11 +148,11 @@ export class TitleScene extends Phaser.Scene {
       color: '#cbd5e1'
     }).setOrigin(0.5, 0.5);
 
-    // C. [ HOW TO PLAY ] Button
+    // D. [ HOW TO PLAY ] Button
     const manualBtn = this.add.rectangle(btnX, manualBtnY, btnW, btnH, 0x1e293b)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x475569);
-    this.add.text(screenWidth / 2, manualBtnY + btnH / 2, '📖 HOW TO PLAY', {
+    this.add.text(screenWidth / 2, manualBtnY + btnH / 2, '❓ HOW TO PLAY', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -145,7 +160,7 @@ export class TitleScene extends Phaser.Scene {
     }).setOrigin(0.5, 0.5);
 
     // Footer instructions
-    this.add.text(screenWidth / 2, screenHeight - 16, '[ENTER / SPACE] Play   [S] Settings   [H] Help', {
+    this.add.text(screenWidth / 2, screenHeight - 16, '[ENTER / SPACE] Play   [B] Bestiary   [S] Settings   [H] Help', {
       fontSize: '9px',
       fontFamily: 'monospace',
       color: '#475569'
@@ -153,7 +168,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Start Game Transition
     const handleStartGame = () => {
-      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible()) return;
+      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible() || this.bestiaryModal.isVisible()) return;
       this.audioService.playSound('sword_slash');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
@@ -163,13 +178,16 @@ export class TitleScene extends Phaser.Scene {
 
     // Screen-space pointer click handling
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible()) return;
+      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible() || this.bestiaryModal.isVisible()) return;
 
       const px = pointer.x;
       const py = pointer.y;
 
       if (px >= btnX && px <= btnX + btnW && py >= startBtnY && py <= startBtnY + btnH) {
         handleStartGame();
+      } else if (px >= btnX && px <= btnX + btnW && py >= bestiaryBtnY && py <= bestiaryBtnY + btnH) {
+        this.audioService.playSound('hero_step');
+        this.bestiaryModal.show();
       } else if (px >= btnX && px <= btnX + btnW && py >= settingsBtnY && py <= settingsBtnY + btnH) {
         this.audioService.playSound('hero_step');
         this.settingsModal.show();
@@ -181,7 +199,7 @@ export class TitleScene extends Phaser.Scene {
 
     // Hover styling
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible()) return;
+      if (this.settingsModal.isVisible() || this.howToPlayModal.isVisible() || this.bestiaryModal.isVisible()) return;
 
       const px = pointer.x;
       const py = pointer.y;
@@ -190,6 +208,12 @@ export class TitleScene extends Phaser.Scene {
         startBtn.setFillStyle(0x2563eb);
       } else {
         startBtn.setFillStyle(0x1e3a8a);
+      }
+
+      if (px >= btnX && px <= btnX + btnW && py >= bestiaryBtnY && py <= bestiaryBtnY + btnH) {
+        bestiaryBtn.setFillStyle(0x334155);
+      } else {
+        bestiaryBtn.setFillStyle(0x1e293b);
       }
 
       if (px >= btnX && px <= btnX + btnW && py >= settingsBtnY && py <= settingsBtnY + btnH) {
@@ -218,9 +242,15 @@ export class TitleScene extends Phaser.Scene {
         if (key === 'escape') this.howToPlayModal.hide();
         return;
       }
+      if (this.bestiaryModal.isVisible()) {
+        if (key === 'escape') this.bestiaryModal.hide();
+        return;
+      }
 
       if (key === 'enter' || key === ' ' || code === 'Space') {
         handleStartGame();
+      } else if (key === 'b') {
+        this.bestiaryModal.show();
       } else if (key === 's') {
         this.settingsModal.show();
       } else if (key === 'h') {

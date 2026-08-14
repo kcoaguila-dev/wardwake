@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 import { AttackUnitUseCase } from '../../../src/features/combat/application/AttackUnitUseCase';
 import { IAudioService } from '../../../src/features/combat/application/ports/IAudioService';
 import { Unit } from '../../../src/features/combat/domain/Unit';
@@ -66,5 +67,39 @@ describe('AttackUnitUseCase', () => {
 
     expect(summary.isFatal).toBe(true);
     expect(defender.currentHp).toBe(0);
+  });
+
+  it('Verify defeated monster is added to localStorage bestiary', () => {
+    const attacker = new Unit('player_1', 'Attacker', 10, 20, 5, WeaponType.SWORD);
+    const defender = new Unit('enemy_goblin_sword', 'Defender', 10, 10, 5, WeaponType.AXE);
+
+    // Mock localStorage
+    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+    const getItemSpy = jest.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
+
+    useCase.execute(attacker, defender, 0.1, 0.99);
+
+    expect(getItemSpy).toHaveBeenCalledWith('wardwake_bestiary');
+    expect(setItemSpy).toHaveBeenCalledWith('wardwake_bestiary', JSON.stringify(['enemy_goblin_sword']));
+
+    setItemSpy.mockRestore();
+    getItemSpy.mockRestore();
+  });
+
+  it('Verify defeated player is NOT added to localStorage bestiary', () => {
+    const attacker = new Unit('enemy_goblin_sword', 'Attacker', 10, 20, 5, WeaponType.SWORD);
+    const defender = new Unit('player_1', 'Defender', 10, 10, 5, WeaponType.AXE);
+
+    // Mock localStorage
+    const setItemSpy = jest.spyOn(Storage.prototype, 'setItem');
+    const getItemSpy = jest.spyOn(Storage.prototype, 'getItem');
+
+    useCase.execute(attacker, defender, 0.1, 0.99);
+
+    expect(getItemSpy).not.toHaveBeenCalled();
+    expect(setItemSpy).not.toHaveBeenCalled();
+
+    setItemSpy.mockRestore();
+    getItemSpy.mockRestore();
   });
 });

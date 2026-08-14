@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { WebAudioSynthService } from '../../combat/infrastructure/WebAudioSynthService';
+import { BestiaryModalPresenter } from './BestiaryModalPresenter';
 
 export class SettingsModalPresenter {
   private container: Phaser.GameObjects.Container;
@@ -10,6 +11,7 @@ export class SettingsModalPresenter {
   private sfxLabel: Phaser.GameObjects.Text;
   private muteBtnText: Phaser.GameObjects.Text;
   private controlsText: Phaser.GameObjects.Text;
+  private bestiaryModal: BestiaryModalPresenter;
 
   public onClose?: () => void;
 
@@ -18,6 +20,8 @@ export class SettingsModalPresenter {
     this.container.setDepth(350);
     this.container.setScrollFactor(0);
     this.container.setVisible(false);
+
+    this.bestiaryModal = new BestiaryModalPresenter(this.scene);
 
     const screenWidth = 640;
     const screenHeight = 360;
@@ -94,9 +98,21 @@ export class SettingsModalPresenter {
       color: this.audioService.isMuted ? '#f87171' : '#4ade80'
     }).setOrigin(0.5, 0.5);
 
+    // Bestiary Button
+    const bestiaryBtnY = muteRowY + 30;
+    const bestiaryBtn = this.scene.add.rectangle(muteBtnX, bestiaryBtnY, muteBtnW, muteBtnH, 0x1e293b).setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569);
+
+    const bestiaryBtnText = this.scene.add.text(screenWidth / 2, bestiaryBtnY + 12, '📖 OPEN BESTIARY', {
+      fontSize: '11px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#cbd5e1'
+    }).setOrigin(0.5, 0.5);
+
     // 3. Keybindings Quick Reference Box
-    const boxY = modalY + 142;
-    this.scene.add.rectangle(modalX + 15, boxY, modalWidth - 30, 75, 0x090d16, 0.9)
+    const boxY = modalY + 172;
+    this.scene.add.rectangle(modalX + 15, boxY, modalWidth - 30, 65, 0x090d16, 0.9)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x334155);
 
@@ -134,7 +150,7 @@ export class SettingsModalPresenter {
 
     // Screen-space pointer listener
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isVisible()) return;
+      if (!this.isVisible() || this.bestiaryModal.isVisible()) return;
 
       const px = pointer.x;
       const py = pointer.y;
@@ -166,6 +182,11 @@ export class SettingsModalPresenter {
         this.audioService.toggleMute();
         this.updateLabels();
       }
+      // Bestiary Button
+      else if (px >= muteBtnX && px <= muteBtnX + muteBtnW && py >= bestiaryBtnY && py <= bestiaryBtnY + muteBtnH) {
+        this.audioService.playSound('hero_step');
+        this.bestiaryModal.show();
+      }
       // Close Button
       else if (px >= closeBtnX && px <= closeBtnX + closeBtnW && py >= closeBtnY && py <= closeBtnY + closeBtnH) {
         this.hide();
@@ -185,6 +206,8 @@ export class SettingsModalPresenter {
       this.sfxLabel,
       muteBtn,
       this.muteBtnText,
+      bestiaryBtn,
+      bestiaryBtnText,
       this.controlsText,
       closeBtn,
       closeBtnText
