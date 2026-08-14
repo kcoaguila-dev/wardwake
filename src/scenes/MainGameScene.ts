@@ -6,6 +6,7 @@ import { TileCoordinate } from '../features/grid/domain/TileCoordinate';
 import { GridPresenter } from '../features/grid/presentation/GridPresenter';
 import { InputPresenter } from '../features/ui/presentation/InputPresenter';
 import { CombatTextPresenter } from '../features/ui/presentation/CombatTextPresenter';
+import { CombatForecastPresenter } from '../features/ui/presentation/CombatForecastPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -33,6 +34,7 @@ export class MainGameScene extends Phaser.Scene {
   private gridPresenter!: GridPresenter;
   private inputPresenter!: InputPresenter;
   private combatTextPresenter!: CombatTextPresenter;
+  private combatForecastPresenter!: CombatForecastPresenter;
 
   // Domain
   private gridMap!: GridMap;
@@ -71,6 +73,7 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter = new GridPresenter(this);
     this.inputPresenter = new InputPresenter(this);
     this.combatTextPresenter = new CombatTextPresenter(this);
+    this.combatForecastPresenter = new CombatForecastPresenter(this);
 
     // 3. Initialize Units
     const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
@@ -114,6 +117,37 @@ export class MainGameScene extends Phaser.Scene {
 
     // 6. Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
+    this.events.on('ON_TILE_HOVER', this.onTileHover, this);
+  }
+
+  private onTileHover(coord: TileCoordinate) {
+    if (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      this.combatForecastPresenter.hide();
+      return;
+    }
+
+    if (this.selectedPlayerIndex === null) {
+      this.combatForecastPresenter.hide();
+      return;
+    }
+
+    const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
+    if (!selectedPlayer) {
+      this.combatForecastPresenter.hide();
+      return;
+    }
+
+    // Check if hovered tile has an alive enemy unit and is within melee range
+    const hoveredEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
+    if (hoveredEnemy) {
+      const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
+      if (dist === 1) { // Melee range
+        this.combatForecastPresenter.show(selectedPlayer.unit, hoveredEnemy.unit);
+        return;
+      }
+    }
+
+    this.combatForecastPresenter.hide();
   }
 
   private onTileClicked(coord: TileCoordinate) {
@@ -125,6 +159,7 @@ export class MainGameScene extends Phaser.Scene {
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
       this.selectedPlayerIndex = clickedPlayerIndex;
+      this.combatForecastPresenter.hide();
       const validMoves = this.getValidMovesUseCase.execute(coord, 3); // 3 move range
 
       // Filter out tiles occupied by other alive units
@@ -135,6 +170,8 @@ export class MainGameScene extends Phaser.Scene {
       });
 
       this.gridPresenter.highlightWalkableArea(filteredMoves);
+      // Trigger a hover update manually using the currently hovered coordinate if we just selected,
+      // but pointer move should handle most of it.
       return;
     }
 
@@ -164,6 +201,7 @@ export class MainGameScene extends Phaser.Scene {
           clickedEnemy.graphic.clear();
         }
         actionTaken = true;
+        this.combatForecastPresenter.hide();
       }
     } else {
       // 3. Try to move to the empty valid tile
@@ -183,6 +221,7 @@ export class MainGameScene extends Phaser.Scene {
         selectedPlayer.graphic.moveTo(coord);
         selectedPlayer.graphic.setTint(0x0000ff);
         actionTaken = true;
+        this.combatForecastPresenter.hide();
       }
     }
 
@@ -255,6 +294,7 @@ export class MainGameScene extends Phaser.Scene {
     });
 
     this.selectedPlayerIndex = null;
+    this.combatForecastPresenter.hide();
     this.gridPresenter.clearHighlights();
 
     // Ensure phase manager goes back to PLAYER_PHASE if it somehow wasn't (e.g. cleared on enemy turn)
