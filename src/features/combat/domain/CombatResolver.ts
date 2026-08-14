@@ -10,6 +10,8 @@ export interface CombatResult {
   isCrit: boolean;
   hitChance: number;
   critChance: number;
+  lifeStealAmount: number;
+  doubleStrike: boolean;
 }
 
 export class CombatResolver {
@@ -45,10 +47,6 @@ export class CombatResolver {
     return GameDatabase.combatRules?.critDamageMultiplier ?? 2.0;
   }
 
-  /**
-   * Evaluates if the attacker has a weapon triangle advantage against the defender.
-   * Triangles: SWORD > AXE, AXE > LANCE, LANCE > SWORD.
-   */
   public static hasAdvantage(attackerWeapon: WeaponType, defenderWeapon: WeaponType): boolean {
     if (attackerWeapon === WeaponType.SWORD && defenderWeapon === WeaponType.AXE) return true;
     if (attackerWeapon === WeaponType.AXE && defenderWeapon === WeaponType.LANCE) return true;
@@ -56,16 +54,10 @@ export class CombatResolver {
     return false;
   }
 
-  /**
-   * Evaluates if the attacker has a weapon triangle disadvantage against the defender.
-   */
   public static hasDisadvantage(attackerWeapon: WeaponType, defenderWeapon: WeaponType): boolean {
     return this.hasAdvantage(defenderWeapon, attackerWeapon);
   }
 
-  /**
-   * Calculates accuracy and critical rates for an attack.
-   */
   public static calculateRates(attacker: Unit, defender: Unit): { hitChance: number; critChance: number; hasAdvantage: boolean; hasDisadvantage: boolean } {
     const advantage = this.hasAdvantage(attacker.weaponType, defender.weaponType);
     const disadvantage = this.hasDisadvantage(attacker.weaponType, defender.weaponType);
@@ -82,13 +74,14 @@ export class CombatResolver {
       critChance += this.ADVANTAGE_CRIT_BONUS;
     }
 
+    // Add equipped relic weapon crit bonus
+    if (attacker.equippedWeapon?.critBonus) {
+      critChance += attacker.equippedWeapon.critBonus / 100;
+    }
+
     return { hitChance, critChance, hasAdvantage: advantage, hasDisadvantage: disadvantage };
   }
 
-  /**
-   * Calculates the damage the attacker will deal to the defender,
-   * factoring in data-driven weapon triangle rules, accuracy roll, and crit roll.
-   */
   public static calculateDamage(attacker: Unit, defender: Unit, rollHit?: number, rollCrit?: number): CombatResult {
     const { hitChance, critChance, hasAdvantage, hasDisadvantage } = this.calculateRates(attacker, defender);
 
@@ -103,7 +96,9 @@ export class CombatResolver {
         isHit: false,
         isCrit: false,
         hitChance,
-        critChance
+        critChance,
+        lifeStealAmount: 0,
+        doubleStrike: false
       };
     }
 
@@ -121,6 +116,14 @@ export class CombatResolver {
 
     const damageDealt = isCrit ? Math.round(baseDamage * this.CRIT_DAMAGE_MULTIPLIER) : baseDamage;
 
+    // Relic Life Steal Calculation
+    let lifeStealAmount = 0;
+    if (attacker.equippedWeapon?.lifeStealPercent) {
+      lifeStealAmount = Math.max(1, Math.round(damageDealt * (attacker.equippedWeapon.lifeStealPercent / 100)));
+    }
+
+    const doubleStrike = !!attacker.equippedWeapon?.doubleStrike;
+
     return {
       damageDealt,
       hasAdvantage,
@@ -128,7 +131,9 @@ export class CombatResolver {
       isHit: true,
       isCrit,
       hitChance,
-      critChance
+      critChance,
+      lifeStealAmount,
+      doubleStrike
     };
   }
 }

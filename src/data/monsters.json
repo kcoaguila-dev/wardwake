@@ -1,101 +1,147 @@
 [
   {
-    "id": "goblin_scout",
+    "id": "enemy_goblin_sword",
     "name": "Goblin Scout",
-    "tier": 1,
     "weaponType": "SWORD",
-    "baseHp": 8,
-    "baseAttack": 3,
-    "baseDefense": 0,
-    "expYield": 25,
-    "aiProfile": "AGGRESSIVE"
-  },
-  {
-    "id": "forest_brigand",
-    "name": "Forest Brigand",
-    "tier": 1,
-    "weaponType": "AXE",
     "baseHp": 10,
-    "baseAttack": 4,
-    "baseDefense": 0,
-    "expYield": 30,
-    "aiProfile": "AGGRESSIVE"
-  },
-  {
-    "id": "bandit_trainee",
-    "name": "Bandit Trainee",
-    "tier": 1,
-    "weaponType": "LANCE",
-    "baseHp": 9,
-    "baseAttack": 3,
+    "baseAttack": 5,
     "baseDefense": 1,
-    "expYield": 25,
-    "aiProfile": "AGGRESSIVE"
+    "expYield": 50,
+    "floorTier": 1
   },
   {
-    "id": "armored_guard",
-    "name": "Armored Guard",
-    "tier": 2,
+    "id": "enemy_orc_axe",
+    "name": "Orc Cleaver",
     "weaponType": "AXE",
-    "baseHp": 16,
+    "baseHp": 12,
     "baseAttack": 6,
     "baseDefense": 2,
-    "expYield": 50,
-    "aiProfile": "TACTICAL"
+    "expYield": 60,
+    "floorTier": 1
   },
   {
-    "id": "iron_knight",
-    "name": "Iron Knight",
-    "tier": 2,
+    "id": "enemy_skeleton_lance",
+    "name": "Skeleton Spearman",
     "weaponType": "LANCE",
-    "baseHp": 18,
-    "baseAttack": 6,
-    "baseDefense": 3,
-    "expYield": 55,
-    "aiProfile": "TACTICAL"
-  },
-  {
-    "id": "mercenary_blade",
-    "name": "Mercenary Blade",
-    "tier": 2,
-    "weaponType": "SWORD",
-    "baseHp": 15,
-    "baseAttack": 7,
+    "baseHp": 10,
+    "baseAttack": 5,
     "baseDefense": 1,
-    "expYield": 50,
-    "aiProfile": "TACTICAL"
+    "expYield": 55,
+    "floorTier": 1
   },
   {
-    "id": "dread_champion",
-    "name": "Dread Champion",
-    "tier": 3,
+    "id": "enemy_hobgoblin",
+    "name": "Hobgoblin Raider",
     "weaponType": "SWORD",
-    "baseHp": 26,
-    "baseAttack": 9,
+    "baseHp": 18,
+    "baseAttack": 8,
     "baseDefense": 3,
-    "expYield": 100,
-    "aiProfile": "TACTICAL"
+    "expYield": 80,
+    "floorTier": 2
   },
   {
-    "id": "warlord_vanguard",
-    "name": "Warlord Vanguard",
-    "tier": 3,
+    "id": "enemy_orc_berserker",
+    "name": "Orc Berserker",
     "weaponType": "AXE",
-    "baseHp": 32,
+    "baseHp": 22,
     "baseAttack": 10,
-    "baseDefense": 4,
-    "expYield": 120,
-    "aiProfile": "TACTICAL"
+    "baseDefense": 3,
+    "expYield": 95,
+    "floorTier": 2
   },
   {
-    "id": "shadow_halberdier",
-    "name": "Shadow Halberdier",
-    "tier": 3,
+    "id": "enemy_spectral_lancer",
+    "name": "Spectral Lancer",
     "weaponType": "LANCE",
-    "baseHp": 28,
+    "baseHp": 16,
     "baseAttack": 9,
+    "baseDefense": 2,
+    "expYield": 85,
+    "floorTier": 2
+  },
+  {
+    "id": "enemy_dread_knight",
+    "name": "Dread Knight",
+    "weaponType": "SWORD",
+    "baseHp": 28,
+    "baseAttack": 12,
+    "baseDefense": 5,
+    "expYield": 130,
+    "floorTier": 3
+  },
+  {
+    "id": "enemy_iron_golem",
+    "name": "Iron Golem",
+    "weaponType": "AXE",
+    "baseHp": 35,
+    "baseAttack": 14,
+    "baseDefense": 7,
+    "expYield": 150,
+    "floorTier": 3
+  },
+  {
+    "id": "enemy_phantom_halberdier",
+    "name": "Phantom Halberdier",
+    "weaponType": "LANCE",
+    "baseHp": 26,
+    "baseAttack": 13,
     "baseDefense": 4,
-    "expYield": 110,
-    "aiProfile": "TACTICAL"
+    "expYield": 140,
+    "floorTier": 3
+  },
+  {
+    "id": "enemy_dread_minotaur",
+    "name": "💀 Dread Minotaur (FOE)",
+    "weaponType": "AXE",
+    "baseHp": 42,
+    "baseAttack": 13,
+    "baseDefense": 4,
+    "expYield": 200,
+    "floorTier": 1,
+    "isElite": true
+  },
+  {
+    "id": "enemy_shadow_reaper",
+    "name": "💀 Shadow Reaper (FOE)",
+    "weaponType": "LANCE",
+    "baseHp": 38,
+    "baseAttack": 14,
+    "baseDefense": 3,
+    "expYield": 200,
+    "floorTier": 1,
+    "isElite": true
+  },
+  {
+    "id": "enemy_crimson_warlord",
+    "name": "💀 Crimson Warlord (FOE)",
+    "weaponType": "SWORD",
+    "baseHp": 44,
+    "baseAttack": 14,
+    "baseDefense": 5,
+    "expYield": 220,
+    "floorTier": 1,
+    "isElite": true
+  },
+  {
+    "id": "boss_dread_champion",
+    "name": "👹 DREAD CHAMPION (BOSS)",
+    "weaponType": "AXE",
+    "baseHp": 65,
+    "baseAttack": 15,
+    "baseDefense": 5,
+    "expYield": 350,
+    "floorTier": 5,
+    "isBoss": true
+  },
+  {
+    "id": "boss_shadow_sovereign",
+    "name": "👑 SHADOW SOVEREIGN (FINAL BOSS)",
+    "weaponType": "SWORD",
+    "baseHp": 110,
+    "baseAttack": 18,
+    "baseDefense": 7,
+    "expYield": 600,
+    "floorTier": 10,
+    "isBoss": true
   }
 ]

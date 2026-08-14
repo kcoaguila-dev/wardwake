@@ -1,0 +1,31 @@
+[
+  {
+    "id": "spike_trap",
+    "name": "Spike Trap",
+    "type": "DAMAGE",
+    "damage": 5,
+    "description": "Hidden metal spikes shoot from the ground dealing 5 DMG."
+  },
+  {
+    "id": "warp_trap",
+    "name": "Warp Tile",
+    "type": "WARP",
+    "damage": 0,
+    "description": "Instantly teleports the victim across the floor!"
+  },
+  {
+    "id": "mud_trap",
+    "name": "Mud Pit",
+    "type": "BELLY",
+    "damage": 1,
+    "bellyDrain": 15,
+    "description": "Thick sticky mud causes struggle and drains 15% Belly."
+  },
+  {
+    "id": "poison_dart",
+    "name": "Poison Dart",
+    "type": "DAMAGE",
+    "damage": 3,
+    "description": "Hidden pressure plate fires a venom dart dealing 3 DMG."
+  }
+]

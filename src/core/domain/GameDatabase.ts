@@ -7,6 +7,7 @@ import { WeaponType } from '../../features/combat/domain/WeaponType';
 import monstersData from '../../data/monsters.json';
 import itemsData from '../../data/items.json';
 import heroesData from '../../data/heroes.json';
+import floorsData from '../../data/floors.json';
 import combatRulesData from '../../data/combat_rules.json';
 
 export interface HeroBlueprint {
@@ -17,6 +18,18 @@ export interface HeroBlueprint {
   baseAttack: number;
   baseDefense: number;
   startingInventory: string[];
+}
+
+export interface FloorTierBlueprint {
+  tier: number;
+  minFloor: number;
+  maxFloor: number;
+  enemyCountMin: number;
+  enemyCountMax: number;
+  itemCountMin: number;
+  itemCountMax: number;
+  respawnIntervalSteps: number;
+  statScaleFactor: number;
 }
 
 export interface CombatRulesConfig {
@@ -53,7 +66,23 @@ export class GameDatabase {
   public static readonly monsters = new DataRegistry<MonsterBlueprint>(parseArray<MonsterBlueprint>(monstersData));
   public static readonly items = new DataRegistry<ItemBlueprint>(parseArray<ItemBlueprint>(itemsData));
   public static readonly heroes = new DataRegistry<HeroBlueprint>(parseArray<HeroBlueprint>(heroesData));
+  public static readonly floors = parseArray<FloorTierBlueprint>(floorsData);
   public static readonly combatRules: CombatRulesConfig = parseObject<CombatRulesConfig>(combatRulesData);
+
+  public static getFloorConfig(floorNumber: number): FloorTierBlueprint {
+    const matched = this.floors.find(f => floorNumber >= f.minFloor && floorNumber <= f.maxFloor);
+    return matched || this.floors[0] || {
+      tier: 1,
+      minFloor: 1,
+      maxFloor: 3,
+      enemyCountMin: 2,
+      enemyCountMax: 4,
+      itemCountMin: 1,
+      itemCountMax: 2,
+      respawnIntervalSteps: 25,
+      statScaleFactor: 1.0
+    };
+  }
 
   public static createHeroUnit(blueprintId: string, customId?: string): Unit {
     const blueprint = this.heroes.getOrThrow(blueprintId);

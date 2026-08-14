@@ -20,6 +20,11 @@ describe('EnemyFactory', () => {
       expect(count).toBeGreaterThanOrEqual(4);
       expect(count).toBeLessThanOrEqual(5);
     });
+
+    it('returns 1 for Boss Floors 5 and 10', () => {
+      expect(EnemyFactory.getEnemyCountForFloor(5)).toBe(1);
+      expect(EnemyFactory.getEnemyCountForFloor(10)).toBe(1);
+    });
   });
 
   describe('createEnemy', () => {
@@ -28,92 +33,92 @@ describe('EnemyFactory', () => {
         const enemy = EnemyFactory.createEnemy(1, 0);
         expect(enemy.id).toBe('e1');
         expect(enemy.name).toBe('Goblin Scout');
-        expect(enemy.maxHp).toBe(8 + 1);
-        expect(enemy.attack).toBe(3);
-        expect(enemy.defense).toBe(0);
+        expect(enemy.maxHp).toBe(10 + 1);
+        expect(enemy.attack).toBe(5);
+        expect(enemy.defense).toBe(1);
         expect(enemy.weaponType).toBe(WeaponType.SWORD);
       });
 
-      it('creates Forest Brigand for index 1 on Floor 2', () => {
+      it('creates Orc Cleaver for index 1 on Floor 2', () => {
         const enemy = EnemyFactory.createEnemy(2, 1);
         expect(enemy.id).toBe('e2');
-        expect(enemy.name).toBe('Forest Brigand');
-        expect(enemy.maxHp).toBe(10 + 2);
-        expect(enemy.attack).toBe(4);
-        expect(enemy.defense).toBe(0);
+        expect(enemy.name).toBe('Orc Cleaver');
+        expect(enemy.maxHp).toBe(12 + 2);
+        expect(enemy.attack).toBe(6);
+        expect(enemy.defense).toBe(2);
         expect(enemy.weaponType).toBe(WeaponType.AXE);
       });
 
-      it('creates Bandit Trainee for index 2 on Floor 3', () => {
+      it('creates Skeleton Spearman for index 2 on Floor 3', () => {
         const enemy = EnemyFactory.createEnemy(3, 2);
         expect(enemy.id).toBe('e3');
-        expect(enemy.name).toBe('Bandit Trainee');
-        expect(enemy.maxHp).toBe(9 + 3);
-        expect(enemy.attack).toBe(3);
+        expect(enemy.name).toBe('Skeleton Spearman');
+        expect(enemy.maxHp).toBe(10 + 3);
+        expect(enemy.attack).toBe(5);
         expect(enemy.defense).toBe(1);
         expect(enemy.weaponType).toBe(WeaponType.LANCE);
       });
     });
 
     describe('Tier 2 (Floors 4-6)', () => {
-      it('creates Armored Guard for index 0 on Floor 4', () => {
+      it('creates Hobgoblin Raider for index 0 on Floor 4', () => {
         const enemy = EnemyFactory.createEnemy(4, 0);
         expect(enemy.id).toBe('e1');
-        expect(enemy.name).toBe('Armored Guard');
-        expect(enemy.maxHp).toBe(16 + (4 * 2));
-        expect(enemy.attack).toBe(6);
-        expect(enemy.defense).toBe(2);
+        expect(enemy.name).toBe('Hobgoblin Raider');
+        expect(enemy.maxHp).toBe(18 + (4 * 2));
+        expect(enemy.attack).toBe(8);
+        expect(enemy.defense).toBe(3);
+        expect(enemy.weaponType).toBe(WeaponType.SWORD);
+      });
+
+      it('creates Orc Berserker for index 1 on Floor 5', () => {
+        const enemy = EnemyFactory.createEnemy(5, 1);
+        expect(enemy.id).toBe('e2');
+        expect(enemy.name).toBe('Orc Berserker');
+        expect(enemy.maxHp).toBe(22 + (5 * 2));
+        expect(enemy.attack).toBe(10);
+        expect(enemy.defense).toBe(3);
         expect(enemy.weaponType).toBe(WeaponType.AXE);
       });
 
-      it('creates Iron Knight for index 1 on Floor 5', () => {
-        const enemy = EnemyFactory.createEnemy(5, 1);
-        expect(enemy.id).toBe('e2');
-        expect(enemy.name).toBe('Iron Knight');
-        expect(enemy.maxHp).toBe(18 + (5 * 2));
-        expect(enemy.attack).toBe(6);
-        expect(enemy.defense).toBe(3);
-        expect(enemy.weaponType).toBe(WeaponType.LANCE);
-      });
-
-      it('creates Mercenary Blade for index 2 on Floor 6', () => {
+      it('creates Spectral Lancer for index 2 on Floor 6', () => {
         const enemy = EnemyFactory.createEnemy(6, 2);
         expect(enemy.id).toBe('e3');
-        expect(enemy.name).toBe('Mercenary Blade');
-        expect(enemy.maxHp).toBe(15 + (6 * 2));
-        expect(enemy.attack).toBe(7);
-        expect(enemy.defense).toBe(1);
-        expect(enemy.weaponType).toBe(WeaponType.SWORD);
+        expect(enemy.name).toBe('Spectral Lancer');
+        expect(enemy.maxHp).toBe(16 + (6 * 2));
+        expect(enemy.attack).toBe(9);
+        expect(enemy.defense).toBe(2);
+        expect(enemy.weaponType).toBe(WeaponType.LANCE);
       });
     });
 
     describe('Tier 3 (Floors 7+)', () => {
-      it('creates Dread Champion for index 0 on Floor 7', () => {
+      it('creates Dread Knight for index 0 on Floor 7', () => {
         const enemy = EnemyFactory.createEnemy(7, 0);
         expect(enemy.id).toBe('e1');
-        expect(enemy.name).toBe('Dread Champion');
-        expect(enemy.maxHp).toBe(26 + (7 * 2));
-        expect(enemy.attack).toBe(9);
-        expect(enemy.defense).toBe(3);
+        expect(enemy.name).toBe('Dread Knight');
+        expect(enemy.maxHp).toBe(28 + (7 * 2));
+        expect(enemy.attack).toBe(12);
+        expect(enemy.defense).toBe(5);
         expect(enemy.weaponType).toBe(WeaponType.SWORD);
       });
 
-      it('creates Warlord Vanguard for index 1 on Floor 8', () => {
+      it('creates Iron Golem for index 1 on Floor 8', () => {
         const enemy = EnemyFactory.createEnemy(8, 1);
         expect(enemy.id).toBe('e2');
-        expect(enemy.name).toBe('Warlord Vanguard');
-        expect(enemy.maxHp).toBe(32 + (8 * 2));
-        expect(enemy.attack).toBe(10);
-        expect(enemy.defense).toBe(4);
+        expect(enemy.name).toBe('Iron Golem');
+        expect(enemy.maxHp).toBe(35 + (8 * 2));
+        expect(enemy.attack).toBe(14);
+        expect(enemy.defense).toBe(7);
         expect(enemy.weaponType).toBe(WeaponType.AXE);
       });
 
-      it('creates Shadow Halberdier for index 2 on Floor 10', () => {
+      it('creates Phantom Halberdier for index 2 on Floor 10', () => {
         const enemy = EnemyFactory.createEnemy(10, 2);
         expect(enemy.id).toBe('e3');
-        expect(enemy.name).toBe('Shadow Halberdier');
-        expect(enemy.maxHp).toBe(28 + (10 * 2));
-        expect(enemy.attack).toBe(9);
+        expect(enemy.name).toBe('Phantom Halberdier');
+        expect(enemy.maxHp).toBe(26 + (10 * 2));
+        expect(enemy.attack).toBe(13);
         expect(enemy.defense).toBe(4);
         expect(enemy.weaponType).toBe(WeaponType.LANCE);
       });

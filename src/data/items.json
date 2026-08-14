@@ -6,7 +6,7 @@
     "value": 10,
     "description": "A restorative herb that heals 10 HP.",
     "rarity": "COMMON",
-    "dropWeight": 40
+    "dropWeight": 30
   },
   {
     "id": "big_apple",
@@ -15,14 +15,14 @@
     "value": 50,
     "description": "A crunchy, sweet apple that restores +50 Fullness.",
     "rarity": "COMMON",
-    "dropWeight": 35
+    "dropWeight": 30
   },
   {
     "id": "dungeon_ration",
     "name": "Dungeon Ration",
     "type": "FOOD",
     "value": 100,
-    "description": "Hearty dried meat and hardtack that fully restores +100 Fullness.",
+    "description": "Hearty dried meat that fully restores +100 Fullness.",
     "rarity": "UNCOMMON",
     "dropWeight": 15
   },
@@ -31,17 +31,56 @@
     "name": "Elixir",
     "type": "HEAL",
     "value": 25,
-    "description": "A potent draught that fully heals a wounded warrior.",
+    "description": "A potent draught that heals 25 HP.",
     "rarity": "RARE",
-    "dropWeight": 15
+    "dropWeight": 10
   },
   {
     "id": "strength_herb",
     "name": "Strength Herb",
     "type": "ATTACK_BUFF",
     "value": 2,
-    "description": "Increases Attack by +2.",
+    "description": "Increases Attack by +2 permanently.",
     "rarity": "UNCOMMON",
     "dropWeight": 10
+  },
+  {
+    "id": "relic_killing_edge",
+    "name": "🗡️ Killing Edge",
+    "type": "RELIC_WEAPON",
+    "value": 4,
+    "critBonus": 30,
+    "description": "Legendary sword with +4 ATK & +30% Critical Strike chance.",
+    "rarity": "RARE",
+    "dropWeight": 8
+  },
+  {
+    "id": "relic_brave_lance",
+    "name": "🔱 Brave Lance",
+    "type": "RELIC_WEAPON",
+    "value": 3,
+    "doubleStrike": true,
+    "description": "Heroic lance granting +3 ATK and consecutive double attacks.",
+    "rarity": "RARE",
+    "dropWeight": 6
+  },
+  {
+    "id": "relic_vampire_blade",
+    "name": "🩸 Vampire Blade",
+    "type": "RELIC_WEAPON",
+    "value": 3,
+    "lifeStealPercent": 50,
+    "description": "Cursed blade that drains 50% damage dealt as health.",
+    "rarity": "RARE",
+    "dropWeight": 6
+  },
+  {
+    "id": "relic_aegis_shield",
+    "name": "🛡️ Aegis Shield",
+    "type": "RELIC_ARMOR",
+    "value": 5,
+    "description": "Blessed impenetrable shield granting +5 DEF.",
+    "rarity": "RARE",
+    "dropWeight": 8
   }
 ]

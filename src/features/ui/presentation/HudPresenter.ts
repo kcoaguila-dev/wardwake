@@ -3,7 +3,7 @@ import * as Phaser from 'phaser';
 export class HudPresenter {
   private floorText: Phaser.GameObjects.Text;
   private phaseText: Phaser.GameObjects.Text;
-  private enemiesText: Phaser.GameObjects.Text;
+  private turnText: Phaser.GameObjects.Text;
   private endTurnButton: Phaser.GameObjects.Text;
   private muteButton: Phaser.GameObjects.Text;
   private onMuteToggleCallback?: () => void;
@@ -31,13 +31,13 @@ export class HudPresenter {
     this.floorText.setScrollFactor(0);
     this.floorText.setDepth(11);
 
-    this.phaseText = this.scene.add.text(110, 12, '🔵 PLAYER', fontStyle);
+    this.phaseText = this.scene.add.text(110, 12, '🔵 EXPLORE', fontStyle);
     this.phaseText.setScrollFactor(0);
     this.phaseText.setDepth(11);
 
-    this.enemiesText = this.scene.add.text(215, 12, '⚔️ 0 Enemies', fontStyle);
-    this.enemiesText.setScrollFactor(0);
-    this.enemiesText.setDepth(11);
+    this.turnText = this.scene.add.text(215, 12, '⏳ Turn 1', fontStyle);
+    this.turnText.setScrollFactor(0);
+    this.turnText.setDepth(11);
 
     // End Turn Button
     this.endTurnButton = this.scene.add.text(width - 130, 10, '[⏳ END TURN]', {
@@ -87,7 +87,11 @@ export class HudPresenter {
     this.phaseText.setText(phase);
   }
 
+  updateTurns(turns: number): void {
+    this.turnText.setText(`⏳ Turn ${turns}`);
+  }
+
   updateEnemies(count: number): void {
-    this.enemiesText.setText(`⚔️ ${count} ${count === 1 ? 'Enemy' : 'Enemies'}`);
+    // Deprecated for fog of war mystery, replaced with turn count or no-op
   }
 }

@@ -6,7 +6,6 @@ export class StairsModalPresenter {
   private modalBg: Phaser.GameObjects.Rectangle;
   private titleText: Phaser.GameObjects.Text;
   private descText: Phaser.GameObjects.Text;
-  private infoText: Phaser.GameObjects.Text;
 
   private descendBtn: Phaser.GameObjects.Rectangle;
   private descendText: Phaser.GameObjects.Text;
@@ -31,7 +30,7 @@ export class StairsModalPresenter {
       .setInteractive();
 
     const modalWidth = 260;
-    const modalHeight = 150;
+    const modalHeight = 135;
     const modalX = (screenWidth - modalWidth) / 2;
     const modalY = (screenHeight - modalHeight) / 2;
 
@@ -42,31 +41,24 @@ export class StairsModalPresenter {
       .setInteractive();
 
     // Title
-    this.titleText = this.scene.add.text(screenWidth / 2, modalY + 18, '🪜 STAIRWAY DESCEND', {
-      fontSize: '13px',
+    this.titleText = this.scene.add.text(screenWidth / 2, modalY + 22, '🪜 STAIRWAY', {
+      fontSize: '14px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffd700'
     }).setOrigin(0.5, 0.5);
 
     // Subtitle / Prompt
-    this.descText = this.scene.add.text(screenWidth / 2, modalY + 44, 'Descend to Floor 2?', {
+    this.descText = this.scene.add.text(screenWidth / 2, modalY + 52, 'Go to the next floor (Floor 2)?', {
       fontSize: '11px',
       fontFamily: 'monospace',
-      color: '#ffffff'
+      color: '#f8fafc'
     }).setOrigin(0.5, 0.5);
 
-    // Context / Enemies info
-    this.infoText = this.scene.add.text(screenWidth / 2, modalY + 68, '⚠️ 2 enemies remain.', {
-      fontSize: '9.5px',
-      fontFamily: 'monospace',
-      color: '#f59e0b'
-    }).setOrigin(0.5, 0.5);
-
-    // 1. DESCEND Button
+    // 1. YES / PROCEED Button
     const btnWidth = 105;
-    const btnHeight = 28;
-    const btnY = modalY + 98;
+    const btnHeight = 30;
+    const btnY = modalY + 84;
 
     const descendBtnX = screenWidth / 2 - btnWidth - 8;
     this.descendBtn = this.scene.add.rectangle(descendBtnX, btnY, btnWidth, btnHeight, 0x1e3a8a)
@@ -74,7 +66,7 @@ export class StairsModalPresenter {
       .setStrokeStyle(1.5, 0x38bdf8)
       .setInteractive({ useHandCursor: true });
 
-    this.descendText = this.scene.add.text(descendBtnX + btnWidth / 2, btnY + btnHeight / 2, '⬇️ DESCEND', {
+    this.descendText = this.scene.add.text(descendBtnX + btnWidth / 2, btnY + btnHeight / 2, '🪜 YES', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -82,21 +74,21 @@ export class StairsModalPresenter {
     }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
 
     const handleDescend = () => {
-      if (this.onDescend) this.onDescend();
+      if (this.isVisible() && this.onDescend) this.onDescend();
     };
     this.descendBtn.on('pointerdown', handleDescend);
     this.descendText.on('pointerdown', handleDescend);
     this.descendBtn.on('pointerover', () => this.descendBtn.setFillStyle(0x2563eb));
     this.descendBtn.on('pointerout', () => this.descendBtn.setFillStyle(0x1e3a8a));
 
-    // 2. STAY / CANCEL Button
+    // 2. NO / STAY Button
     const stayBtnX = screenWidth / 2 + 8;
     this.stayBtn = this.scene.add.rectangle(stayBtnX, btnY, btnWidth, btnHeight, 0x334155)
       .setOrigin(0, 0)
       .setStrokeStyle(1.5, 0x64748b)
       .setInteractive({ useHandCursor: true });
 
-    this.stayText = this.scene.add.text(stayBtnX + btnWidth / 2, btnY + btnHeight / 2, '❌ STAY', {
+    this.stayText = this.scene.add.text(stayBtnX + btnWidth / 2, btnY + btnHeight / 2, '❌ NO', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -104,19 +96,32 @@ export class StairsModalPresenter {
     }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
 
     const handleStay = () => {
-      if (this.onStay) this.onStay();
+      if (this.isVisible() && this.onStay) this.onStay();
     };
     this.stayBtn.on('pointerdown', handleStay);
     this.stayText.on('pointerdown', handleStay);
     this.stayBtn.on('pointerover', () => this.stayBtn.setFillStyle(0x475569));
     this.stayBtn.on('pointerout', () => this.stayBtn.setFillStyle(0x334155));
 
+    // Direct screen-space pointer listener to guarantee clicks work even when camera is panned
+    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.isVisible()) return;
+
+      const px = pointer.x;
+      const py = pointer.y;
+
+      if (px >= descendBtnX && px <= descendBtnX + btnWidth && py >= btnY && py <= btnY + btnHeight) {
+        handleDescend();
+      } else if (px >= stayBtnX && px <= stayBtnX + btnWidth && py >= btnY && py <= btnY + btnHeight) {
+        handleStay();
+      }
+    });
+
     this.container.add([
       this.backdrop,
       this.modalBg,
       this.titleText,
       this.descText,
-      this.infoText,
       this.descendBtn,
       this.descendText,
       this.stayBtn,
@@ -124,17 +129,8 @@ export class StairsModalPresenter {
     ]);
   }
 
-  public show(nextFloor: number, remainingEnemies: number): void {
-    this.descText.setText(`Descend deeper to Floor ${nextFloor}?`);
-
-    if (remainingEnemies > 0) {
-      this.infoText.setColor('#f59e0b');
-      this.infoText.setText(`⚠️ ${remainingEnemies} ${remainingEnemies === 1 ? 'enemy remains' : 'enemies remain'}.`);
-    } else {
-      this.infoText.setColor('#34d399');
-      this.infoText.setText('✨ All enemies cleared!');
-    }
-
+  public show(nextFloor: number): void {
+    this.descText.setText(`Go to the next floor (Floor ${nextFloor})?`);
     this.container.setVisible(true);
   }
 

@@ -5,13 +5,16 @@ import monstersData from '../../../data/monsters.json';
 export interface MonsterBlueprint {
   id: string;
   name: string;
-  tier: number;
+  tier?: number;
+  floorTier?: number;
   weaponType: string;
   baseHp: number;
   baseAttack: number;
   baseDefense: number;
   expYield: number;
-  aiProfile: string;
+  aiProfile?: string;
+  isElite?: boolean;
+  isBoss?: boolean;
 }
 
 const rawBlueprints: MonsterBlueprint[] = (Array.isArray(monstersData)
@@ -29,9 +32,20 @@ export class MonsterRepository {
     return this.blueprints.find(m => m.id === id);
   }
 
-  public static getByTier(tier: number): MonsterBlueprint[] {
-    const list = this.blueprints.filter(m => m.tier === tier);
-    return list.length > 0 ? list : this.blueprints.filter(m => m.tier === 1);
+  public static getByTier(tier: number, allowSpecial: boolean = false): MonsterBlueprint[] {
+    const list = this.blueprints.filter(m => (m.tier === tier || m.floorTier === tier) && (allowSpecial ? true : (!m.isElite && !m.isBoss)));
+    return list.length > 0 ? list : this.blueprints.filter(m => !m.isElite && !m.isBoss);
+  }
+
+  public static getEliteMonsters(): MonsterBlueprint[] {
+    return this.blueprints.filter(m => m.isElite);
+  }
+
+  public static getBossMonster(floorNumber: number): MonsterBlueprint | undefined {
+    if (floorNumber >= 10) {
+      return this.blueprints.find(m => m.id === 'boss_shadow_sovereign') || this.blueprints.find(m => m.isBoss);
+    }
+    return this.blueprints.find(m => m.id === 'boss_dread_champion') || this.blueprints.find(m => m.isBoss);
   }
 
   public static createUnitFromBlueprint(blueprint: MonsterBlueprint, uniqueId: string, floorNumber: number): Unit {
@@ -50,7 +64,8 @@ export class MonsterRepository {
         weapon = WeaponType.SWORD;
     }
 
-    const hpGrowth = blueprint.tier === 1 ? floorNumber : floorNumber * 2;
+    const tier = blueprint.tier || blueprint.floorTier || 1;
+    const hpGrowth = blueprint.isBoss ? 0 : (tier === 1 ? floorNumber : floorNumber * 2);
     const finalHp = blueprint.baseHp + hpGrowth;
     const finalAtk = blueprint.baseAttack;
     const finalDef = blueprint.baseDefense;

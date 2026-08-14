@@ -12,6 +12,7 @@ import { ActionMenuPresenter } from '../features/ui/presentation/ActionMenuPrese
 import { InventoryMenuPresenter } from '../features/ui/presentation/InventoryMenuPresenter';
 import { PartyHudPresenter } from '../features/ui/presentation/PartyHudPresenter';
 import { StairsModalPresenter } from '../features/ui/presentation/StairsModalPresenter';
+import { RunSummaryModalPresenter, RunSummaryStats } from '../features/ui/presentation/RunSummaryModalPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -28,16 +29,20 @@ import { FogPresenter } from '../features/fog/presentation/FogPresenter';
 import { Unit } from '../features/combat/domain/Unit';
 import { EnemyFactory } from '../features/combat/domain/EnemyFactory';
 import { Item, ItemType } from '../features/inventory/domain/Item';
+import { ItemRepository } from '../features/inventory/domain/ItemRepository';
 import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
 import { HudPresenter } from '../features/ui/presentation/HudPresenter';
 import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudioSynthService';
 import { GameDatabase } from '../core/domain/GameDatabase';
+import { Trap, TrapType } from '../features/traps/domain/Trap';
+import { TrapRepository } from '../features/traps/domain/TrapRepository';
+import { TrapPresenter } from '../features/traps/presentation/TrapPresenter';
 
 export class MainGameScene extends Phaser.Scene {
-  // Map Dimensions (18x18 for 3x3 Chunsoft Macro-Grid)
-  public static readonly MAP_WIDTH = 18;
-  public static readonly MAP_HEIGHT = 18;
+  // Map Dimensions (Expansive 24x24 for 3x3 Chunsoft Macro-Grid with Winding Hallways)
+  public static readonly MAP_WIDTH = 24;
+  public static readonly MAP_HEIGHT = 24;
 
   // Use Cases & Helpers
   private phaseManager!: PhaseManagerUseCase;
@@ -61,6 +66,8 @@ export class MainGameScene extends Phaser.Scene {
   private actionMenuPresenter!: ActionMenuPresenter;
   private inventoryMenuPresenter!: InventoryMenuPresenter;
   private stairsModalPresenter!: StairsModalPresenter;
+  private runSummaryModalPresenter!: RunSummaryModalPresenter;
+  private trapPresenter!: TrapPresenter;
   private fogPresenter!: FogPresenter;
 
   // Audio
@@ -76,6 +83,7 @@ export class MainGameScene extends Phaser.Scene {
   private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private enemySquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private floorItems: { coord: TileCoordinate; item: Item; sprite: Phaser.GameObjects.Sprite }[] = [];
+  private traps: Trap[] = [];
   private turnStartCoords: Map<string, TileCoordinate> = new Map();
   private floorCount: number = 1;
   private staircaseCoord!: TileCoordinate;
@@ -85,6 +93,13 @@ export class MainGameScene extends Phaser.Scene {
   private isTargeting: boolean = false;
   private isEncounterActive: boolean = false;
   private stepCount: number = 0;
+  private stepsSinceLastRespawn: number = 0;
+  private turnCount: number = 1;
+
+  // Run Statistics
+  private runMonstersSlain: number = 0;
+  private runTotalExp: number = 0;
+  private runRelicsFound: number = 0;
 
   constructor() {
     super('MainGameScene');
@@ -117,21 +132,38 @@ export class MainGameScene extends Phaser.Scene {
     this.actionMenuPresenter.onCancel = () => this.cancelActionMenu();
 
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
+    this.trapPresenter = new TrapPresenter(this);
+
     this.stairsModalPresenter = new StairsModalPresenter(this);
     this.stairsModalPresenter.onDescend = () => {
       this.stairsModalPresenter.hide();
       this.isMenuOpen = false;
+      this.isProcessingAction = false;
       this.audioService.playSound('staircase_descend');
       this.startFloor(this.floorCount + 1);
     };
     this.stairsModalPresenter.onStay = () => {
       this.stairsModalPresenter.hide();
       this.isMenuOpen = false;
+      this.isProcessingAction = false;
+    };
+
+    this.runSummaryModalPresenter = new RunSummaryModalPresenter(this);
+    this.runSummaryModalPresenter.onRestart = () => {
+      this.runSummaryModalPresenter.hide();
+      this.isMenuOpen = false;
+      this.isProcessingAction = false;
+      this.playerSquad = [];
+      this.runMonstersSlain = 0;
+      this.runTotalExp = 0;
+      this.runRelicsFound = 0;
+      this.turnCount = 1;
+      this.startFloor(1);
     };
 
     this.fogPresenter = new FogPresenter(this);
 
-    // Set Camera Bounds for Expanded 18x18 Map
+    // Set Camera Bounds for Expanded 24x24 Map
     this.cameras.main.setBounds(
       0,
       -40,
@@ -139,8 +171,11 @@ export class MainGameScene extends Phaser.Scene {
       MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
     );
 
-    // Load Initial Procedural Floor
+    // Load Initial Floor
     this.startFloor(1);
+
+    // Start Ambient Retro BGM
+    this.audioService.startBgm('explore');
 
     // Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
@@ -173,26 +208,32 @@ export class MainGameScene extends Phaser.Scene {
 
     // Unified Keyboard Listener with Native Shift Capture
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) return;
-
       const isShift = event.shiftKey;
       const key = event.key.toLowerCase();
       const code = event.code;
 
-      // Handle Stairs Modal confirmation with Enter / Y / N
+      // Handle Run Summary Modal Restart with Enter
+      if (this.runSummaryModalPresenter.isVisible()) {
+        if (key === 'enter' || key === ' ' || code === 'Space') {
+          this.runSummaryModalPresenter.onRestart?.();
+          return;
+        }
+        return;
+      }
+
+      // Handle Stairs Modal confirmation with Enter / Y / Space / N / Esc
       if (this.stairsModalPresenter.isVisible()) {
-        if (key === 'enter' || key === 'y') {
+        if (key === 'enter' || key === 'y' || key === ' ' || code === 'Space') {
           this.stairsModalPresenter.onDescend?.();
           return;
         } else if (key === 'escape' || key === 'n') {
           this.stairsModalPresenter.onStay?.();
           return;
         }
+        return;
       }
 
-      if (this.isMenuOpen && (key === 'w' || key === 'a' || key === 's' || key === 'd' || code.startsWith('Arrow'))) {
-        this.cancelActionMenu();
-      }
+      if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) return;
 
       if (key === 'w' || code === 'ArrowUp') {
         this.handleKeyboardStep(0, -1, isShift);
@@ -289,7 +330,7 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private async handleCorridorSprint(player: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, dx: number, dy: number): Promise<void> {
-    const maxSprintSteps = 10;
+    const maxSprintSteps = 14;
     for (let step = 0; step < maxSprintSteps; step++) {
       const nextCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
 
@@ -321,7 +362,6 @@ export class MainGameScene extends Phaser.Scene {
       }
 
       if (walkableNeighbors > 2) {
-        // Reached an intersection or room opening: stop sprint safely
         break;
       }
     }
@@ -355,8 +395,7 @@ export class MainGameScene extends Phaser.Scene {
     this.checkEncounterState();
 
     if (activePlayer.coord.equals(this.staircaseCoord)) {
-      const remainingEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).length;
-      this.stairsModalPresenter.show(this.floorCount + 1, remainingEnemies);
+      this.stairsModalPresenter.show(this.floorCount + 1);
       this.isMenuOpen = true;
       return;
     }
@@ -373,14 +412,20 @@ export class MainGameScene extends Phaser.Scene {
     this.isMenuOpen = false;
     this.isTargeting = false;
     this.isEncounterActive = false;
+    this.stepCount = 0;
+    this.stepsSinceLastRespawn = 0;
     this.combatForecastPresenter.hide();
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
     this.stairsModalPresenter.hide();
     this.gridPresenter.clearHighlights();
+    this.trapPresenter.clear();
+
+    const isBossFloor = floorNumber === 5 || floorNumber === 10;
 
     // 1. Generate Procedural Layout, Spawns & Floor Items
-    const enemyCount = Math.min(5, 3 + Math.floor((floorNumber - 1) / 2));
+    const floorConfig = GameDatabase.getFloorConfig(floorNumber);
+    const enemyCount = isBossFloor ? 1 : floorConfig.enemyCountMin;
     const floorData = this.generateFloorUseCase.execute(2, enemyCount);
 
     this.gridMap = floorData.map;
@@ -401,8 +446,8 @@ export class MainGameScene extends Phaser.Scene {
       const p2Unit = GameDatabase.createHeroUnit(heroBlueprints[1]?.id || 'hero_lance_knight', 'p2');
 
       this.playerSquad = [
-        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) }, // Leader (Gold)
-        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!, true, false) } // Companion (Cyan)
+        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) },
+        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!, true, false) }
       ];
     } else {
       this.playerSquad.forEach((p, idx) => {
@@ -420,7 +465,7 @@ export class MainGameScene extends Phaser.Scene {
       this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
     });
 
-    // 4. Spawn Floor Items
+    // 4. Spawn Floor Items & Rare Relics
     this.floorItems.forEach(fi => fi.sprite.destroy());
     this.floorItems = [];
 
@@ -442,28 +487,77 @@ export class MainGameScene extends Phaser.Scene {
       }
     }
 
-    // 5. Spawn / Reset Enemies with Tiered Difficulty
+    // 5. Spawn Hidden Traps (2 to 3 per non-boss floor)
+    this.traps = [];
+    if (!isBossFloor && floorData.rooms.length > 0) {
+      const trapCount = 2 + Math.floor(Math.random() * 2);
+      for (let t = 0; t < trapCount; t++) {
+        const room = floorData.rooms[Math.floor(Math.random() * floorData.rooms.length)]!;
+        const tx = room.x + Math.floor(Math.random() * room.width);
+        const ty = room.y + Math.floor(Math.random() * room.height);
+        const trapCoord = new TileCoordinate(tx, ty);
+
+        const isOccupied = this.playerSquad.some(p => p.coord.equals(trapCoord)) ||
+                           this.staircaseCoord.equals(trapCoord);
+
+        if (!isOccupied && !this.traps.some(tr => tr.coord.equals(trapCoord))) {
+          this.traps.push(TrapRepository.createRandomTrap(trapCoord));
+        }
+      }
+    }
+
+    // 6. Spawn / Reset Enemies with Boss or FOE Elite logic
     this.enemySquad.forEach(e => e.graphic.clear());
     this.enemySquad = [];
 
-    for (let i = 0; i < floorData.enemySpawns.length; i++) {
-      const coord = floorData.enemySpawns[i]!;
-      const unit = EnemyFactory.createEnemy(floorNumber, i);
-      const graphic = new UnitPresenter(this, unit, coord, false, false);
-      graphic.updateHp(unit.currentHp, unit.maxHp);
+    if (isBossFloor) {
+      const bossCoord = floorData.enemySpawns[0] || new TileCoordinate(12, 12);
+      const bossUnit = EnemyFactory.createBoss(floorNumber);
+      const graphic = new UnitPresenter(this, bossUnit, bossCoord, false, false);
+      graphic.updateHp(bossUnit.currentHp, bossUnit.maxHp);
 
       this.enemySquad.push({
-        unit,
-        coord,
+        unit: bossUnit,
+        coord: bossCoord,
         hasActed: false,
         graphic
       });
+
+      this.audioService.playSound('boss_roar');
+    } else {
+      const hasElite = Math.random() < 0.35 || floorNumber >= 3;
+      let hasSpawnedElite = false;
+
+      for (let i = 0; i < floorData.enemySpawns.length; i++) {
+        const coord = floorData.enemySpawns[i]!;
+        const isThisElite = hasElite && !hasSpawnedElite && i === floorData.enemySpawns.length - 1;
+        if (isThisElite) hasSpawnedElite = true;
+
+        const unit = EnemyFactory.createEnemy(floorNumber, i, isThisElite);
+        const graphic = new UnitPresenter(this, unit, coord, false, false);
+        graphic.updateHp(unit.currentHp, unit.maxHp);
+
+        this.enemySquad.push({
+          unit,
+          coord,
+          hasActed: false,
+          graphic
+        });
+      }
+
+      if (hasSpawnedElite && this.playerSquad[0]) {
+        const screenX = this.playerSquad[0].coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const screenY = this.playerSquad[0].coord.y * GridPresenter.TILE_SIZE - 10;
+        this.time.delayedCall(500, () => {
+          this.combatTextPresenter.showBanner(screenX, screenY, '⚠️ A terrifying presence lurks in the dungeon... (💀 FOE)');
+        });
+      }
     }
 
-    // 6. Update HUD & Phase
+    // 7. Update HUD & Phase
     this.hudPresenter.updateFloor(this.floorCount);
     this.hudPresenter.updatePhase('🔵 EXPLORE');
-    this.hudPresenter.updateEnemies(this.enemySquad.length);
+    this.hudPresenter.updateTurns(this.turnCount);
     this.partyHudPresenter.updateParty(this.playerSquad);
 
     while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
@@ -480,6 +574,7 @@ export class MainGameScene extends Phaser.Scene {
 
     this.updateFogAndVisibility();
     this.checkEncounterState();
+    this.audioService.startBgm('explore');
   }
 
   private updateFogAndVisibility(): void {
@@ -487,7 +582,6 @@ export class MainGameScene extends Phaser.Scene {
     this.fogOfWar.updateVisibility(playerCoords, this.visibilityMap);
     this.fogPresenter.drawFog(this.gridMap, this.visibilityMap);
 
-    // Hide or show enemies based on visibility
     this.enemySquad.forEach(enemy => {
       if (enemy.unit.currentHp > 0) {
         const isVisible = this.visibilityMap.isVisible(enemy.coord);
@@ -495,13 +589,11 @@ export class MainGameScene extends Phaser.Scene {
       }
     });
 
-    // Hide or show floor items based on visibility
     this.floorItems.forEach(item => {
       const isVisible = this.visibilityMap.isVisible(item.coord);
       item.sprite.setVisible(isVisible);
     });
 
-    // Update minimap with discovered tiles and visible enemies
     this.minimapPresenter.drawMap(this.gridMap, this.staircaseCoord, this.visibilityMap);
     this.updateMinimap();
   }
@@ -525,6 +617,8 @@ export class MainGameScene extends Phaser.Scene {
     if (enemyNearby && !this.isEncounterActive) {
       this.isEncounterActive = true;
       this.hudPresenter.updatePhase('⚔️ COMBAT');
+      this.audioService.startBgm('combat');
+
       this.playerSquad.forEach(p => {
         this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
       });
@@ -537,9 +631,9 @@ export class MainGameScene extends Phaser.Scene {
     } else if (!enemyNearby && this.isEncounterActive) {
       this.isEncounterActive = false;
       this.hudPresenter.updatePhase('🔵 EXPLORE');
+      this.audioService.startBgm('explore');
       this.cancelActionMenu();
 
-      // Clear any exhaustion when transitioning back to exploration
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
           p.hasActed = false;
@@ -584,11 +678,11 @@ export class MainGameScene extends Phaser.Scene {
     const selectedPlayer = this.playerSquad[index];
     if (!selectedPlayer) return;
 
-    // Dynamic Leader Crown & Outline update
     this.playerSquad.forEach((p, idx) => {
       p.graphic.setSelected(idx === index);
       if (!this.isEncounterActive) {
         p.graphic.setLeader(idx === index);
+        p.graphic.setExhausted(false);
       }
     });
 
@@ -689,7 +783,6 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 1. If targeting mode is active for attack
     if (this.isTargeting && this.selectedPlayerIndex !== null) {
       const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
       const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord) && this.visibilityMap.isVisible(coord));
@@ -705,18 +798,15 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 2. If clicking on the Staircase while standing on it
     if (coord.equals(this.staircaseCoord)) {
       const heroOnStairs = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(this.staircaseCoord));
       if (heroOnStairs) {
-        const remainingEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).length;
-        this.stairsModalPresenter.show(this.floorCount + 1, remainingEnemies);
+        this.stairsModalPresenter.show(this.floorCount + 1);
         this.isMenuOpen = true;
         return;
       }
     }
 
-    // 3. Select an active unacted player OR swap positions with adjacent ally
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && (this.isEncounterActive ? !p.hasActed : true) && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
       if (this.selectedPlayerIndex === clickedPlayerIndex) {
@@ -728,7 +818,6 @@ export class MainGameScene extends Phaser.Scene {
         const clickedHero = this.playerSquad[clickedPlayerIndex]!;
         const dist = Math.abs(currentHero.coord.x - clickedHero.coord.x) + Math.abs(currentHero.coord.y - clickedHero.coord.y);
         if (dist === 1) {
-          // Adjacent ally: Swap places smoothly!
           await this.swapPlayerPositions(currentHero, clickedHero);
           return;
         }
@@ -740,7 +829,6 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     if (this.selectedPlayerIndex === null) {
-      // In exploration mode, default to moving the lead hero
       const leadHeroIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed);
       if (leadHeroIdx !== -1) {
         this.selectHeroByIndex(leadHeroIdx);
@@ -758,7 +846,6 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 4. Move to valid tile
     const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
     const filteredMoves = validMoves.filter(move => {
       const isAdjacentAlly = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move) && (Math.abs(selectedPlayer.coord.x - move.x) + Math.abs(selectedPlayer.coord.y - move.y) === 1));
@@ -787,7 +874,6 @@ export class MainGameScene extends Phaser.Scene {
     await selectedPlayer.graphic.moveTo(coord, fast);
     this.centerCameraOn(coord, !fast);
 
-    // In Exploration Mode (no active encounter), companion auto-follows behind leader
     if (!this.isEncounterActive) {
       const companion = this.playerSquad.find(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0);
       if (companion && !companion.coord.equals(leaderPreviousCoord)) {
@@ -795,9 +881,54 @@ export class MainGameScene extends Phaser.Scene {
         companion.coord = followTarget;
         await companion.graphic.moveTo(followTarget, fast);
       }
+      this.playerSquad.forEach(p => {
+        if (p.unit.currentHp > 0) {
+          p.hasActed = false;
+          p.graphic.setExhausted(false);
+        }
+      });
     }
 
-    // Check Floor Item Pickup
+    // 1. Check Hidden Traps
+    const steppedTrap = this.traps.find(t => t.coord.equals(coord));
+    if (steppedTrap) {
+      steppedTrap.trigger();
+      this.trapPresenter.drawRevealedTrap(steppedTrap);
+      this.audioService.playSound('trap_spring');
+
+      const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const screenY = coord.y * GridPresenter.TILE_SIZE - 10;
+
+      if (steppedTrap.type === TrapType.DAMAGE) {
+        selectedPlayer.unit.applyDamage(steppedTrap.damage);
+        selectedPlayer.graphic.updateHp(selectedPlayer.unit.currentHp, selectedPlayer.unit.maxHp);
+        this.combatTextPresenter.showDamage(screenX, screenY, steppedTrap.damage, false, false);
+        this.combatTextPresenter.showBanner(screenX, screenY - 14, `⚠️ ${steppedTrap.name}!`);
+      } else if (steppedTrap.type === TrapType.BELLY) {
+        selectedPlayer.unit.decreaseBelly(steppedTrap.bellyDrain);
+        this.combatTextPresenter.showBanner(screenX, screenY, `⚠️ ${steppedTrap.name}! -${steppedTrap.bellyDrain}% Belly`);
+      } else if (steppedTrap.type === TrapType.WARP) {
+        this.combatTextPresenter.showBanner(screenX, screenY, `🌀 ${steppedTrap.name}! Teleported!`);
+        // Warp to a safe random walkable tile
+        const safeCoords: TileCoordinate[] = [];
+        for (let y = 0; y < this.gridMap.height; y++) {
+          for (let x = 0; x < this.gridMap.width; x++) {
+            const c = new TileCoordinate(x, y);
+            if (this.gridMap.isWalkable(c) && !this.staircaseCoord.equals(c)) {
+              safeCoords.push(c);
+            }
+          }
+        }
+        if (safeCoords.length > 0) {
+          const warpTarget = safeCoords[Math.floor(Math.random() * safeCoords.length)]!;
+          selectedPlayer.coord = warpTarget;
+          await selectedPlayer.graphic.moveTo(warpTarget);
+          this.centerCameraOn(warpTarget);
+        }
+      }
+    }
+
+    // 2. Check Floor Item Pickup
     const itemIndex = this.floorItems.findIndex(fi => fi.coord.equals(coord));
     if (itemIndex !== -1) {
       const floorItem = this.floorItems[itemIndex]!;
@@ -808,10 +939,16 @@ export class MainGameScene extends Phaser.Scene {
       const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
       const screenY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
       this.combatTextPresenter.showBanner(screenX, screenY, `+ Obtained ${floorItem.item.name}!`);
+      if (floorItem.item.type === ItemType.RELIC_WEAPON || floorItem.item.type === ItemType.RELIC_ARMOR) {
+        this.runRelicsFound++;
+      }
     }
 
-    // Hunger / Belly Decay every 10 steps
+    // 3. Hunger / Belly Decay every 10 steps
     this.stepCount++;
+    this.turnCount++;
+    this.hudPresenter.updateTurns(this.turnCount);
+
     if (this.stepCount % 10 === 0) {
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
@@ -827,6 +964,58 @@ export class MainGameScene extends Phaser.Scene {
       });
     }
 
+    // 4. Dynamic Periodic Monster Respawns
+    this.stepsSinceLastRespawn++;
+    const floorConfig = GameDatabase.getFloorConfig(this.floorCount);
+    if (this.stepsSinceLastRespawn >= floorConfig.respawnIntervalSteps && this.floorCount !== 5 && this.floorCount !== 10) {
+      this.stepsSinceLastRespawn = 0;
+      const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0);
+      if (aliveEnemies.length < floorConfig.enemyCountMax) {
+        const candidateCoords: TileCoordinate[] = [];
+        for (let y = 0; y < this.gridMap.height; y++) {
+          for (let x = 0; x < this.gridMap.width; x++) {
+            const c = new TileCoordinate(x, y);
+            if (this.gridMap.isWalkable(c) && !this.visibilityMap.isVisible(c)) {
+              const isOccupied = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(c)) ||
+                                 this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(c)) ||
+                                 this.staircaseCoord.equals(c);
+              if (!isOccupied) {
+                candidateCoords.push(c);
+              }
+            }
+          }
+        }
+
+        if (candidateCoords.length > 0) {
+          const spawnCoord = candidateCoords[Math.floor(Math.random() * candidateCoords.length)]!;
+          const newEnemyUnit = EnemyFactory.createEnemy(this.floorCount, this.enemySquad.length);
+          const graphic = new UnitPresenter(this, newEnemyUnit, spawnCoord, false, false);
+          graphic.updateHp(newEnemyUnit.currentHp, newEnemyUnit.maxHp);
+          graphic.setVisible(false);
+
+          this.enemySquad.push({
+            unit: newEnemyUnit,
+            coord: spawnCoord,
+            hasActed: false,
+            graphic
+          });
+
+          this.updateMinimap();
+        }
+      }
+    }
+
+    // 5. Chilling Dungeon Wind Warnings
+    if (this.stepCount === 180) {
+      const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const screenY = coord.y * GridPresenter.TILE_SIZE - 10;
+      this.combatTextPresenter.showBanner(screenX, screenY, '💨 A chilling wind blows through the corridor...');
+    } else if (this.stepCount === 250) {
+      const screenX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const screenY = coord.y * GridPresenter.TILE_SIZE - 10;
+      this.combatTextPresenter.showBanner(screenX, screenY, '⚠️ The dungeon wind grows turbulent! Head for the stairs!');
+    }
+
     this.partyHudPresenter.updateParty(this.playerSquad);
     this.isProcessingAction = false;
     this.updateFogAndVisibility();
@@ -834,13 +1023,11 @@ export class MainGameScene extends Phaser.Scene {
 
     // Check if player stepped on the staircase
     if (coord.equals(this.staircaseCoord)) {
-      const remainingEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0).length;
-      this.stairsModalPresenter.show(this.floorCount + 1, remainingEnemies);
+      this.stairsModalPresenter.show(this.floorCount + 1);
       this.isMenuOpen = true;
       return;
     }
 
-    // In Combat Mode, moving always prompts tactical actions (Attack, Item, Wait, or Cancel Undo)
     if (this.isEncounterActive) {
       this.showActionMenuForPlayer(selectedPlayer);
     }
@@ -858,7 +1045,6 @@ export class MainGameScene extends Phaser.Scene {
     const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE + 4;
     const worldY = player.coord.y * GridPresenter.TILE_SIZE;
 
-    // Show floating forecast above adjacent enemy if available
     if (adjacentEnemy) {
       const enemyWorldX = adjacentEnemy.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
       const enemyWorldY = adjacentEnemy.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
@@ -915,6 +1101,8 @@ export class MainGameScene extends Phaser.Scene {
         this.combatTextPresenter.showHeal(screenX, screenY, item.value);
       } else if (item.type === ItemType.FOOD) {
         this.combatTextPresenter.showBanner(screenX, screenY, `+ Restored ${item.value}% Belly!`);
+      } else if (item.type === ItemType.RELIC_WEAPON || item.type === ItemType.RELIC_ARMOR) {
+        this.combatTextPresenter.showBanner(screenX, screenY, `⚔️ Equipped ${item.name}!`);
       }
 
       this.partyHudPresenter.updateParty(this.playerSquad);
@@ -945,13 +1133,22 @@ export class MainGameScene extends Phaser.Scene {
         this.combatTextPresenter.showDamage(screenX, screenY, summary.damageDealt, summary.hasAdvantage, summary.hasDisadvantage);
       }
       enemy.graphic.updateHp(enemy.unit.currentHp, enemy.unit.maxHp);
+
+      // Life Steal indicator
+      if (summary.lifeStealAmount > 0) {
+        player.graphic.updateHp(player.unit.currentHp, player.unit.maxHp);
+        const pScreenX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const pScreenY = player.coord.y * GridPresenter.TILE_SIZE - 15;
+        this.combatTextPresenter.showHeal(pScreenX, pScreenY, summary.lifeStealAmount);
+      }
     } else {
       this.combatTextPresenter.showMiss(screenX, screenY);
-      await enemy.graphic.animateHit(); // Quick dodge hop
+      await enemy.graphic.animateHit();
     }
 
     // EXP and Level-Up
     const expGain = summary.isFatal ? 50 : 20;
+    this.runTotalExp += expGain;
     const expResult = this.gainExpUseCase.execute(player.unit, expGain);
 
     if (expResult.levelUps.length > 0) {
@@ -972,7 +1169,13 @@ export class MainGameScene extends Phaser.Scene {
 
     if (summary.isFatal) {
       enemy.graphic.clear();
-      this.hudPresenter.updateEnemies(this.enemySquad.filter(e => e.unit.currentHp > 0).length);
+      this.runMonstersSlain++;
+
+      // If defeated Final Boss on Floor 10
+      if (this.floorCount === 10 && enemy.unit.id.includes('boss')) {
+        this.triggerRunSummary(true);
+        return;
+      }
     }
 
     this.partyHudPresenter.updateParty(this.playerSquad);
@@ -984,6 +1187,12 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private finalizePlayerTurn(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
+    if (!this.isEncounterActive) {
+      player.hasActed = false;
+      player.graphic.setExhausted(false);
+      return;
+    }
+
     player.hasActed = true;
     player.graphic.setSelected(false);
     player.graphic.setExhausted(true);
@@ -1074,6 +1283,13 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
+    // Check Party Defeat (Game Over)
+    const partyAlive = this.playerSquad.some(p => p.unit.currentHp > 0);
+    if (!partyAlive) {
+      this.triggerRunSummary(false);
+      return;
+    }
+
     this.phaseManager.advancePhase();
     this.hudPresenter.updatePhase(this.isEncounterActive ? '⚔️ COMBAT' : '🔵 EXPLORE');
 
@@ -1089,5 +1305,22 @@ export class MainGameScene extends Phaser.Scene {
     if (nextActivePlayer) {
       this.centerCameraOn(nextActivePlayer.coord);
     }
+  }
+
+  private triggerRunSummary(isVictory: boolean): void {
+    this.isProcessingAction = true;
+    this.isMenuOpen = true;
+    this.audioService.stopBgm();
+
+    const stats: RunSummaryStats = {
+      isVictory,
+      floorsCleared: Math.max(0, this.floorCount - 1),
+      monstersSlain: this.runMonstersSlain,
+      totalExp: this.runTotalExp,
+      turnsTaken: this.turnCount,
+      relicsFound: this.runRelicsFound
+    };
+
+    this.runSummaryModalPresenter.show(stats);
   }
 }

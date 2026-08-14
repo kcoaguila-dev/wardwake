@@ -143,9 +143,10 @@ export class ActionMenuPresenter {
     let finalX = worldX;
     let finalY = worldY;
 
-    // Keep menu inside world map boundaries
-    const mapMaxX = 18 * 32 - 125;
-    const mapMaxY = 18 * 32 - 145;
+    // Keep menu inside camera map boundaries dynamically
+    const bounds = this.scene.cameras.main.getBounds();
+    const mapMaxX = bounds.width > 0 ? bounds.width - 125 : 24 * 32 - 125;
+    const mapMaxY = bounds.height > 0 ? bounds.height - 145 : 24 * 32 - 145;
     if (finalX > mapMaxX) finalX = worldX - 125;
     if (finalY > mapMaxY) finalY = mapMaxY;
     if (finalX < 5) finalX = 5;

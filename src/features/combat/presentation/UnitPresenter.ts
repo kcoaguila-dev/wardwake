@@ -13,10 +13,12 @@ export class UnitPresenter {
   private isPlayer: boolean;
   private isLeader: boolean = false;
   private isSelected: boolean = false;
+  private isElite: boolean = false;
 
   constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate, isPlayer: boolean = true, isLeader: boolean = false) {
     this.isPlayer = isPlayer;
     this.isLeader = isLeader;
+    this.isElite = !isPlayer && (unit.name.includes('💀') || unit.name.includes('FOE') || unit.name.includes('Dread'));
 
     let textureKey = 'unit_sword';
     if (this.isPlayer) {
@@ -32,16 +34,20 @@ export class UnitPresenter {
           break;
       }
     } else {
-      switch (unit.weaponType) {
-        case WeaponType.SWORD:
-          textureKey = 'enemy_goblin_sword';
-          break;
-        case WeaponType.AXE:
-          textureKey = 'enemy_orc_axe';
-          break;
-        case WeaponType.LANCE:
-          textureKey = 'enemy_skeleton_lance';
-          break;
+      if (this.isElite) {
+        textureKey = 'enemy_dread_minotaur';
+      } else {
+        switch (unit.weaponType) {
+          case WeaponType.SWORD:
+            textureKey = 'enemy_goblin_sword';
+            break;
+          case WeaponType.AXE:
+            textureKey = 'enemy_orc_axe';
+            break;
+          case WeaponType.LANCE:
+            textureKey = 'enemy_skeleton_lance';
+            break;
+        }
       }
     }
 
@@ -57,7 +63,7 @@ export class UnitPresenter {
 
     // 2. Character Pixel Art Avatar (Depth 2)
     this.sprite = this.scene.add.sprite(0, -2, textureKey);
-    this.sprite.setScale(2);
+    this.sprite.setScale(this.isElite ? 2.4 : 2);
 
     // 3. Health Bar (Depth 3)
     this.healthBar = this.scene.add.graphics();
@@ -87,19 +93,22 @@ export class UnitPresenter {
         ringColor = 0x00d4ff; // Celestial Cyan Ally
         borderColor = 0x38bdf8;
       }
+    } else if (this.isElite) {
+      ringColor = 0x9333ea; // Ominous Deep Purple
+      borderColor = 0xc084fc;
     }
 
-    const alpha = this.isExhausted ? 0.25 : 0.65;
+    const alpha = this.isExhausted ? 0.25 : (this.isElite ? 0.85 : 0.65);
 
     // Draw soft glowing ellipse under the unit's feet
     this.factionRing.fillStyle(ringColor, alpha);
-    this.factionRing.fillEllipse(0, 11, 20, 9);
+    this.factionRing.fillEllipse(0, 11, this.isElite ? 24 : 20, this.isElite ? 11 : 9);
 
     const activeBorderColor = this.isSelected ? 0xffffff : borderColor;
-    const borderThickness = this.isSelected ? 2.5 : 1.5;
+    const borderThickness = this.isSelected ? 2.5 : (this.isElite ? 2.0 : 1.5);
 
     this.factionRing.lineStyle(borderThickness, activeBorderColor, this.isExhausted ? 0.4 : 0.95);
-    this.factionRing.strokeEllipse(0, 11, 20, 9);
+    this.factionRing.strokeEllipse(0, 11, this.isElite ? 24 : 20, this.isElite ? 11 : 9);
   }
 
   public setSelected(selected: boolean): void {
@@ -172,14 +181,16 @@ export class UnitPresenter {
     const hpRatio = Math.max(0, Math.min(1, currentHp / maxHp));
 
     let color = 0x00ff00; // Green
-    if (hpRatio <= 0.25) {
+    if (this.isElite) {
+      color = 0xec4899; // Magenta for Dread Boss
+    } else if (hpRatio <= 0.25) {
       color = 0xff3b30; // Red
     } else if (hpRatio <= 0.5) {
       color = 0xffcc00; // Yellow
     }
 
-    const barWidth = 24;
-    const barHeight = 3;
+    const barWidth = this.isElite ? 28 : 24;
+    const barHeight = this.isElite ? 4 : 3;
     const offsetX = -barWidth / 2;
     const offsetY = -20;
 
@@ -201,7 +212,7 @@ export class UnitPresenter {
       const targetWorldY = targetCoord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
       const angle = Phaser.Math.Angle.Between(originX, originY, targetWorldX, targetWorldY);
-      const lungeDistance = 8;
+      const lungeDistance = this.isElite ? 12 : 8;
 
       const lungeX = originX + Math.cos(angle) * lungeDistance;
       const lungeY = originY + Math.sin(angle) * lungeDistance;

@@ -3,6 +3,10 @@ import { IAudioService } from '../application/ports/IAudioService';
 export class WebAudioSynthService implements IAudioService {
   private ctx: AudioContext | null = null;
   public isMuted: boolean = false;
+  private bgmIntervalId: any = null;
+  private currentBgmMode: 'explore' | 'combat' | null = null;
+  private bgmStep: number = 0;
+  private bgmGain: GainNode | null = null;
 
   constructor() {
     try {
@@ -17,12 +21,102 @@ export class WebAudioSynthService implements IAudioService {
 
   toggleMute(): void {
     this.isMuted = !this.isMuted;
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = this.isMuted ? 0 : 0.06;
+    }
+  }
+
+  startBgm(mode: 'explore' | 'combat'): void {
+    if (this.currentBgmMode === mode && this.bgmIntervalId) return;
+    this.stopBgm();
+    this.currentBgmMode = mode;
+    this.bgmStep = 0;
+
+    if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+
+    if (!this.bgmGain) {
+      this.bgmGain = this.ctx.createGain();
+      this.bgmGain.connect(this.ctx.destination);
+    }
+    this.bgmGain.gain.value = this.isMuted ? 0 : 0.06;
+
+    const intervalMs = mode === 'combat' ? 140 : 220;
+    this.bgmIntervalId = setInterval(() => {
+      this.tickBgm();
+    }, intervalMs);
+  }
+
+  stopBgm(): void {
+    if (this.bgmIntervalId) {
+      clearInterval(this.bgmIntervalId);
+      this.bgmIntervalId = null;
+    }
+    this.currentBgmMode = null;
+  }
+
+  private tickBgm(): void {
+    if (this.isMuted || !this.ctx || !this.bgmGain) return;
+
+    const t = this.ctx.currentTime;
+    const mode = this.currentBgmMode;
+
+    if (mode === 'explore') {
+      // Atmospheric Dungeon Exploration Arpeggios (D Minor)
+      const notes = [
+        146.83, 220.00, 261.63, 293.66, 349.23, 293.66, 261.63, 220.00, // D3, A3, C4, D4, F4, D4, C4, A3
+        130.81, 196.00, 261.63, 293.66, 329.63, 293.66, 261.63, 196.00  // C3, G3, C4, D4, E4, D4, C4, G3
+      ];
+      const freq = notes[this.bgmStep % notes.length]!;
+      this.playSynthPluck(freq, 'triangle', 0.18, t, 0.4);
+
+      // Soft bass drone on every 8th step
+      if (this.bgmStep % 8 === 0) {
+        const root = (this.bgmStep % 16 === 0) ? 73.42 : 65.41; // D2 or C2
+        this.playSynthPluck(root, 'sine', 0.8, t, 0.8);
+      }
+    } else if (mode === 'combat') {
+      // Driving Battle Bassline & Tension Lead
+      const bassNotes = [73.42, 73.42, 87.31, 73.42, 98.00, 73.42, 110.00, 98.00]; // D2, D2, F2, D2, G2, D2, A2, G2
+      const leadNotes = [293.66, 0, 349.23, 0, 440.00, 392.00, 349.23, 329.63];
+
+      const bassFreq = bassNotes[this.bgmStep % bassNotes.length]!;
+      this.playSynthPluck(bassFreq, 'square', 0.12, t, 0.5);
+
+      const leadFreq = leadNotes[this.bgmStep % leadNotes.length]!;
+      if (leadFreq > 0) {
+        this.playSynthPluck(leadFreq, 'sawtooth', 0.14, t, 0.3);
+      }
+    }
+
+    this.bgmStep++;
+  }
+
+  private playSynthPluck(freq: number, type: OscillatorType, duration: number, t: number, volScale: number = 1.0): void {
+    if (!this.ctx || !this.bgmGain) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+
+      const noteGain = this.ctx.createGain();
+      noteGain.gain.setValueAtTime(0.01 * volScale, t);
+      noteGain.gain.linearRampToValueAtTime(0.12 * volScale, t + 0.02);
+      noteGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+      osc.connect(noteGain);
+      noteGain.connect(this.bgmGain);
+
+      osc.start(t);
+      osc.stop(t + duration);
+    } catch (e) {}
   }
 
   playSound(soundId: string): void {
     if (this.isMuted || !this.ctx) return;
 
-    // Resume AudioContext if suspended (browser autoplay policy)
     if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
@@ -30,7 +124,6 @@ export class WebAudioSynthService implements IAudioService {
     const t = this.ctx.currentTime;
     const masterGain = this.ctx.createGain();
     masterGain.connect(this.ctx.destination);
-    // Base volume
     masterGain.gain.value = 0.2;
 
     switch (soundId) {
@@ -52,6 +145,12 @@ export class WebAudioSynthService implements IAudioService {
       case 'staircase_descend':
         this.playStaircaseDescend(masterGain, t);
         break;
+      case 'trap_spring':
+        this.playTrapSpring(masterGain, t);
+        break;
+      case 'boss_roar':
+        this.playBossRoar(masterGain, t);
+        break;
       default:
         console.warn(`Sound ${soundId} not recognized`);
         break;
@@ -63,7 +162,6 @@ export class WebAudioSynthService implements IAudioService {
     const osc = this.ctx.createOscillator();
     osc.type = 'triangle';
 
-    // High-to-low frequency sweep
     osc.frequency.setValueAtTime(800, t);
     osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
 
@@ -71,7 +169,6 @@ export class WebAudioSynthService implements IAudioService {
     gain.gain.setValueAtTime(1, t);
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
 
-    // Mix in some noise
     const noise = this.createNoiseBuffer();
     const noiseSource = this.ctx.createBufferSource();
     if (noise) noiseSource.buffer = noise;
@@ -96,7 +193,6 @@ export class WebAudioSynthService implements IAudioService {
     const osc = this.ctx.createOscillator();
     osc.type = 'square';
 
-    // Sharp punchy transient
     osc.frequency.setValueAtTime(1200, t);
     osc.frequency.exponentialRampToValueAtTime(200, t + 0.1);
 
@@ -116,7 +212,6 @@ export class WebAudioSynthService implements IAudioService {
     const osc = this.ctx.createOscillator();
     osc.type = 'square';
 
-    // Low heavy bass crunch
     osc.frequency.setValueAtTime(150, t);
     osc.frequency.exponentialRampToValueAtTime(40, t + 0.2);
 
@@ -124,7 +219,6 @@ export class WebAudioSynthService implements IAudioService {
     gain.gain.setValueAtTime(1, t);
     gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
 
-    // Noise burst
     const noise = this.createNoiseBuffer();
     const noiseSource = this.ctx.createBufferSource();
     if (noise) noiseSource.buffer = noise;
@@ -146,7 +240,6 @@ export class WebAudioSynthService implements IAudioService {
 
   private playHeroStep(output: GainNode, t: number): void {
     if (!this.ctx) return;
-    // Subtle 10ms click
     const noise = this.createNoiseBuffer();
     const noiseSource = this.ctx.createBufferSource();
     if (noise) noiseSource.buffer = noise;
@@ -167,7 +260,6 @@ export class WebAudioSynthService implements IAudioService {
     const osc = this.ctx.createOscillator();
     osc.type = 'square';
 
-    // Uplifting 2-tone arpeggio (C5: 523.25Hz -> G5: 783.99Hz)
     osc.frequency.setValueAtTime(523.25, t);
     osc.frequency.setValueAtTime(783.99, t + 0.1);
 
@@ -189,8 +281,6 @@ export class WebAudioSynthService implements IAudioService {
     const osc = this.ctx.createOscillator();
     osc.type = 'triangle';
 
-    // Mystery dungeon floor clear jingle
-    // E5 (659.25), C5 (523.25), G4 (392.00), C5 (523.25)
     osc.frequency.setValueAtTime(659.25, t);
     osc.frequency.setValueAtTime(523.25, t + 0.15);
     osc.frequency.setValueAtTime(392.00, t + 0.3);
@@ -209,9 +299,46 @@ export class WebAudioSynthService implements IAudioService {
     osc.stop(t + 0.8);
   }
 
+  private playTrapSpring(output: GainNode, t: number): void {
+    if (!this.ctx) return;
+    // Metallic snap & clank
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(900, t);
+    osc.frequency.exponentialRampToValueAtTime(120, t + 0.12);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.8, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+
+    osc.connect(gain);
+    gain.connect(output);
+
+    osc.start(t);
+    osc.stop(t + 0.12);
+  }
+
+  private playBossRoar(output: GainNode, t: number): void {
+    if (!this.ctx) return;
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(90, t);
+    osc.frequency.linearRampToValueAtTime(60, t + 0.4);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.8, t);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+
+    osc.connect(gain);
+    gain.connect(output);
+
+    osc.start(t);
+    osc.stop(t + 0.5);
+  }
+
   private createNoiseBuffer(): AudioBuffer | null {
     if (!this.ctx) return null;
-    const bufferSize = this.ctx.sampleRate * 0.5; // 0.5 seconds of noise
+    const bufferSize = this.ctx.sampleRate * 0.5;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {

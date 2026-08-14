@@ -14,6 +14,8 @@ export class ConsumeItemUseCase {
       unit.buffAttack(item.value);
     } else if (item.type === ItemType.FOOD) {
       unit.feed(item.value);
+    } else if (item.type === ItemType.RELIC_WEAPON || item.type === ItemType.RELIC_ARMOR) {
+      unit.equipRelic(item);
     }
 
     unit.removeItem(item.id);

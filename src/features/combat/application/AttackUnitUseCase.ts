@@ -10,6 +10,8 @@ export interface CombatSummary {
   hasDisadvantage: boolean;
   isHit: boolean;
   isCrit: boolean;
+  lifeStealAmount: number;
+  doubleStrike: boolean;
 }
 
 export class AttackUnitUseCase {
@@ -31,6 +33,11 @@ export class AttackUnitUseCase {
         soundId = 'lance_pierce';
       }
       this.audioService.playSound(soundId);
+
+      // Apply Life Steal if weapon relic has it
+      if (combatResult.lifeStealAmount > 0) {
+        attacker.heal(combatResult.lifeStealAmount);
+      }
     }
 
     return {
@@ -39,7 +46,9 @@ export class AttackUnitUseCase {
       hasAdvantage: combatResult.hasAdvantage,
       hasDisadvantage: combatResult.hasDisadvantage,
       isHit: combatResult.isHit,
-      isCrit: combatResult.isCrit
+      isCrit: combatResult.isCrit,
+      lifeStealAmount: combatResult.lifeStealAmount,
+      doubleStrike: combatResult.doubleStrike
     };
   }
 }

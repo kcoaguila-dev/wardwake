@@ -6,9 +6,12 @@ export interface ItemBlueprint {
   name: string;
   type: string;
   value: number;
+  critBonus?: number;
+  doubleStrike?: boolean;
+  lifeStealPercent?: number;
   description: string;
-  rarity: string;
-  dropWeight: number;
+  rarity?: string;
+  dropWeight?: number;
 }
 
 const rawItemBlueprints: ItemBlueprint[] = (Array.isArray(itemsData)
@@ -28,8 +31,35 @@ export class ItemRepository {
 
   public static createItemFromBlueprint(blueprint: ItemBlueprint, uniqueId?: string): Item {
     const id = uniqueId || `item_${blueprint.id}_${Math.random().toString(36).substring(2, 7)}`;
-    const type = blueprint.type.toUpperCase() === 'ATTACK_BUFF' ? ItemType.ATTACK_BUFF : ItemType.HEAL;
-    return new Item(id, blueprint.name, type, blueprint.value);
+    let type = ItemType.HEAL;
+
+    switch (blueprint.type.toUpperCase()) {
+      case 'ATTACK_BUFF':
+        type = ItemType.ATTACK_BUFF;
+        break;
+      case 'FOOD':
+        type = ItemType.FOOD;
+        break;
+      case 'RELIC_WEAPON':
+        type = ItemType.RELIC_WEAPON;
+        break;
+      case 'RELIC_ARMOR':
+        type = ItemType.RELIC_ARMOR;
+        break;
+      default:
+        type = ItemType.HEAL;
+        break;
+    }
+
+    return new Item(
+      id,
+      blueprint.name,
+      type,
+      blueprint.value,
+      blueprint.critBonus || 0,
+      blueprint.doubleStrike || false,
+      blueprint.lifeStealPercent || 0
+    );
   }
 
   public static getRandomLootItem(): Item {

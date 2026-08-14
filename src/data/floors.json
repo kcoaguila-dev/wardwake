@@ -4,9 +4,10 @@
     "minFloor": 1,
     "maxFloor": 3,
     "enemyCountMin": 2,
-    "enemyCountMax": 3,
+    "enemyCountMax": 4,
     "itemCountMin": 1,
     "itemCountMax": 2,
+    "respawnIntervalSteps": 25,
     "statScaleFactor": 1.0
   },
   {
@@ -14,9 +15,10 @@
     "minFloor": 4,
     "maxFloor": 6,
     "enemyCountMin": 3,
-    "enemyCountMax": 4,
+    "enemyCountMax": 5,
     "itemCountMin": 1,
     "itemCountMax": 2,
+    "respawnIntervalSteps": 22,
     "statScaleFactor": 1.5
   },
   {
@@ -24,9 +26,10 @@
     "minFloor": 7,
     "maxFloor": 99,
     "enemyCountMin": 4,
-    "enemyCountMax": 5,
+    "enemyCountMax": 6,
     "itemCountMin": 2,
     "itemCountMax": 3,
+    "respawnIntervalSteps": 20,
     "statScaleFactor": 2.0
   }
 ]
