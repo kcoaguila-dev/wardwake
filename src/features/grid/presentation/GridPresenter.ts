@@ -54,15 +54,35 @@ export class GridPresenter {
     );
   }
 
-  highlightWalkableArea(validMoves: TileCoordinate[]): void {
+  highlightWalkableArea(validMoves: TileCoordinate[], selectedCoord?: TileCoordinate): void {
     this.clearHighlights();
     this.highlightGraphics.setDepth(1);
-    this.highlightGraphics.fillStyle(0x0000ff, 0.3);
 
+    // Draw walkable tiles in bright cyan with a glowing border
     for (const move of validMoves) {
+      this.highlightGraphics.fillStyle(0x00d4ff, 0.35);
       this.highlightGraphics.fillRect(
-        move.x * GridPresenter.TILE_SIZE,
-        move.y * GridPresenter.TILE_SIZE,
+        move.x * GridPresenter.TILE_SIZE + 1,
+        move.y * GridPresenter.TILE_SIZE + 1,
+        GridPresenter.TILE_SIZE - 2,
+        GridPresenter.TILE_SIZE - 2
+      );
+
+      this.highlightGraphics.lineStyle(1.5, 0x38bdf8, 0.9);
+      this.highlightGraphics.strokeRect(
+        move.x * GridPresenter.TILE_SIZE + 1,
+        move.y * GridPresenter.TILE_SIZE + 1,
+        GridPresenter.TILE_SIZE - 2,
+        GridPresenter.TILE_SIZE - 2
+      );
+    }
+
+    // Draw prominent yellow selection border on the active unit
+    if (selectedCoord) {
+      this.highlightGraphics.lineStyle(2, 0xffea00, 1);
+      this.highlightGraphics.strokeRect(
+        selectedCoord.x * GridPresenter.TILE_SIZE,
+        selectedCoord.y * GridPresenter.TILE_SIZE,
         GridPresenter.TILE_SIZE,
         GridPresenter.TILE_SIZE
       );

@@ -182,7 +182,7 @@ export class MainGameScene extends Phaser.Scene {
         return !hasOtherPlayer && !hasEnemy;
       });
 
-      this.gridPresenter.highlightWalkableArea(filteredMoves);
+      this.gridPresenter.highlightWalkableArea(filteredMoves, coord);
       // Trigger a hover update manually using the currently hovered coordinate if we just selected,
       // but pointer move should handle most of it.
       return;
