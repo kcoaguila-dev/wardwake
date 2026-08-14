@@ -1,5 +1,6 @@
 import { Unit } from './Unit';
 import { WeaponType } from './WeaponType';
+import { GameDatabase } from '../../../core/domain/GameDatabase';
 
 export interface CombatResult {
   damageDealt: number;
@@ -8,11 +9,15 @@ export interface CombatResult {
 }
 
 export class CombatResolver {
-  public static readonly ADVANTAGE_BONUS_DAMAGE = 3;
-  // Advantage Bonus: +15% Accuracy. (Could be used if implementing accuracy later, not in requirements for current calculations but good for documentation)
-  public static readonly ADVANTAGE_BONUS_ACCURACY = 0.15;
+  public static get ADVANTAGE_BONUS_DAMAGE(): number {
+    return GameDatabase.combatRules?.weaponTriangleAdvantageBonus ?? 3;
+  }
 
-  public static readonly DISADVANTAGE_PENALTY_DAMAGE = -3;
+  public static get DISADVANTAGE_PENALTY_DAMAGE(): number {
+    return -(GameDatabase.combatRules?.weaponTriangleDisadvantagePenalty ?? 3);
+  }
+
+  public static readonly ADVANTAGE_BONUS_ACCURACY = 0.15;
   public static readonly DISADVANTAGE_PENALTY_ACCURACY = -0.15;
 
   /**
@@ -30,14 +35,12 @@ export class CombatResolver {
    * Evaluates if the attacker has a weapon triangle disadvantage against the defender.
    */
   public static hasDisadvantage(attackerWeapon: WeaponType, defenderWeapon: WeaponType): boolean {
-    // Disadvantage is the inverse of advantage
     return this.hasAdvantage(defenderWeapon, attackerWeapon);
   }
 
   /**
    * Calculates the damage the attacker will deal to the defender,
-   * factoring in weapon triangle advantage/disadvantage.
-   * Damage Formula: Math.max(1, (Attacker.Attack + AdvantageBonus) - Defender.Defense)
+   * factoring in data-driven weapon triangle rules.
    */
   public static calculateDamage(attacker: Unit, defender: Unit): CombatResult {
     const advantage = this.hasAdvantage(attacker.weaponType, defender.weaponType);
@@ -51,7 +54,8 @@ export class CombatResolver {
     }
 
     const calculatedDamage = (attacker.attack + bonusDamage) - defender.defense;
-    const damageDealt = Math.max(1, calculatedDamage);
+    const minDmg = GameDatabase.combatRules?.minDamage ?? 1;
+    const damageDealt = Math.max(minDmg, calculatedDamage);
 
     return {
       damageDealt,

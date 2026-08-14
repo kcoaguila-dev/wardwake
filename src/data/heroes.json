@@ -1,0 +1,20 @@
+[
+  {
+    "id": "hero_sword_fighter",
+    "name": "Sword Fighter",
+    "weaponType": "SWORD",
+    "baseHp": 20,
+    "baseAttack": 5,
+    "baseDefense": 2,
+    "startingInventory": ["vulnerary"]
+  },
+  {
+    "id": "hero_lance_knight",
+    "name": "Lance Knight",
+    "weaponType": "LANCE",
+    "baseHp": 22,
+    "baseAttack": 6,
+    "baseDefense": 3,
+    "startingInventory": ["vulnerary"]
+  }
+]

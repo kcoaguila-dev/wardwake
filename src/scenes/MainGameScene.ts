@@ -31,6 +31,7 @@ import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
 import { HudPresenter } from '../features/ui/presentation/HudPresenter';
 import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudioSynthService';
+import { GameDatabase } from '../core/domain/GameDatabase';
 
 export class MainGameScene extends Phaser.Scene {
   // Map Dimensions (Expanded to 18x18 for 3x3 Chunsoft Macro-Grid)
@@ -158,10 +159,11 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter.drawGrid(this.gridMap);
     this.gridPresenter.drawStaircase(this.staircaseCoord);
 
-    // 3. Spawn / Reset Players
+    // 3. Spawn / Reset Players from data-driven GameDatabase
     if (this.playerSquad.length === 0) {
-      const p1Unit = new Unit('p1', 'Sword Fighter', 20, 5, 2, WeaponType.SWORD);
-      const p2Unit = new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE);
+      const heroBlueprints = GameDatabase.heroes.getAll();
+      const p1Unit = GameDatabase.createHeroUnit(heroBlueprints[0]?.id || 'hero_sword_fighter', 'p1');
+      const p2Unit = GameDatabase.createHeroUnit(heroBlueprints[1]?.id || 'hero_lance_knight', 'p2');
 
       this.playerSquad = [
         { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true) },

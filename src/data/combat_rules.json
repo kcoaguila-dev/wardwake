@@ -1,0 +1,8 @@
+{
+  "weaponTriangleAdvantageBonus": 3,
+  "weaponTriangleDisadvantagePenalty": 3,
+  "minDamage": 1,
+  "expPerHit": 20,
+  "expPerKill": 50,
+  "expLevelUpThreshold": 100
+}
