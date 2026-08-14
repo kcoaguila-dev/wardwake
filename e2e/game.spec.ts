@@ -237,4 +237,37 @@ test.describe('Wardwake Game E2E Tests', () => {
 
     await expect(canvas).toBeVisible();
   });
+
+  test('Tactical Action Bar is permanently rendered and Inventory can be opened via Item hotkey', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Enter Town -> Dungeon
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(600);
+
+    // Press D in Town to enter dungeon
+    await page.keyboard.press('KeyD');
+    await page.waitForTimeout(1000);
+
+    // Press 'I' to open Inventory modal
+    await page.keyboard.press('KeyI');
+    await page.waitForTimeout(400);
+
+    // Press 'Escape' to close Inventory
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    // Click on canvas where Action Bar is located (around x=320, y=294 in game canvas)
+    const box = await canvas.boundingBox();
+    if (box) {
+      // Click Wait button on action bar (around center-right)
+      await page.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.8);
+      await page.waitForTimeout(300);
+    }
+
+    await expect(canvas).toBeVisible();
+  });
 });

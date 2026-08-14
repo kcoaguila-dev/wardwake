@@ -12,29 +12,31 @@ export class InventoryMenuPresenter {
   public onClose?: () => void;
 
   constructor(private scene: Phaser.Scene) {
-    this.container = this.scene.add.container(0, 0);
-    this.container.setDepth(210);
+    const screenWidth = this.scene.scale.width || 640;
+    const width = 220;
+    const height = 230;
+
+    this.container = this.scene.add.container((screenWidth - width) / 2, 48);
+    this.container.setScrollFactor(0);
+    this.container.setDepth(220);
     this.container.setVisible(false);
 
-    const width = 200;
-    const height = 240;
-
-    this.bg = this.scene.add.rectangle(0, 0, width, height, 0x111622, 0.96)
+    this.bg = this.scene.add.rectangle(0, 0, width, height, 0x0f172a, 0.97)
       .setOrigin(0, 0)
-      .setStrokeStyle(2, 0x4466aa)
+      .setStrokeStyle(2, 0x38bdf8)
       .setInteractive();
 
-    this.titleText = this.scene.add.text(12, 12, '🎒 INVENTORY', {
-      fontSize: '15px',
+    this.titleText = this.scene.add.text(14, 12, '🎒 INVENTORY', {
+      fontSize: '13px',
       fontFamily: 'monospace',
-      color: '#ffffff',
+      color: '#38bdf8',
       fontStyle: 'bold'
     });
 
-    const closeBtn = this.scene.add.text(width - 28, 10, '✖', {
-      fontSize: '16px',
+    const closeBtn = this.scene.add.text(width - 24, 10, '✖', {
+      fontSize: '14px',
       fontFamily: 'monospace',
-      color: '#ff5555'
+      color: '#f87171'
     })
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => {
@@ -44,40 +46,47 @@ export class InventoryMenuPresenter {
     this.container.add([this.bg, this.titleText, closeBtn]);
   }
 
-  public show(unit: Unit, worldX?: number, worldY?: number): void {
+  public show(unit: Unit): void {
     // Clear previous items
     this.itemBtns.forEach(btn => btn.destroy());
     this.itemBtns = [];
 
-    let startY = 40;
+    const width = 220;
+    let startY = 38;
 
     if (unit.inventory.length === 0) {
-      const emptyText = this.scene.add.text(12, startY, '(Empty)', {
-        fontSize: '13px',
+      const emptyText = this.scene.add.text(width / 2, startY + 30, '(Bag is Empty)', {
+        fontSize: '11px',
         fontFamily: 'monospace',
-        color: '#8899aa'
-      });
+        color: '#64748b'
+      }).setOrigin(0.5, 0.5);
       const container = this.scene.add.container(0, 0, [emptyText]);
       this.itemBtns.push(container);
       this.container.add(container);
     } else {
       unit.inventory.forEach((item, index) => {
-        const btnContainer = this.scene.add.container(10, startY + (index * 36));
+        const btnContainer = this.scene.add.container(10, startY + (index * 34));
 
-        const btnBg = this.scene.add.rectangle(0, 0, 180, 30, 0x2a3b5c)
+        const btnBg = this.scene.add.rectangle(0, 0, 200, 28, 0x1e293b)
           .setOrigin(0, 0)
+          .setStrokeStyle(1, 0x334155)
           .setInteractive({ useHandCursor: true })
-          .on('pointerover', () => btnBg.setFillStyle(0x3f5b8a))
-          .on('pointerout', () => btnBg.setFillStyle(0x2a3b5c))
+          .on('pointerover', () => btnBg.setFillStyle(0x334155))
+          .on('pointerout', () => btnBg.setFillStyle(0x1e293b))
           .on('pointerdown', () => {
             if (this.onSelectItem) this.onSelectItem(item);
           });
 
-        const itemTextStr = item.type === ItemType.HEAL ? `🧪 ${item.name}` : `💍 ${item.name}`;
-        const itemText = this.scene.add.text(10, 6, itemTextStr, {
-          fontSize: '13px',
+        let icon = '🧪';
+        if (item.type === ItemType.FOOD) icon = '🍞';
+        else if (item.type === ItemType.ATTACK_BUFF) icon = '⚔️';
+        else if (item.type === ItemType.RELIC_WEAPON || item.type === ItemType.RELIC_ARMOR) icon = '💍';
+
+        const itemText = this.scene.add.text(8, 6, `${icon} ${item.name}`, {
+          fontSize: '11px',
           fontFamily: 'monospace',
-          color: '#ffffff'
+          fontStyle: 'bold',
+          color: '#f8fafc'
         }).setInteractive({ useHandCursor: true })
           .on('pointerdown', () => {
             if (this.onSelectItem) this.onSelectItem(item);
@@ -89,21 +98,8 @@ export class InventoryMenuPresenter {
       });
     }
 
-    if (worldX !== undefined && worldY !== undefined) {
-      let finalX = worldX;
-      let finalY = worldY;
-      const mapMaxX = 18 * 32 - 205;
-      const mapMaxY = 18 * 32 - 245;
-      if (finalX > mapMaxX) finalX = worldX - 205;
-      if (finalY > mapMaxY) finalY = mapMaxY;
-      if (finalX < 5) finalX = 5;
-      if (finalY < 5) finalY = 5;
-      this.container.setPosition(finalX, finalY);
-    } else {
-      const cam = this.scene.cameras.main;
-      this.container.setPosition(cam.worldView.centerX - 100, cam.worldView.centerY - 120);
-    }
-
+    const screenWidth = this.scene.scale.width || 640;
+    this.container.setPosition((screenWidth - width) / 2, 48);
     this.container.setVisible(true);
   }
 

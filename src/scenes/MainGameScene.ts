@@ -43,6 +43,7 @@ import { TrapRepository } from '../features/traps/domain/TrapRepository';
 import { TrapPresenter } from '../features/traps/presentation/TrapPresenter';
 import { GamepadInputService, GamepadAction } from '../features/ui/infrastructure/GamepadInputService';
 import { VirtualPadPresenter } from '../features/ui/presentation/VirtualPadPresenter';
+import { ActionBarPresenter } from '../features/ui/presentation/ActionBarPresenter';
 import { TownStorageService } from '../features/progression/infrastructure/TownStorageService';
 import { ApplyProgressionUseCase } from '../features/progression/application/ApplyProgressionUseCase';
 import { TownManagerUseCase } from '../features/progression/application/TownManagerUseCase';
@@ -82,6 +83,7 @@ export class MainGameScene extends Phaser.Scene {
   private trapPresenter!: TrapPresenter;
   private fogPresenter!: FogPresenter;
   private virtualPadPresenter!: VirtualPadPresenter;
+  private actionBarPresenter!: ActionBarPresenter;
 
   // Input
   private gamepadInputService!: GamepadInputService;
@@ -160,6 +162,40 @@ export class MainGameScene extends Phaser.Scene {
     this.minimapPresenter = new MinimapPresenter(this);
     this.actionMenuPresenter = new ActionMenuPresenter(this);
     this.actionMenuPresenter.onCancel = () => this.cancelActionMenu();
+
+    this.actionBarPresenter = new ActionBarPresenter(this);
+    this.actionBarPresenter.onAttack = () => {
+      const activeHero = this.getActiveHero();
+      if (!activeHero || this.isProcessingAction) return;
+      const adjacentEnemy = this.enemySquad.find(e => {
+        if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
+        const dist = Math.abs(activeHero.coord.x - e.coord.x) + Math.abs(activeHero.coord.y - e.coord.y);
+        return dist === 1;
+      });
+      if (adjacentEnemy) {
+        this.executePlayerAttack(activeHero, adjacentEnemy);
+      } else {
+        this.showActionMenuForPlayer(activeHero);
+      }
+    };
+    this.actionBarPresenter.onSkill = () => {
+      const activeHero = this.getActiveHero();
+      if (activeHero && !this.isProcessingAction) {
+        this.showActionMenuForPlayer(activeHero);
+      }
+    };
+    this.actionBarPresenter.onItem = () => {
+      const activeHero = this.getActiveHero();
+      if (activeHero && !this.isProcessingAction) {
+        this.showInventoryMenu(activeHero);
+      }
+    };
+    this.actionBarPresenter.onWait = () => {
+      const activeHero = this.getActiveHero();
+      if (activeHero && !this.isProcessingAction) {
+        this.finalizePlayerTurn(activeHero);
+      }
+    };
 
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
     this.trapPresenter = new TrapPresenter(this);
@@ -887,6 +923,18 @@ export class MainGameScene extends Phaser.Scene {
       item.sprite.setVisible(isVisible);
     });
 
+    // Update Action Bar attack availability
+    const activeHero = this.getActiveHero();
+    let canAttack = false;
+    if (activeHero) {
+      canAttack = this.enemySquad.some(e => {
+        if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
+        const dist = Math.abs(activeHero.coord.x - e.coord.x) + Math.abs(activeHero.coord.y - e.coord.y);
+        return dist === 1;
+      });
+    }
+    this.actionBarPresenter?.updateState(canAttack, this.isEncounterActive);
+
     this.minimapPresenter.drawMap(this.gridMap, this.staircaseCoord, this.visibilityMap);
     this.updateMinimap();
   }
@@ -1461,7 +1509,7 @@ export class MainGameScene extends Phaser.Scene {
       }
     };
 
-    this.inventoryMenuPresenter.show(player.unit, worldX, worldY);
+    this.inventoryMenuPresenter.show(player.unit);
   }
 
   private async executePlayerSkill(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }, skillId: string, targetCoord?: TileCoordinate) {

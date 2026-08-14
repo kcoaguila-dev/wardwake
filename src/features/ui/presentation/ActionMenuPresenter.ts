@@ -27,6 +27,7 @@ export class ActionMenuPresenter {
 
   constructor(private scene: Phaser.Scene) {
     this.container = this.scene.add.container(0, 0);
+    this.container.setScrollFactor(0);
     this.container.setDepth(200);
     this.container.setVisible(false);
 
@@ -238,18 +239,19 @@ export class ActionMenuPresenter {
       this.attackText.setColor('#556677');
     }
 
-    // Anchor action menu right next to unit in world coordinates
-    let finalX = worldX;
-    let finalY = worldY;
+    // Convert world coordinates to camera viewport screen coordinates
+    const camera = this.scene.cameras.main;
+    const screenX = worldX - camera.scrollX;
+    const screenY = worldY - camera.scrollY;
 
-    // Keep menu inside camera map boundaries dynamically
-    const bounds = this.scene.cameras.main.getBounds();
-    const mapMaxX = bounds.width > 0 ? bounds.width - 275 : 24 * 32 - 275; // Account for submenu width
-    const mapMaxY = bounds.height > 0 ? bounds.height - 175 : 24 * 32 - 175;
-    if (finalX > mapMaxX) finalX = worldX - 125;
-    if (finalY > mapMaxY) finalY = mapMaxY;
-    if (finalX < 5) finalX = 5;
-    if (finalY < 5) finalY = 5;
+    let finalX = screenX + 16;
+    let finalY = screenY - 20;
+
+    // Keep menu inside screen viewport boundaries (avoiding top HUD and bottom Party HUD)
+    if (finalX + 130 > 630) finalX = screenX - 130;
+    if (finalY + 175 > 315) finalY = 315 - 175;
+    if (finalX < 10) finalX = 10;
+    if (finalY < 45) finalY = 45;
 
     this.container.setPosition(finalX, finalY);
     this.container.setVisible(true);
