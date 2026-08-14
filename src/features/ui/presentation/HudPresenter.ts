@@ -4,6 +4,7 @@ export class HudPresenter {
   private floorText: Phaser.GameObjects.Text;
   private phaseText: Phaser.GameObjects.Text;
   private enemiesText: Phaser.GameObjects.Text;
+  private endTurnButton: Phaser.GameObjects.Text;
   private muteButton: Phaser.GameObjects.Text;
   private onMuteToggleCallback?: () => void;
   private isMuted: boolean = false;
@@ -18,25 +19,37 @@ export class HudPresenter {
     graphics.setDepth(10);
 
     const fontStyle = {
-      fontSize: '12px',
+      fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#e2e8f0',
     };
 
-    this.floorText = this.scene.add.text(8, 12, '🏰 Floor 1', fontStyle);
+    this.floorText = this.scene.add.text(6, 12, '🏰 Floor 1', fontStyle);
     this.floorText.setScrollFactor(0);
     this.floorText.setDepth(11);
 
-    this.phaseText = this.scene.add.text(90, 12, '🔵 PLAYER', fontStyle);
+    this.phaseText = this.scene.add.text(78, 12, '🔵 PLAYER', fontStyle);
     this.phaseText.setScrollFactor(0);
     this.phaseText.setDepth(11);
 
-    this.enemiesText = this.scene.add.text(195, 12, '⚔️ Left: 0', fontStyle);
+    this.enemiesText = this.scene.add.text(155, 12, '⚔️ 0', fontStyle);
     this.enemiesText.setScrollFactor(0);
     this.enemiesText.setDepth(11);
 
-    this.muteButton = this.scene.add.text(290, 12, '🔊', fontStyle);
+    // End Turn Button
+    this.endTurnButton = this.scene.add.text(205, 12, '[⏳ END]', fontStyle);
+    this.endTurnButton.setScrollFactor(0);
+    this.endTurnButton.setDepth(11);
+    this.endTurnButton.setInteractive({ useHandCursor: true });
+    this.endTurnButton.on('pointerover', () => this.endTurnButton.setColor('#ffff00'));
+    this.endTurnButton.on('pointerout', () => this.endTurnButton.setColor('#e2e8f0'));
+    this.endTurnButton.on('pointerdown', () => {
+      this.scene.events.emit('ON_END_TURN_CLICKED');
+    });
+
+    // Mute Button
+    this.muteButton = this.scene.add.text(285, 12, '🔊', fontStyle);
     this.muteButton.setScrollFactor(0);
     this.muteButton.setDepth(11);
     this.muteButton.setInteractive({ useHandCursor: true });
@@ -62,6 +75,6 @@ export class HudPresenter {
   }
 
   updateEnemies(count: number): void {
-    this.enemiesText.setText(`⚔️ Left: ${count}`);
+    this.enemiesText.setText(`⚔️ ${count}`);
   }
 }

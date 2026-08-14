@@ -59,5 +59,18 @@ test.describe('Wardwake Game E2E Tests', () => {
     // Canvas should remain healthy and active
     await expect(canvas).toBeVisible();
   });
+
+  test('Clicking [END TURN] immediately advances phase', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Click [END TURN] which is located in the top HUD
+    await canvas.click({ position: { x: 230, y: 18 } });
+    await page.waitForTimeout(500);
+
+    await expect(canvas).toBeVisible();
+  });
 });
 

@@ -17,6 +17,7 @@ import { GainExpUseCase } from '../features/combat/application/GainExpUseCase';
 import { LevelUpUseCase } from '../features/combat/application/LevelUpUseCase';
 import { ConsumeItemUseCase } from '../features/inventory/application/ConsumeItemUseCase';
 import { ExecuteEnemyTurnUseCase } from '../features/ai/application/ExecuteEnemyTurnUseCase';
+import { FollowFormationCalculator } from '../features/ai/domain/FollowFormationCalculator';
 import { GenerateFloorUseCase } from '../features/grid/application/GenerateFloorUseCase';
 import { Unit } from '../features/combat/domain/Unit';
 import { WeaponType } from '../features/combat/domain/WeaponType';
@@ -32,7 +33,7 @@ export class MainGameScene extends Phaser.Scene {
   public static readonly MAP_WIDTH = 18;
   public static readonly MAP_HEIGHT = 18;
 
-  // Use Cases
+  // Use Cases & Helpers
   private phaseManager!: PhaseManagerUseCase;
   private getValidMovesUseCase!: GetValidMovesUseCase;
   private attackUnitUseCase!: AttackUnitUseCase;
@@ -40,6 +41,7 @@ export class MainGameScene extends Phaser.Scene {
   private consumeItemUseCase!: ConsumeItemUseCase;
   private executeEnemyTurnUseCase!: ExecuteEnemyTurnUseCase;
   private generateFloorUseCase!: GenerateFloorUseCase;
+  private followFormationCalculator!: FollowFormationCalculator;
 
   // Presenters
   private gridPresenter!: GridPresenter;
@@ -67,6 +69,7 @@ export class MainGameScene extends Phaser.Scene {
   private isProcessingAction: boolean = false;
   private isMenuOpen: boolean = false;
   private isTargeting: boolean = false;
+  private isEncounterActive: boolean = false;
 
   constructor() {
     super('MainGameScene');
@@ -81,6 +84,7 @@ export class MainGameScene extends Phaser.Scene {
     this.gainExpUseCase = new GainExpUseCase(new LevelUpUseCase());
     this.consumeItemUseCase = new ConsumeItemUseCase();
     this.generateFloorUseCase = new GenerateFloorUseCase(MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
+    this.followFormationCalculator = new FollowFormationCalculator();
 
     // Presenters
     this.gridPresenter = new GridPresenter(this);
@@ -107,6 +111,13 @@ export class MainGameScene extends Phaser.Scene {
     // Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
     this.events.on('ON_TILE_HOVER', this.onTileHover, this);
+    this.events.on('ON_END_TURN_CLICKED', this.onEndTurnClicked, this);
+
+    // Tab key to cycle active heroes
+    this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
+      event.preventDefault();
+      this.cycleNextHero();
+    });
   }
 
   private startFloor(floorNumber: number): void {
@@ -115,6 +126,7 @@ export class MainGameScene extends Phaser.Scene {
     this.isProcessingAction = false;
     this.isMenuOpen = false;
     this.isTargeting = false;
+    this.isEncounterActive = false;
     this.combatForecastPresenter.hide();
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
@@ -147,7 +159,7 @@ export class MainGameScene extends Phaser.Scene {
       this.playerSquad.forEach((p, idx) => {
         p.coord = floorData.playerSpawns[idx] || floorData.playerSpawns[0]!;
         p.hasActed = false;
-        p.unit.currentHp = p.unit.maxHp; // Heal to full on new floor
+        p.unit.currentHp = p.unit.maxHp;
         p.graphic.moveTo(p.coord);
         p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
         p.graphic.setExhausted(false);
@@ -177,22 +189,114 @@ export class MainGameScene extends Phaser.Scene {
     this.hudPresenter.updatePhase('🔵 PLAYER');
     this.hudPresenter.updateEnemies(this.enemySquad.length);
 
-    // Reset phase manager to PLAYER_PHASE
     while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       this.phaseManager.advancePhase();
     }
 
-    // Set all players to active vibrant state
     this.playerSquad.forEach(p => {
       p.graphic.setExhausted(false);
     });
 
-    // Center camera on the first player
     if (this.playerSquad[0]) {
       this.centerCameraOn(this.playerSquad[0].coord, false);
     }
 
     this.updateMinimap();
+    this.checkEncounterState();
+  }
+
+  private checkEncounterState(): void {
+    const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0);
+    const alivePlayers = this.playerSquad.filter(p => p.unit.currentHp > 0);
+
+    let enemyNearby = false;
+    for (const player of alivePlayers) {
+      for (const enemy of aliveEnemies) {
+        const dist = Math.abs(player.coord.x - enemy.coord.x) + Math.abs(player.coord.y - enemy.coord.y);
+        if (dist <= 3) {
+          enemyNearby = true;
+          break;
+        }
+      }
+      if (enemyNearby) break;
+    }
+
+    if (enemyNearby && !this.isEncounterActive) {
+      this.isEncounterActive = true;
+      if (this.playerSquad[0]) {
+        const screenX = this.playerSquad[0].coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const screenY = this.playerSquad[0].coord.y * GridPresenter.TILE_SIZE - 10;
+        this.combatTextPresenter.showDamage(screenX, screenY, 0, true, false); // Flash encounter chime
+      }
+    } else if (!enemyNearby && this.isEncounterActive) {
+      this.isEncounterActive = false;
+    }
+  }
+
+  private cycleNextHero(): void {
+    if (this.isProcessingAction || this.isMenuOpen || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    const availableIndices = this.playerSquad
+      .map((p, idx) => ({ p, idx }))
+      .filter(({ p }) => p.unit.currentHp > 0 && !p.hasActed)
+      .map(({ idx }) => idx);
+
+    if (availableIndices.length === 0) return;
+
+    let nextIdx = availableIndices[0]!;
+    if (this.selectedPlayerIndex !== null) {
+      const currentPos = availableIndices.indexOf(this.selectedPlayerIndex);
+      if (currentPos !== -1) {
+        nextIdx = availableIndices[(currentPos + 1) % availableIndices.length]!;
+      }
+    }
+
+    this.selectHeroByIndex(nextIdx);
+  }
+
+  private selectHeroByIndex(index: number): void {
+    this.selectedPlayerIndex = index;
+    const selectedPlayer = this.playerSquad[index];
+    if (!selectedPlayer) return;
+
+    this.combatForecastPresenter.hide();
+    const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
+
+    const filteredMoves = validMoves.filter(move => {
+      const hasOtherPlayer = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move));
+      const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
+      return !hasOtherPlayer && !hasEnemy;
+    });
+
+    this.gridPresenter.highlightWalkableArea(filteredMoves, selectedPlayer.coord);
+    this.centerCameraOn(selectedPlayer.coord);
+  }
+
+  private onEndTurnClicked(): void {
+    if (this.isProcessingAction || this.isMenuOpen || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    this.playerSquad.forEach(p => {
+      if (p.unit.currentHp > 0) {
+        p.hasActed = true;
+        p.graphic.setExhausted(true);
+      }
+    });
+
+    this.selectedPlayerIndex = null;
+    this.gridPresenter.clearHighlights();
+    this.combatForecastPresenter.hide();
+    this.actionMenuPresenter.hide();
+    this.inventoryMenuPresenter.hide();
+
+    if (!this.checkWinCondition()) {
+      this.phaseManager.advancePhase();
+      this.hudPresenter.updatePhase('🔴 ENEMY');
+      this.executeEnemyPhase();
+    }
   }
 
   private centerCameraOn(coord: TileCoordinate, animate: boolean = true): void {
@@ -232,7 +336,7 @@ export class MainGameScene extends Phaser.Scene {
     const hoveredEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
     if (hoveredEnemy) {
       const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
-      if (dist === 1) { // Melee range
+      if (dist === 1) {
         this.combatForecastPresenter.show(selectedPlayer.unit, hoveredEnemy.unit);
         return;
       }
@@ -246,7 +350,7 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 1. If currently in targeting mode for an attack
+    // 1. If targeting mode is active for attack
     if (this.isTargeting && this.selectedPlayerIndex !== null) {
       const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
       const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord));
@@ -265,18 +369,7 @@ export class MainGameScene extends Phaser.Scene {
     // 2. Select an active unacted player
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
-      this.selectedPlayerIndex = clickedPlayerIndex;
-      this.combatForecastPresenter.hide();
-      const validMoves = this.getValidMovesUseCase.execute(coord, 3);
-
-      const filteredMoves = validMoves.filter(move => {
-        const hasOtherPlayer = this.playerSquad.some((p, i) => i !== clickedPlayerIndex && p.unit.currentHp > 0 && p.coord.equals(move));
-        const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-        return !hasOtherPlayer && !hasEnemy;
-      });
-
-      this.gridPresenter.highlightWalkableArea(filteredMoves, coord);
-      this.centerCameraOn(coord);
+      this.selectHeroByIndex(clickedPlayerIndex);
       return;
     }
 
@@ -303,12 +396,26 @@ export class MainGameScene extends Phaser.Scene {
       this.isProcessingAction = true;
       this.combatForecastPresenter.hide();
       this.gridPresenter.clearHighlights();
+
+      const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
       selectedPlayer.coord = coord;
       this.audioService.playSound('hero_step');
       await selectedPlayer.graphic.moveTo(coord);
       this.centerCameraOn(coord);
+
+      // In Exploration Mode (no encounter active), companion auto-follows
+      if (!this.isEncounterActive) {
+        const companion = this.playerSquad.find((p, i) => i !== this.selectedPlayerIndex && p.unit.currentHp > 0 && !p.hasActed);
+        if (companion && !companion.coord.equals(leaderPreviousCoord)) {
+          const followTarget = this.followFormationCalculator.calculate(leaderPreviousCoord);
+          companion.coord = followTarget;
+          await companion.graphic.moveTo(followTarget);
+        }
+      }
+
       this.isProcessingAction = false;
       this.updateMinimap();
+      this.checkEncounterState();
 
       // Show Action Menu after moving
       this.showActionMenuForPlayer(selectedPlayer);
@@ -419,6 +526,7 @@ export class MainGameScene extends Phaser.Scene {
 
     this.isProcessingAction = false;
     this.updateMinimap();
+    this.checkEncounterState();
 
     this.finalizePlayerTurn(player);
   }
@@ -438,6 +546,12 @@ export class MainGameScene extends Phaser.Scene {
       this.phaseManager.advancePhase();
       this.hudPresenter.updatePhase('🔴 ENEMY');
       this.executeEnemyPhase();
+    } else {
+      // Auto-focus next unacted player
+      const nextActiveHero = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
+      if (nextActiveHero) {
+        this.centerCameraOn(nextActiveHero.coord);
+      }
     }
   }
 
@@ -513,6 +627,7 @@ export class MainGameScene extends Phaser.Scene {
 
     this.isProcessingAction = false;
     this.updateMinimap();
+    this.checkEncounterState();
 
     if (!this.checkWinCondition()) {
       this.phaseManager.advancePhase();
