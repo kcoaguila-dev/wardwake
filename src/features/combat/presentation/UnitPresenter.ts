@@ -11,10 +11,12 @@ export class UnitPresenter {
   private healthBar: Phaser.GameObjects.Graphics;
   private isExhausted: boolean = false;
   private isPlayer: boolean;
+  private isLeader: boolean = false;
   private isSelected: boolean = false;
 
-  constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate, isPlayer: boolean = true) {
+  constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate, isPlayer: boolean = true, isLeader: boolean = false) {
     this.isPlayer = isPlayer;
+    this.isLeader = isLeader;
 
     let textureKey = 'unit_sword';
     switch (unit.weaponType) {
@@ -52,17 +54,34 @@ export class UnitPresenter {
     this.updateHp(unit.currentHp, unit.maxHp);
   }
 
+  public setLeader(isLeader: boolean): void {
+    this.isLeader = isLeader;
+    this.drawFactionRing();
+  }
+
   private drawFactionRing(): void {
     this.factionRing.clear();
-    const ringColor = this.isPlayer ? 0x00d4ff : 0xff3b30;
-    const borderColor = this.isPlayer ? 0x38bdf8 : 0xff5252;
+
+    let ringColor = 0xff3b30; // Enemy Crimson
+    let borderColor = 0xff5252;
+
+    if (this.isPlayer) {
+      if (this.isLeader) {
+        ringColor = 0xffd700; // Radiant Gold Leader
+        borderColor = 0xfff080;
+      } else {
+        ringColor = 0x00d4ff; // Celestial Cyan Ally
+        borderColor = 0x38bdf8;
+      }
+    }
+
     const alpha = this.isExhausted ? 0.25 : 0.65;
 
     // Draw soft glowing ellipse under the unit's feet
     this.factionRing.fillStyle(ringColor, alpha);
     this.factionRing.fillEllipse(0, 11, 20, 9);
 
-    const activeBorderColor = this.isSelected ? 0xffff00 : borderColor;
+    const activeBorderColor = this.isSelected ? 0xffffff : borderColor;
     const borderThickness = this.isSelected ? 2.5 : 1.5;
 
     this.factionRing.lineStyle(borderThickness, activeBorderColor, this.isExhausted ? 0.4 : 0.95);

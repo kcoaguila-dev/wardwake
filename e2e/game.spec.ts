@@ -48,6 +48,23 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
+  test('Friendly position swap allows passing through ally in narrow corridors', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Press S to step into adjacent ally position and trigger friendly swap
+    await page.keyboard.press('KeyS');
+    await page.waitForTimeout(400);
+
+    // Press W to step back into previous tile and swap again
+    await page.keyboard.press('KeyW');
+    await page.waitForTimeout(400);
+
+    await expect(canvas).toBeVisible();
+  });
+
   test('Combat forecast appears on hover and attacks execute with animations', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');

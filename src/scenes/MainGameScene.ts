@@ -24,7 +24,6 @@ import { FogOfWar } from '../features/fog/domain/FogOfWar';
 import { VisibilityMap } from '../features/fog/domain/VisibilityMap';
 import { FogPresenter } from '../features/fog/presentation/FogPresenter';
 import { Unit } from '../features/combat/domain/Unit';
-import { WeaponType } from '../features/combat/domain/WeaponType';
 import { EnemyFactory } from '../features/combat/domain/EnemyFactory';
 import { Item, ItemType } from '../features/inventory/domain/Item';
 import { TurnState } from '../features/turn/domain/TurnState';
@@ -34,7 +33,7 @@ import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudio
 import { GameDatabase } from '../core/domain/GameDatabase';
 
 export class MainGameScene extends Phaser.Scene {
-  // Map Dimensions (Expanded to 18x18 for 3x3 Chunsoft Macro-Grid)
+  // Map Dimensions (18x18 for 3x3 Chunsoft Macro-Grid)
   public static readonly MAP_WIDTH = 18;
   public static readonly MAP_HEIGHT = 18;
 
@@ -140,7 +139,7 @@ export class MainGameScene extends Phaser.Scene {
       }
     });
 
-    // WASD & Arrow Keys for tactile exploration movement
+    // WASD & Arrow Keys for tactical exploration movement
     const handleDirectionalMove = (dx: number, dy: number) => {
       this.handleKeyboardStep(dx, dy);
     };
@@ -193,19 +192,63 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    const isOccupiedByAlly = this.playerSquad.some(p => p.unit.id !== player.unit.id && p.unit.currentHp > 0 && p.coord.equals(targetCoord));
-    if (isOccupiedByAlly) {
+    // 1. Check for Friendly Position Swap (Mystery Dungeon & Shiren standard)
+    const allyAtTarget = this.playerSquad.find(p => p.unit.id !== player.unit.id && p.unit.currentHp > 0 && p.coord.equals(targetCoord));
+    if (allyAtTarget) {
+      await this.swapPlayerPositions(player, allyAtTarget);
       return;
     }
 
+    // 2. Check for Enemy Melee Bump
     const enemyAtTarget = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(targetCoord) && this.visibilityMap.isVisible(targetCoord));
     if (enemyAtTarget) {
-      // Direct melee strike when stepping into enemy tile
       await this.executePlayerAttack(player, enemyAtTarget);
       return;
     }
 
+    // 3. Move to free tile
     await this.movePlayerUnit(player, targetCoord);
+  }
+
+  private async swapPlayerPositions(
+    activePlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter },
+    allyPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }
+  ): Promise<void> {
+    this.isProcessingAction = true;
+    this.combatForecastPresenter.hide();
+    this.gridPresenter.clearHighlights();
+
+    const originalActiveCoord = new TileCoordinate(activePlayer.coord.x, activePlayer.coord.y);
+    const originalAllyCoord = new TileCoordinate(allyPlayer.coord.x, allyPlayer.coord.y);
+
+    activePlayer.coord = originalAllyCoord;
+    allyPlayer.coord = originalActiveCoord;
+
+    this.audioService.playSound('hero_step');
+
+    await Promise.all([
+      activePlayer.graphic.moveTo(activePlayer.coord),
+      allyPlayer.graphic.moveTo(allyPlayer.coord)
+    ]);
+
+    this.centerCameraOn(activePlayer.coord);
+
+    this.isProcessingAction = false;
+    this.updateFogAndVisibility();
+    this.checkEncounterState();
+
+    // Check if an enemy is adjacent after swapping
+    const hasAdjacentEnemy = this.enemySquad.some(e => {
+      if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
+      const dist = Math.abs(activePlayer.coord.x - e.coord.x) + Math.abs(activePlayer.coord.y - e.coord.y);
+      return dist === 1;
+    });
+
+    if (hasAdjacentEnemy || this.isEncounterActive) {
+      this.showActionMenuForPlayer(activePlayer);
+    } else {
+      if (this.checkWinCondition()) return;
+    }
   }
 
   private startFloor(floorNumber: number): void {
@@ -242,8 +285,8 @@ export class MainGameScene extends Phaser.Scene {
       const p2Unit = GameDatabase.createHeroUnit(heroBlueprints[1]?.id || 'hero_lance_knight', 'p2');
 
       this.playerSquad = [
-        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true) },
-        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!, true) }
+        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) }, // Leader (Gold)
+        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!, true, false) } // Companion (Cyan)
       ];
     } else {
       this.playerSquad.forEach((p, idx) => {
@@ -253,6 +296,7 @@ export class MainGameScene extends Phaser.Scene {
         p.graphic.moveTo(p.coord);
         p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
         p.graphic.setExhausted(false);
+        p.graphic.setLeader(idx === 0);
       });
     }
 
@@ -285,7 +329,7 @@ export class MainGameScene extends Phaser.Scene {
     for (let i = 0; i < floorData.enemySpawns.length; i++) {
       const coord = floorData.enemySpawns[i]!;
       const unit = EnemyFactory.createEnemy(floorNumber, i);
-      const graphic = new UnitPresenter(this, unit, coord, false);
+      const graphic = new UnitPresenter(this, unit, coord, false, false);
       graphic.updateHp(unit.currentHp, unit.maxHp);
 
       this.enemySquad.push({
@@ -298,7 +342,7 @@ export class MainGameScene extends Phaser.Scene {
 
     // 6. Update HUD & Phase
     this.hudPresenter.updateFloor(this.floorCount);
-    this.hudPresenter.updatePhase('🔵 PLAYER');
+    this.hudPresenter.updatePhase('🔵 EXPLORE');
     this.hudPresenter.updateEnemies(this.enemySquad.length);
 
     while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
@@ -359,13 +403,23 @@ export class MainGameScene extends Phaser.Scene {
 
     if (enemyNearby && !this.isEncounterActive) {
       this.isEncounterActive = true;
-      if (this.playerSquad[0]) {
-        const screenX = this.playerSquad[0].coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-        const screenY = this.playerSquad[0].coord.y * GridPresenter.TILE_SIZE - 10;
-        this.combatTextPresenter.showDamage(screenX, screenY, 0, true, false);
+      this.hudPresenter.updatePhase('⚔️ COMBAT');
+      this.audioService.playSound('enemy_alert');
+      const activePlayer = this.getActiveHero();
+      if (activePlayer) {
+        const screenX = activePlayer.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const screenY = activePlayer.coord.y * GridPresenter.TILE_SIZE - 10;
+        this.combatTextPresenter.showBanner(screenX, screenY, '⚔️ COMBAT ENGAGED!');
       }
     } else if (!enemyNearby && this.isEncounterActive) {
       this.isEncounterActive = false;
+      this.hudPresenter.updatePhase('🔵 EXPLORE');
+      const activePlayer = this.getActiveHero();
+      if (activePlayer) {
+        const screenX = activePlayer.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const screenY = activePlayer.coord.y * GridPresenter.TILE_SIZE - 10;
+        this.combatTextPresenter.showBanner(screenX, screenY, '✨ AREA SECURED');
+      }
     }
   }
 
@@ -397,13 +451,18 @@ export class MainGameScene extends Phaser.Scene {
     const selectedPlayer = this.playerSquad[index];
     if (!selectedPlayer) return;
 
+    this.playerSquad.forEach((p, idx) => {
+      p.graphic.setSelected(idx === index);
+    });
+
     this.combatForecastPresenter.hide();
     const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
 
     const filteredMoves = validMoves.filter(move => {
-      const hasOtherPlayer = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move));
+      const isAdjacentAlly = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move) && (Math.abs(selectedPlayer.coord.x - move.x) + Math.abs(selectedPlayer.coord.y - move.y) === 1));
+      const hasDistantPlayer = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move) && !isAdjacentAlly);
       const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-      return !hasOtherPlayer && !hasEnemy;
+      return !hasDistantPlayer && !hasEnemy;
     });
 
     this.gridPresenter.highlightWalkableArea(filteredMoves, selectedPlayer.coord);
@@ -419,6 +478,7 @@ export class MainGameScene extends Phaser.Scene {
       if (p.unit.currentHp > 0) {
         p.hasActed = true;
         p.graphic.setExhausted(true);
+        p.graphic.setSelected(false);
       }
     });
 
@@ -504,16 +564,36 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 2. Select an active unacted player
+    // 2. Select an active unacted player OR swap positions with adjacent ally
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
       if (this.selectedPlayerIndex === clickedPlayerIndex) {
         // Clicking already selected hero opens tactical action menu
         this.showActionMenuForPlayer(this.playerSquad[clickedPlayerIndex]!);
+      } else if (this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
+        const currentHero = this.playerSquad[this.selectedPlayerIndex]!;
+        const clickedHero = this.playerSquad[clickedPlayerIndex]!;
+        const dist = Math.abs(currentHero.coord.x - clickedHero.coord.x) + Math.abs(currentHero.coord.y - clickedHero.coord.y);
+        if (dist === 1) {
+          // Adjacent ally: Swap places smoothly!
+          await this.swapPlayerPositions(currentHero, clickedHero);
+          return;
+        }
+        this.selectHeroByIndex(clickedPlayerIndex);
       } else {
         this.selectHeroByIndex(clickedPlayerIndex);
       }
       return;
+    }
+
+    if (this.selectedPlayerIndex === null) {
+      // In exploration mode, default to moving the lead hero
+      const leadHeroIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed);
+      if (leadHeroIdx !== -1) {
+        this.selectHeroByIndex(leadHeroIdx);
+      } else {
+        return;
+      }
     }
 
     if (this.selectedPlayerIndex === null) {
@@ -528,9 +608,10 @@ export class MainGameScene extends Phaser.Scene {
     // 3. Move to valid tile
     const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
     const filteredMoves = validMoves.filter(move => {
-      const hasOtherPlayer = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move));
+      const isAdjacentAlly = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move) && (Math.abs(selectedPlayer.coord.x - move.x) + Math.abs(selectedPlayer.coord.y - move.y) === 1));
+      const hasDistantPlayer = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(move) && !isAdjacentAlly);
       const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-      return !hasOtherPlayer && !hasEnemy;
+      return !hasDistantPlayer && !hasEnemy;
     });
 
     const isReachable = filteredMoves.some(move => move.equals(coord));
@@ -551,7 +632,7 @@ export class MainGameScene extends Phaser.Scene {
     await selectedPlayer.graphic.moveTo(coord);
     this.centerCameraOn(coord);
 
-    // In Exploration Mode, companion auto-follows
+    // In Exploration Mode (no active encounter), companion auto-follows behind leader
     if (!this.isEncounterActive) {
       const companion = this.playerSquad.find(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && !p.hasActed);
       if (companion && !companion.coord.equals(leaderPreviousCoord)) {
@@ -585,12 +666,10 @@ export class MainGameScene extends Phaser.Scene {
       return dist === 1;
     });
 
-    // In Exploration mode (no enemies adjacent), DO NOT popup menu. Keep walking freely!
-    // Only popup menu if an enemy is adjacent or in encounter threat!
-    if (hasAdjacentEnemy) {
+    // In Tactical Combat Mode or when adjacent to enemy, show the Action Menu
+    if (hasAdjacentEnemy || this.isEncounterActive) {
       this.showActionMenuForPlayer(selectedPlayer);
     } else {
-      // Free exploration step completed. Allow next step immediately!
       if (this.checkWinCondition()) return;
     }
   }
@@ -708,9 +787,10 @@ export class MainGameScene extends Phaser.Scene {
 
   private finalizePlayerTurn(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }) {
     player.hasActed = true;
+    player.graphic.setSelected(false);
+    player.graphic.setExhausted(true);
     this.selectedPlayerIndex = null;
     this.gridPresenter.clearHighlights();
-    player.graphic.setExhausted(true);
 
     if (this.checkWinCondition()) {
       return;
@@ -805,7 +885,7 @@ export class MainGameScene extends Phaser.Scene {
 
     if (!this.checkWinCondition()) {
       this.phaseManager.advancePhase();
-      this.hudPresenter.updatePhase('🔵 PLAYER');
+      this.hudPresenter.updatePhase(this.isEncounterActive ? '⚔️ COMBAT' : '🔵 EXPLORE');
 
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
