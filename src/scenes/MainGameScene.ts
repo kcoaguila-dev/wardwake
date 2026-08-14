@@ -74,6 +74,7 @@ export class MainGameScene extends Phaser.Scene {
   private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private enemySquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private floorItems: { coord: TileCoordinate; item: Item; sprite: Phaser.GameObjects.Sprite }[] = [];
+  private turnStartCoords: Map<string, TileCoordinate> = new Map();
   private floorCount: number = 1;
   private staircaseCoord!: TileCoordinate;
   private selectedPlayerIndex: number | null = null;
@@ -185,12 +186,25 @@ export class MainGameScene extends Phaser.Scene {
     });
   }
 
-  private cancelActionMenu(): void {
+  private async cancelActionMenu(): Promise<void> {
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
     this.combatForecastPresenter.hide();
     this.isMenuOpen = false;
     this.isTargeting = false;
+
+    if (this.isEncounterActive && this.selectedPlayerIndex !== null) {
+      const activeHero = this.playerSquad[this.selectedPlayerIndex];
+      if (activeHero && this.turnStartCoords.has(activeHero.unit.id)) {
+        const startCoord = this.turnStartCoords.get(activeHero.unit.id)!;
+        if (!activeHero.coord.equals(startCoord)) {
+          activeHero.coord = new TileCoordinate(startCoord.x, startCoord.y);
+          await activeHero.graphic.moveTo(activeHero.coord);
+          this.updateFogAndVisibility();
+          this.selectHeroByIndex(this.selectedPlayerIndex);
+        }
+      }
+    }
   }
 
   private getActiveHero() {
@@ -214,19 +228,13 @@ export class MainGameScene extends Phaser.Scene {
     const player = this.playerSquad[this.selectedPlayerIndex];
     if (!player || player.hasActed || player.unit.currentHp <= 0) return;
 
-    // Check if player is holding Shift for Corridor Sprint
-    if (isShift && !this.isEncounterActive) {
-      await this.handleCorridorSprint(player, dx, dy);
-      return;
-    }
-
     const targetCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
 
     if (!this.gridMap.isWalkable(targetCoord)) {
       return;
     }
 
-    // 1. Check for Friendly Position Swap
+    // 1. Check for Friendly Position Swap (works even with Shift held!)
     const allyAtTarget = this.playerSquad.find(p => p.unit.id !== player.unit.id && p.unit.currentHp > 0 && p.coord.equals(targetCoord));
     if (allyAtTarget) {
       await this.swapPlayerPositions(player, allyAtTarget);
@@ -240,7 +248,13 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 3. Move to free tile
+    // 3. Check if player is holding Shift for Corridor Sprint
+    if (isShift && !this.isEncounterActive) {
+      await this.handleCorridorSprint(player, dx, dy);
+      return;
+    }
+
+    // 4. Move to free tile
     await this.movePlayerUnit(player, targetCoord);
   }
 
@@ -309,14 +323,7 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
-    // Check if an enemy is adjacent after swapping in Combat Mode
-    const hasAdjacentEnemy = this.enemySquad.some(e => {
-      if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
-      const dist = Math.abs(activePlayer.coord.x - e.coord.x) + Math.abs(activePlayer.coord.y - e.coord.y);
-      return dist === 1;
-    });
-
-    if (this.isEncounterActive && hasAdjacentEnemy) {
+    if (this.isEncounterActive) {
       this.showActionMenuForPlayer(activePlayer);
     } else {
       if (this.checkWinCondition()) return;
@@ -371,6 +378,10 @@ export class MainGameScene extends Phaser.Scene {
         p.graphic.setLeader(idx === 0);
       });
     }
+
+    this.playerSquad.forEach(p => {
+      this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
+    });
 
     // 4. Spawn Floor Items
     this.floorItems.forEach(fi => fi.sprite.destroy());
@@ -477,6 +488,9 @@ export class MainGameScene extends Phaser.Scene {
     if (enemyNearby && !this.isEncounterActive) {
       this.isEncounterActive = true;
       this.hudPresenter.updatePhase('⚔️ COMBAT');
+      this.playerSquad.forEach(p => {
+        this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
+      });
       const activePlayer = this.getActiveHero();
       if (activePlayer) {
         const screenX = activePlayer.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
@@ -772,15 +786,8 @@ export class MainGameScene extends Phaser.Scene {
     this.updateFogAndVisibility();
     this.checkEncounterState();
 
-    // Check if an enemy is in melee range (1 tile)
-    const hasAdjacentEnemy = this.enemySquad.some(e => {
-      if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
-      const dist = Math.abs(selectedPlayer.coord.x - e.coord.x) + Math.abs(selectedPlayer.coord.y - e.coord.y);
-      return dist === 1;
-    });
-
-    // ONLY in Tactical Combat Mode when adjacent to enemy, show the Action Menu
-    if (this.isEncounterActive && hasAdjacentEnemy) {
+    // In Combat Mode, moving always prompts tactical actions (Attack, Item, Wait, or Cancel Undo)
+    if (this.isEncounterActive) {
       this.showActionMenuForPlayer(selectedPlayer);
     } else {
       if (this.checkWinCondition()) return;
@@ -931,6 +938,7 @@ export class MainGameScene extends Phaser.Scene {
     this.selectedPlayerIndex = null;
     this.gridPresenter.clearHighlights();
     this.combatForecastPresenter.hide();
+    this.turnStartCoords.set(player.unit.id, new TileCoordinate(player.coord.x, player.coord.y));
 
     if (this.checkWinCondition()) {
       return;
@@ -1040,6 +1048,7 @@ export class MainGameScene extends Phaser.Scene {
         if (p.unit.currentHp > 0) {
           p.hasActed = false;
           p.graphic.setExhausted(false);
+          this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
         }
       });
 
