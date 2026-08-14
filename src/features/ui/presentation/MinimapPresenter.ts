@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { GridMap } from '../../grid/domain/GridMap';
 import { TileCoordinate } from '../../grid/domain/TileCoordinate';
+import { VisibilityMap } from '../../fog/domain/VisibilityMap';
 
 export class MinimapPresenter {
   private container: Phaser.GameObjects.Container;
@@ -52,7 +53,7 @@ export class MinimapPresenter {
     this.scene.input.keyboard?.on('keydown-M', () => this.toggle());
   }
 
-  public drawMap(gridMap: GridMap, staircaseCoord: TileCoordinate): void {
+  public drawMap(gridMap: GridMap, staircaseCoord: TileCoordinate, visibilityMap?: VisibilityMap): void {
     this.mapWidth = gridMap.width;
     this.mapHeight = gridMap.height;
     this.tileSize = (this.boxSize - 12) / Math.max(this.mapWidth, this.mapHeight);
@@ -66,6 +67,10 @@ export class MinimapPresenter {
       for (let y = 0; y < gridMap.height; y++) {
         const coord = new TileCoordinate(x, y);
         if (gridMap.isWalkable(coord)) {
+          // If a visibility map is provided, only draw discovered tiles
+          if (visibilityMap && !visibilityMap.isDiscovered(coord)) {
+            continue;
+          }
           // Draw floor tile
           this.mapGraphics.fillStyle(0x334155, 0.9);
           this.mapGraphics.fillRect(
@@ -78,17 +83,19 @@ export class MinimapPresenter {
       }
     }
 
-    // Draw Staircase Exit (Gold)
-    this.mapGraphics.fillStyle(0xffea00, 1);
-    this.mapGraphics.fillRect(
-      offsetX + staircaseCoord.x * this.tileSize,
-      offsetY + staircaseCoord.y * this.tileSize,
-      Math.max(3, this.tileSize),
-      Math.max(3, this.tileSize)
-    );
+    // Draw Staircase Exit (Gold) if discovered
+    if (!visibilityMap || visibilityMap.isDiscovered(staircaseCoord)) {
+      this.mapGraphics.fillStyle(0xffea00, 1);
+      this.mapGraphics.fillRect(
+        offsetX + staircaseCoord.x * this.tileSize,
+        offsetY + staircaseCoord.y * this.tileSize,
+        Math.max(3, this.tileSize),
+        Math.max(3, this.tileSize)
+      );
+    }
   }
 
-  public updateEntities(playerCoords: TileCoordinate[], enemyCoords: TileCoordinate[]): void {
+  public updateEntities(playerCoords: TileCoordinate[], enemyCoords: TileCoordinate[], visibilityMap?: VisibilityMap): void {
     this.entityGraphics.clear();
 
     const offsetX = 6;
@@ -97,11 +104,14 @@ export class MinimapPresenter {
     // Draw Enemies (Red Dots)
     this.entityGraphics.fillStyle(0xff3b30, 1);
     for (const coord of enemyCoords) {
-      this.entityGraphics.fillCircle(
-        offsetX + coord.x * this.tileSize + this.tileSize / 2,
-        offsetY + coord.y * this.tileSize + this.tileSize / 2,
-        1.8
-      );
+      // Only draw enemies if they are currently visible
+      if (!visibilityMap || visibilityMap.isVisible(coord)) {
+        this.entityGraphics.fillCircle(
+          offsetX + coord.x * this.tileSize + this.tileSize / 2,
+          offsetY + coord.y * this.tileSize + this.tileSize / 2,
+          1.8
+        );
+      }
     }
 
     // Draw Players (Cyan/Blue Dots)

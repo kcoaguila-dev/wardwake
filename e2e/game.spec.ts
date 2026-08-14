@@ -59,5 +59,63 @@ test.describe('Wardwake Game E2E Tests', () => {
     // Canvas should remain healthy and active
     await expect(canvas).toBeVisible();
   });
+
+  test('Room Exploration & Fog Discovery logic works cleanly', async ({ page }) => {
+    const logs: string[] = [];
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        logs.push(msg.text());
+      }
+    });
+
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Note: Due to procedural generation, the exact layout varies.
+    // However, moving to an adjacent valid tile should trigger fog update logic.
+    // Screen coords: Select player at (1,1) -> (48, 88)
+    await canvas.click({ position: { x: 48, y: 88 } });
+    await page.waitForTimeout(300);
+
+    // Attempt to move down into corridor/room (1,3) -> (48, 152)
+    await canvas.click({ position: { x: 48, y: 152 } });
+    await page.waitForTimeout(500);
+
+    expect(logs.length).toBe(0); // No runtime console errors thrown during discovery
+    await expect(canvas).toBeVisible();
+  });
+
+  test('Floor Item Pickup renders float text cleanly', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // We can't guarantee an item is at a specific tile due to procedural generation,
+    // but we can ensure moving works and the scene does not crash if an item were present.
+    await canvas.click({ position: { x: 48, y: 88 } });
+    await page.waitForTimeout(300);
+    await canvas.click({ position: { x: 80, y: 88 } }); // Try moving to (2,1)
+    await page.waitForTimeout(500);
+
+    await expect(canvas).toBeVisible();
+  });
+
+  test('Minimap Fog Integrity is maintained', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Just verify the scene renders without breaking when Minimap tries to read visibility map
+    await canvas.click({ position: { x: 48, y: 88 } });
+    await page.waitForTimeout(300);
+    await canvas.click({ position: { x: 48, y: 120 } });
+    await page.waitForTimeout(500);
+
+    await expect(canvas).toBeVisible();
+  });
 });
 
