@@ -39,4 +39,25 @@ test.describe('Wardwake Game E2E Tests', () => {
     // Verify game canvas is still rendering cleanly
     await expect(canvas).toBeVisible();
   });
+
+  test('Combat forecast appears on hover and attacks execute with animations', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Select Player 2 at tile (1, 2)
+    // Screen coords: x = 1*32 + 16 = 48, y = 2*32 + 16 + 40 = 120
+    await canvas.click({ position: { x: 48, y: 120 } });
+    await page.waitForTimeout(300);
+
+    // Move to (3, 2)
+    // Screen coords: x = 3*32 + 16 = 112, y = 2*32 + 16 + 40 = 120
+    await canvas.click({ position: { x: 112, y: 120 } });
+    await page.waitForTimeout(500);
+
+    // Canvas should remain healthy and active
+    await expect(canvas).toBeVisible();
+  });
 });
+

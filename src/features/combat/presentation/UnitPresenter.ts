@@ -100,24 +100,27 @@ export class UnitPresenter {
 
   animateAttack(targetCoord: TileCoordinate): Promise<void> {
     return new Promise((resolve) => {
+      const originX = this.container.x;
+      const originY = this.container.y;
+
       const targetWorldX = targetCoord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
       const targetWorldY = targetCoord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
-      const angle = Phaser.Math.Angle.Between(this.container.x, this.container.y, targetWorldX, targetWorldY);
+      const angle = Phaser.Math.Angle.Between(originX, originY, targetWorldX, targetWorldY);
       const lungeDistance = 8;
 
-      const lungeX = Math.cos(angle) * lungeDistance;
-      const lungeY = Math.sin(angle) * lungeDistance;
+      const lungeX = originX + Math.cos(angle) * lungeDistance;
+      const lungeY = originY + Math.sin(angle) * lungeDistance;
 
       this.scene.tweens.add({
-        targets: this.sprite,
+        targets: this.container,
         x: lungeX,
         y: lungeY,
         duration: 80,
         yoyo: true,
         ease: 'Sine.easeInOut',
         onComplete: () => {
-          this.sprite.setPosition(0, 0);
+          this.container.setPosition(originX, originY);
           resolve();
         }
       });
