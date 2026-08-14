@@ -105,8 +105,8 @@ export class MainGameScene extends Phaser.Scene {
       const p2Unit = new Unit('p2', 'Lance Knight', 22, 6, 3, WeaponType.LANCE);
 
       this.playerSquad = [
-        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!) },
-        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!) }
+        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true) },
+        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!, true) }
       ];
     } else {
       this.playerSquad.forEach((p, idx) => {
@@ -115,12 +115,11 @@ export class MainGameScene extends Phaser.Scene {
         p.unit.currentHp = p.unit.maxHp; // Heal to full on new floor
         p.graphic.moveTo(p.coord);
         p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
-        p.graphic.setTint(0x0000ff);
+        p.graphic.setExhausted(false);
       });
     }
 
     // 4. Spawn / Reset Enemies
-    // Clear old enemy graphics if any
     this.enemySquad.forEach(e => e.graphic.clear());
     this.enemySquad = [];
 
@@ -131,8 +130,7 @@ export class MainGameScene extends Phaser.Scene {
         ? new Unit(`e${i + 1}`, 'Axe Warrior', 15 + floorNumber * 2, 5 + floorNumber, 1, WeaponType.AXE)
         : new Unit(`e${i + 1}`, 'Sword Guard', 18 + floorNumber * 2, 4 + floorNumber, 2, WeaponType.SWORD);
 
-      const graphic = new UnitPresenter(this, unit, coord);
-      graphic.setTint(0xff0000);
+      const graphic = new UnitPresenter(this, unit, coord, false);
       graphic.updateHp(unit.currentHp, unit.maxHp);
 
       this.enemySquad.push({
@@ -153,9 +151,9 @@ export class MainGameScene extends Phaser.Scene {
       this.phaseManager.advancePhase();
     }
 
-    // Re-bind players to bright active color
+    // Set all players to active vibrant state
     this.playerSquad.forEach(p => {
-      p.graphic.setTint(0x0000ff);
+      p.graphic.setExhausted(false);
     });
   }
 
@@ -276,7 +274,7 @@ export class MainGameScene extends Phaser.Scene {
       this.selectedPlayerIndex = null;
       this.gridPresenter.clearHighlights();
       // Gray out / darken exhausted player unit
-      selectedPlayer.graphic.setTint(0x777777);
+      selectedPlayer.graphic.setExhausted(true);
 
       if (this.checkWinCondition()) {
         return;
@@ -311,21 +309,26 @@ export class MainGameScene extends Phaser.Scene {
     this.isProcessingAction = true;
     const aliveEnemies = this.enemySquad.filter(e => e.unit.currentHp > 0);
 
-    // Restore enemies to bright red for their active turn
-    aliveEnemies.forEach(e => e.graphic.setTint(0xff0000));
+    // Restore enemies to bright active state for their turn
+    aliveEnemies.forEach(e => e.graphic.setExhausted(false));
 
     for (const enemyData of aliveEnemies) {
       await new Promise<void>(resolve => {
-        this.time.delayedCall(400, async () => {
-          // Re-update player info in case someone moved or died
+        this.time.delayedCall(350, async () => {
+          // Re-update player and obstacle info in case someone moved or died
           const playerInfos = this.playerSquad
             .filter(p => p.unit.currentHp > 0)
             .map(p => ({ unit: p.unit, coord: p.coord }));
 
-          this.executeEnemyTurnUseCase = new ExecuteEnemyTurnUseCase(this.gridMap, this.pathfinder, playerInfos);
+          const occupiedTiles = [
+            ...this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord),
+            ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
+          ];
+
+          this.executeEnemyTurnUseCase = new ExecuteEnemyTurnUseCase(this.gridMap, this.pathfinder, playerInfos, occupiedTiles);
           const result = this.executeEnemyTurnUseCase.execute(enemyData.unit, enemyData.coord);
 
-          // Move enemy and await the tween to complete
+          // Move enemy and await the movement tween to complete
           enemyData.coord = result.targetCoordinate;
           await enemyData.graphic.moveTo(enemyData.coord);
 
@@ -351,7 +354,7 @@ export class MainGameScene extends Phaser.Scene {
           }
 
           // Darken exhausted enemy unit
-          enemyData.graphic.setTint(0x777777);
+          enemyData.graphic.setExhausted(true);
           resolve();
         });
       });
@@ -363,11 +366,11 @@ export class MainGameScene extends Phaser.Scene {
       this.phaseManager.advancePhase();
       this.hudPresenter.updatePhase('🔵 PLAYER');
 
-      // Reset player acted states & restore bright blue colors
+      // Reset player acted states & restore bright active colors
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
           p.hasActed = false;
-          p.graphic.setTint(0x0000ff);
+          p.graphic.setExhausted(false);
         }
       });
     }

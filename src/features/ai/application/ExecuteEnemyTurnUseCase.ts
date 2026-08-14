@@ -17,7 +17,8 @@ export class ExecuteEnemyTurnUseCase {
   constructor(
     private readonly grid: GridMap,
     private readonly pathfinder: Pathfinder,
-    private readonly playerUnits: PlayerUnitInfo[]
+    private readonly playerUnits: PlayerUnitInfo[],
+    private readonly occupiedTiles: TileCoordinate[] = []
   ) {}
 
   execute(enemyUnit: Unit, enemyCoord: TileCoordinate): EnemyTurnResult {
@@ -55,18 +56,32 @@ export class ExecuteEnemyTurnUseCase {
       };
     }
 
-    // 3. Find path to closest player
-    // Note: To find a path, the target tile itself shouldn't be considered an obstacle by our generic BFS if we want to reach it,
-    // or we might want to path to a tile *adjacent* to it.
-    // Wait, our `Pathfinder.findPath` returns a path if `grid.isWalkable()` is true for all steps.
-    // If the player is on a tile, does `grid.isWalkable()` return true?
-    // According to GridMap.ts, blockedTiles only tracks explicit obstacles. Units don't automatically block tiles in GridMap unless explicitly added as obstacles.
-    // We assume GridMap only knows about static obstacles, or we just path towards the player unit's coordinate.
+    // 3. Build a dynamic pathfinding grid that treats other occupied tiles as obstacles
+    const dynamicGrid = new GridMap(this.grid.width, this.grid.height);
+    for (let x = 0; x < this.grid.width; x++) {
+      for (let y = 0; y < this.grid.height; y++) {
+        const c = new TileCoordinate(x, y);
+        if (!this.grid.isWalkable(c)) {
+          dynamicGrid.addObstacle(c);
+        }
+      }
+    }
 
-    // We will just find a path to the player's coordinate.
-    const path = this.pathfinder.findPath(enemyCoord, closestPlayer.coord, this.grid);
+    // Add occupied tiles (other enemies and other players) as obstacles, except start and target player
+    for (const occupied of this.occupiedTiles) {
+      if (!occupied.equals(enemyCoord) && !occupied.equals(closestPlayer.coord)) {
+        dynamicGrid.addObstacle(occupied);
+      }
+    }
 
-    // If no path found (player surrounded by obstacles, or unreachable)
+    // Find path using dynamic grid
+    let path = this.pathfinder.findPath(enemyCoord, closestPlayer.coord, dynamicGrid);
+
+    // Fallback: If blocked by allies, pathfind on standard grid to at least move closer
+    if (path.length === 0) {
+      path = this.pathfinder.findPath(enemyCoord, closestPlayer.coord, this.grid);
+    }
+
     if (path.length === 0) {
       return {
         targetCoordinate: enemyCoord,
@@ -74,24 +89,14 @@ export class ExecuteEnemyTurnUseCase {
       };
     }
 
-    // 4. Move up to movement range (assume fixed range, e.g., 3 for basic AI, but if we don't have a parameter let's say 3)
-    // Actually, Unit class doesn't have a movement attribute right now.
-    // I will default movement range to 3.
+    // 4. Traverse up to movement range (3 tiles)
     const movementRange = 3;
-
-    // path includes start at index 0. We can move up to `movementRange` steps.
-    // So index `movementRange` in the path array is the max distance we can reach.
-    // If path length is shorter than movementRange + 1, we can reach the player (which means we will be on top of the player).
-    // Wait, we can't move onto the player's tile. We must stop *adjacent* to the player.
-    // So the final target we want is the tile in the path right before the player's tile.
-
     let targetCoordinate = enemyCoord;
     let targetToAttack: Unit | null = null;
 
-    // The path ends at the player. We want to traverse up to movementRange steps.
-    for (let i = 1; i < path.length; i++) { // start at 1 because 0 is enemyCoord
+    for (let i = 1; i < path.length; i++) {
       if (i > movementRange) {
-        break; // can't move further
+        break;
       }
 
       const nextCoord = path[i];
@@ -100,16 +105,22 @@ export class ExecuteEnemyTurnUseCase {
       }
 
       if (nextCoord.equals(closestPlayer.coord)) {
-        // we are adjacent to the player (this step would land on the player)
+        // Adjacent to player (this step would land on player)
         targetToAttack = closestPlayer.unit;
+        break;
+      }
+
+      // Check if tile is occupied by another unit (cannot stop on top of another unit)
+      const isOccupied = this.occupiedTiles.some(o => !o.equals(enemyCoord) && o.equals(nextCoord));
+      if (isOccupied) {
+        // Cannot pass through or stop on occupied tile
         break;
       }
 
       targetCoordinate = nextCoord;
     }
 
-    // Now, after we moved, are we adjacent to the player?
-    // Recalculate Manhattan distance from our final targetCoordinate to the player.
+    // After moving, check if adjacent to the player to strike
     const finalDistToPlayer = Math.abs(closestPlayer.coord.x - targetCoordinate.x) + Math.abs(closestPlayer.coord.y - targetCoordinate.y);
     if (finalDistToPlayer === 1) {
       targetToAttack = closestPlayer.unit;

@@ -6,10 +6,15 @@ import { GridPresenter } from '../../grid/presentation/GridPresenter';
 
 export class UnitPresenter {
   private container: Phaser.GameObjects.Container;
+  private factionRing: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Sprite;
   private healthBar: Phaser.GameObjects.Graphics;
+  private isExhausted: boolean = false;
+  private isPlayer: boolean;
 
-  constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate) {
+  constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate, isPlayer: boolean = true) {
+    this.isPlayer = isPlayer;
+
     let textureKey = 'unit_sword';
     switch (unit.weaponType) {
       case WeaponType.SWORD:
@@ -29,18 +34,51 @@ export class UnitPresenter {
     this.container = this.scene.add.container(x, y);
     this.container.setDepth(2);
 
-    this.sprite = this.scene.add.sprite(0, 0, textureKey);
+    // 1. Under-Foot Faction Base Ring (Depth 1)
+    this.factionRing = this.scene.add.graphics();
+    this.drawFactionRing();
+
+    // 2. Character Pixel Art Avatar (Depth 2)
+    this.sprite = this.scene.add.sprite(0, -2, textureKey);
     this.sprite.setScale(2);
 
+    // 3. Health Bar (Depth 3)
     this.healthBar = this.scene.add.graphics();
     this.healthBar.setDepth(3);
 
-    this.container.add([this.sprite, this.healthBar]);
+    this.container.add([this.factionRing, this.sprite, this.healthBar]);
 
     this.updateHp(unit.currentHp, unit.maxHp);
   }
 
-  moveTo(coord: TileCoordinate): Promise<void> {
+  private drawFactionRing(): void {
+    this.factionRing.clear();
+    const ringColor = this.isPlayer ? 0x00d4ff : 0xff3b30;
+    const borderColor = this.isPlayer ? 0x38bdf8 : 0xff5252;
+    const alpha = this.isExhausted ? 0.25 : 0.65;
+
+    // Draw soft glowing ellipse under the unit's feet
+    this.factionRing.fillStyle(ringColor, alpha);
+    this.factionRing.fillEllipse(0, 11, 20, 9);
+
+    this.factionRing.lineStyle(1.5, borderColor, this.isExhausted ? 0.4 : 0.95);
+    this.factionRing.strokeEllipse(0, 11, 20, 9);
+  }
+
+  public setExhausted(exhausted: boolean): void {
+    this.isExhausted = exhausted;
+    this.drawFactionRing();
+
+    if (exhausted) {
+      // Darken / grayscale when turn is finished
+      this.sprite.setTint(0x777777);
+    } else {
+      // Restore vibrant natural pixel art colors
+      this.sprite.clearTint();
+    }
+  }
+
+  public moveTo(coord: TileCoordinate): Promise<void> {
     return new Promise((resolve) => {
       const targetX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
       const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
@@ -62,15 +100,23 @@ export class UnitPresenter {
     });
   }
 
-  clear(): void {
+  public clear(): void {
     this.container.setVisible(false);
   }
 
-  setTint(color: number): void {
+  public setTint(color: number): void {
     this.sprite.setTint(color);
   }
 
-  updateHp(currentHp: number, maxHp: number): void {
+  public clearTint(): void {
+    if (this.isExhausted) {
+      this.sprite.setTint(0x777777);
+    } else {
+      this.sprite.clearTint();
+    }
+  }
+
+  public updateHp(currentHp: number, maxHp: number): void {
     this.healthBar.clear();
     if (currentHp <= 0) {
       this.healthBar.setVisible(false);
@@ -101,7 +147,7 @@ export class UnitPresenter {
     this.healthBar.fillRect(offsetX, offsetY, barWidth * hpRatio, barHeight);
   }
 
-  animateAttack(targetCoord: TileCoordinate): Promise<void> {
+  public animateAttack(targetCoord: TileCoordinate): Promise<void> {
     return new Promise((resolve) => {
       const originX = this.container.x;
       const originY = this.container.y;
@@ -130,7 +176,7 @@ export class UnitPresenter {
     });
   }
 
-  animateHit(): Promise<void> {
+  public animateHit(): Promise<void> {
     return new Promise((resolve) => {
       this.scene.tweens.add({
         targets: this.sprite,
@@ -140,22 +186,17 @@ export class UnitPresenter {
         repeat: 3,
         ease: 'Sine.easeInOut',
         onComplete: () => {
-          this.sprite.setPosition(0, 0);
+          this.sprite.setPosition(0, -2);
           resolve();
         }
       });
 
-      // Also flash red
-      const originalTint = this.sprite.tintTopLeft;
+      // Flash white then red on damage
       this.sprite.setTint(0xffffff);
-      this.scene.time.delayedCall(50, () => {
-        this.sprite.setTint(0xff0000);
-        this.scene.time.delayedCall(50, () => {
-          if (originalTint === 0xffffff) {
-            this.sprite.clearTint();
-          } else {
-            this.sprite.setTint(originalTint);
-          }
+      this.scene.time.delayedCall(60, () => {
+        this.sprite.setTint(0xff3b30);
+        this.scene.time.delayedCall(80, () => {
+          this.clearTint();
         });
       });
     });
