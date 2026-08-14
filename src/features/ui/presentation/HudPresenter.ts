@@ -15,35 +15,35 @@ export class HudPresenter {
     const width = this.scene.scale.width || 640;
 
     const graphics = this.scene.add.graphics();
-    graphics.fillStyle(0x0f131c, 0.95);
-    graphics.fillRect(0, 0, width, 40);
-    graphics.lineStyle(1, 0x2e384d, 1);
-    graphics.lineBetween(0, 39, width, 39);
+    graphics.fillStyle(0x0a0e17, 0.96);
+    graphics.fillRect(0, 0, width, 38);
+    graphics.lineStyle(1, 0x1e293b, 1);
+    graphics.lineBetween(0, 38, width, 38);
     graphics.setScrollFactor(0);
     graphics.setDepth(10);
 
     const fontStyle = {
-      fontSize: '12px',
+      fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#e2e8f0',
     };
 
-    this.floorText = this.scene.add.text(12, 12, '🏰 Floor 1', fontStyle);
+    this.floorText = this.scene.add.text(10, 11, '🏰 F1', fontStyle);
     this.floorText.setScrollFactor(0);
     this.floorText.setDepth(11);
 
-    this.phaseText = this.scene.add.text(110, 12, '🔵 EXPLORE', fontStyle);
+    this.phaseText = this.scene.add.text(80, 11, '🔵 EXPLORE', fontStyle);
     this.phaseText.setScrollFactor(0);
     this.phaseText.setDepth(11);
 
-    this.turnText = this.scene.add.text(215, 12, '⏳ Turn 1', fontStyle);
+    this.turnText = this.scene.add.text(175, 11, '⏳ T1', fontStyle);
     this.turnText.setScrollFactor(0);
     this.turnText.setDepth(11);
 
     // End Turn Button
-    this.endTurnButton = this.scene.add.text(width - 160, 10, '[⏳ END TURN]', {
-      fontSize: '12px',
+    this.endTurnButton = this.scene.add.text(width - 152, 8, '[⏳ END TURN]', {
+      fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#e2e8f0',
@@ -60,8 +60,8 @@ export class HudPresenter {
     });
 
     // Settings Button (⚙️)
-    this.settingsButton = this.scene.add.text(width - 58, 10, '⚙️', {
-      fontSize: '14px',
+    this.settingsButton = this.scene.add.text(width - 54, 8, '⚙️', {
+      fontSize: '13px',
       fontFamily: 'monospace',
       padding: { x: 4, y: 2 }
     });
@@ -75,8 +75,8 @@ export class HudPresenter {
     });
 
     // Mute Button (🔊)
-    this.muteButton = this.scene.add.text(width - 30, 10, '🔊', {
-      fontSize: '14px',
+    this.muteButton = this.scene.add.text(width - 28, 8, '🔊', {
+      fontSize: '13px',
       fontFamily: 'monospace',
       padding: { x: 4, y: 2 }
     });
@@ -90,6 +90,16 @@ export class HudPresenter {
         this.onMuteToggleCallback();
       }
     });
+
+    this.relayout();
+  }
+
+  private relayout(): void {
+    const spacing = 12;
+    const pX = this.floorText.x + this.floorText.width + spacing;
+    this.phaseText.setX(pX);
+    const tX = this.phaseText.x + this.phaseText.width + spacing;
+    this.turnText.setX(tX);
   }
 
   setOnMuteToggle(callback: () => void): void {
@@ -111,19 +121,22 @@ export class HudPresenter {
       const modLabel = labelMap[modifier] || modifier;
       this.floorText.setText(`🏰 F${floor} • ${modLabel}`);
     } else {
-      this.floorText.setText(`🏰 Floor ${floor}`);
+      this.floorText.setText(`🏰 F${floor}`);
     }
+    this.relayout();
   }
 
   updatePhase(phase: string): void {
     this.phaseText.setText(phase);
+    this.relayout();
   }
 
   updateTurns(turns: number): void {
-    this.turnText.setText(`⏳ Turn ${turns}`);
+    this.turnText.setText(`⏳ T${turns}`);
+    this.relayout();
   }
 
-  updateEnemies(count: number): void {
+  updateEnemies(_count: number): void {
     // Deprecated for fog of war mystery
   }
 }

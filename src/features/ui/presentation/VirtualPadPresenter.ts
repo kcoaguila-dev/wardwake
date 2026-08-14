@@ -4,6 +4,7 @@ import { GamepadAction } from '../infrastructure/GamepadInputService';
 export class VirtualPadPresenter {
   private container: Phaser.GameObjects.Container;
   private isMobile: boolean;
+  private isVisible: boolean = true;
 
   constructor(private scene: Phaser.Scene) {
     this.isMobile = this.scene.sys.game.device.os.android ||
@@ -12,7 +13,7 @@ export class VirtualPadPresenter {
 
     this.container = this.scene.add.container(0, 0);
     this.container.setScrollFactor(0);
-    this.container.setDepth(100);
+    this.container.setDepth(90);
 
     if (this.isMobile) {
       this.createPad();
@@ -20,91 +21,117 @@ export class VirtualPadPresenter {
   }
 
   private createPad(): void {
-    const { width, height } = this.scene.scale;
+    const { width } = this.scene.scale;
 
-    // Virtual D-Pad (Bottom Left)
-    const dpadX = 70;
-    const dpadY = height - 70;
-    const btnSize = 40;
+    // 1. Virtual D-Pad (Left side, comfortably above bottom Party HUD at y: 318)
+    const dpadX = 54;
+    const dpadY = 230;
+    const btnSize = 32;
+    const offset = 34;
 
-    this.createButton(dpadX, dpadY - btnSize, btnSize, btnSize, 'UP', '▲', this.container);
-    this.createButton(dpadX, dpadY + btnSize, btnSize, btnSize, 'DOWN', '▼', this.container);
-    this.createButton(dpadX - btnSize, dpadY, btnSize, btnSize, 'LEFT', '◀', this.container);
-    this.createButton(dpadX + btnSize, dpadY, btnSize, btnSize, 'RIGHT', '▶', this.container);
+    this.createButton(dpadX, dpadY - offset, btnSize, btnSize, 'UP', '▲', this.container, 0x1e293b);
+    this.createButton(dpadX, dpadY + offset, btnSize, btnSize, 'DOWN', '▼', this.container, 0x1e293b);
+    this.createButton(dpadX - offset, dpadY, btnSize, btnSize, 'LEFT', '◀', this.container, 0x1e293b);
+    this.createButton(dpadX + offset, dpadY, btnSize, btnSize, 'RIGHT', '▶', this.container, 0x1e293b);
 
-    // Action Buttons (Bottom Right)
-    const actionX = width - 70;
-    const actionY = height - 70;
+    // 2. Action Buttons (Right side, comfortably above bottom Party HUD)
+    const actionX = width - 54;
+    const actionY = 230;
 
-    this.createButton(actionX, actionY + btnSize, btnSize, btnSize, 'A', 'A', this.container, 0x00aa00);
-    this.createButton(actionX + btnSize, actionY, btnSize, btnSize, 'B', 'B', this.container, 0xaa0000);
-    this.createButton(actionX - btnSize, actionY, btnSize, btnSize, 'X', 'X', this.container, 0x0000aa);
-    this.createButton(actionX, actionY - btnSize, btnSize, btnSize, 'Y', 'Y', this.container, 0xaaaa00);
+    this.createButton(actionX, actionY + offset, btnSize, btnSize, 'A', 'A', this.container, 0x059669); // Emerald Confirm
+    this.createButton(actionX + offset, actionY, btnSize, btnSize, 'B', 'B', this.container, 0xdc2626); // Crimson Cancel/Sprint
+    this.createButton(actionX - offset, actionY, btnSize, btnSize, 'X', 'X', this.container, 0x2563eb); // Cobalt Attack/Action
+    this.createButton(actionX, actionY - offset, btnSize, btnSize, 'Y', 'Y', this.container, 0xd97706); // Amber Skill/Menu
 
-    // LB / RB (Top Right of Action area or Top left/right)
-    this.createButton(width - 50, 50, 40, 30, 'RB', 'RB', this.container, 0x444444);
-    this.createButton(50, 50, 40, 30, 'LB', 'LB', this.container, 0x444444);
+    // 3. Shoulder Buttons (LB on left mid-screen, RB on right mid-screen below minimap)
+    this.createButton(30, 142, 38, 24, 'LB', 'LB', this.container, 0x334155);
+    this.createButton(width - 30, 142, 38, 24, 'RB', 'RB', this.container, 0x334155);
   }
 
-  private createButton(x: number, y: number, w: number, h: number, action: GamepadAction, label: string, container: Phaser.GameObjects.Container, color: number = 0x555555): void {
-    const bg = this.scene.add.rectangle(x, y, w - 4, h - 4, color, 0.75); // Increased opacity for better visibility
+  private createButton(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    action: GamepadAction,
+    label: string,
+    container: Phaser.GameObjects.Container,
+    color: number = 0x334155
+  ): void {
+    const bg = this.scene.add.rectangle(x, y, w, h, color, 0.6)
+      .setStrokeStyle(1.5, 0x94a3b8, 0.8);
     bg.setInteractive({ useHandCursor: true });
 
     const text = this.scene.add.text(x, y, label, {
-      fontSize: '16px',
+      fontSize: h > 28 ? '13px' : '10px',
+      fontFamily: 'monospace',
       color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     container.add([bg, text]);
 
-    // Handle touch/click
+    // Touch handlers
     let isPressed = false;
     let repeatTimer: Phaser.Time.TimerEvent | null = null;
 
     const triggerAction = () => {
       this.scene.events.emit('VIRTUAL_PAD_ACTION', action);
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(20);
+        try { navigator.vibrate(15); } catch {}
       }
     };
 
     bg.on('pointerdown', () => {
       bg.setAlpha(1.0);
+      bg.setScale(0.92);
+      text.setScale(0.92);
       isPressed = true;
       triggerAction();
 
       if (['UP', 'DOWN', 'LEFT', 'RIGHT'].includes(action)) {
         repeatTimer = this.scene.time.addEvent({
-          delay: 200, // wait a bit before repeating
+          delay: 220,
           callback: () => {
             repeatTimer = this.scene.time.addEvent({
-              delay: 150,
+              delay: 130,
               callback: triggerAction,
               loop: true
             });
           }
         });
       } else if (action === 'B') {
-          this.scene.events.emit('VIRTUAL_PAD_ACTION_DOWN', action);
+        this.scene.events.emit('VIRTUAL_PAD_ACTION_DOWN', action);
       }
     });
 
     const release = () => {
       if (!isPressed) return;
-      bg.setAlpha(0.75);
+      bg.setAlpha(0.6);
+      bg.setScale(1.0);
+      text.setScale(1.0);
       isPressed = false;
       if (repeatTimer) {
         repeatTimer.remove();
         repeatTimer = null;
       }
       if (action === 'B') {
-          this.scene.events.emit('VIRTUAL_PAD_ACTION_UP', action);
+        this.scene.events.emit('VIRTUAL_PAD_ACTION_UP', action);
       }
     };
 
     bg.on('pointerup', release);
     bg.on('pointerout', release);
+  }
+
+  public toggle(): void {
+    this.isVisible = !this.isVisible;
+    this.container.setVisible(this.isVisible);
+  }
+
+  public setVisible(visible: boolean): void {
+    this.isVisible = visible;
+    this.container.setVisible(visible);
   }
 
   public destroy(): void {
