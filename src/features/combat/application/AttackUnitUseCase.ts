@@ -27,19 +27,20 @@ export class AttackUnitUseCase {
 
     if (isFatal) {
       if (defender.id.startsWith('enemy_') || defender.id.startsWith('boss_')) {
-        let bestiary: string[] = [];
         try {
-          const stored = localStorage.getItem('wardwake_bestiary');
-          if (stored) {
-            bestiary = JSON.parse(stored);
+          if (typeof localStorage !== 'undefined') {
+            let bestiary: string[] = [];
+            const stored = localStorage.getItem('wardwake_bestiary');
+            if (stored) {
+              bestiary = JSON.parse(stored);
+            }
+            if (!bestiary.includes(defender.id)) {
+              bestiary.push(defender.id);
+              localStorage.setItem('wardwake_bestiary', JSON.stringify(bestiary));
+            }
           }
         } catch (e) {
-          bestiary = [];
-        }
-
-        if (!bestiary.includes(defender.id)) {
-          bestiary.push(defender.id);
-          localStorage.setItem('wardwake_bestiary', JSON.stringify(bestiary));
+          // safe fallback if storage unavailable
         }
       }
     }
