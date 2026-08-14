@@ -7,7 +7,7 @@ export class WebAudioSynthService implements IAudioService {
   public sfxVolume: number = 0.8;
 
   private bgmIntervalId: any = null;
-  private currentBgmMode: 'explore' | 'combat' | null = null;
+  private currentBgmMode: 'title' | 'explore' | 'combat' | null = null;
   private bgmStep: number = 0;
   private bgmGain: GainNode | null = null;
 
@@ -67,7 +67,7 @@ export class WebAudioSynthService implements IAudioService {
     this.saveSettings();
   }
 
-  public startBgm(mode: 'explore' | 'combat'): void {
+  public startBgm(mode: 'title' | 'explore' | 'combat'): void {
     if (this.currentBgmMode === mode && this.bgmIntervalId) return;
     this.stopBgm();
     this.currentBgmMode = mode;
@@ -84,7 +84,7 @@ export class WebAudioSynthService implements IAudioService {
     }
     this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
 
-    const intervalMs = mode === 'combat' ? 140 : 220;
+    const intervalMs = mode === 'combat' ? 140 : (mode === 'title' ? 200 : 220);
     this.bgmIntervalId = setInterval(() => {
       this.tickBgm();
     }, intervalMs);
@@ -104,7 +104,30 @@ export class WebAudioSynthService implements IAudioService {
     const t = this.ctx.currentTime;
     const mode = this.currentBgmMode;
 
-    if (mode === 'explore') {
+    if (mode === 'title') {
+      // Heroic & Atmospheric Title Prelude (D-Minor / F-Major Lyrical Theme)
+      const melodyNotes = [
+        293.66, 349.23, 440.00, 587.33, 523.25, 440.00, 392.00, 440.00, // D4, F4, A4, D5, C5, A4, G4, A4
+        349.23, 392.00, 440.00, 523.25, 659.25, 587.33, 523.25, 440.00, // F4, G4, A4, C5, E5, D5, C5, A4
+        466.16, 440.00, 392.00, 349.23, 329.63, 392.00, 349.23, 293.66, // Bb4, A4, G4, F4, E4, G4, F4, D4
+        293.66, 329.63, 349.23, 440.00, 587.33, 440.00, 349.23, 293.66  // D4, E4, F4, A4, D5, A4, F4, D4
+      ];
+
+      const freq = melodyNotes[this.bgmStep % melodyNotes.length]!;
+      this.playSynthPluck(freq, 'triangle', 0.28, t, 0.75);
+
+      // Shimmering High Bell Chime on key beats
+      if (this.bgmStep % 4 === 0) {
+        this.playSynthPluck(freq * 2, 'sine', 0.4, t, 0.35);
+      }
+
+      // Warm Sub-Bass Foundation on every 8th step
+      if (this.bgmStep % 8 === 0) {
+        const bassRoots = [73.42, 87.31, 58.27, 55.00]; // D2, F2, Bb1, A1
+        const bassFreq = bassRoots[Math.floor((this.bgmStep % 32) / 8)]!;
+        this.playSynthPluck(bassFreq, 'sine', 0.9, t, 0.85);
+      }
+    } else if (mode === 'explore') {
       // Atmospheric Dungeon Exploration Arpeggios (D Minor)
       const notes = [
         146.83, 220.00, 261.63, 293.66, 349.23, 293.66, 261.63, 220.00, // D3, A3, C4, D4, F4, D4, C4, A3

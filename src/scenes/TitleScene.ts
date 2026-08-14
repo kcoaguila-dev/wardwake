@@ -22,6 +22,16 @@ export class TitleScene extends Phaser.Scene {
     this.settingsModal = new SettingsModalPresenter(this, this.audioService);
     this.howToPlayModal = new HowToPlayModalPresenter(this);
 
+    // Start Heroic Title Prelude Theme
+    this.audioService.startBgm('title');
+
+    // Unlock Web Audio Context on first user interaction if suspended
+    const unlockAudio = () => {
+      this.audioService.startBgm('title');
+      this.input.off('pointerdown', unlockAudio);
+    };
+    this.input.on('pointerdown', unlockAudio);
+
     // 1. Background gradient & Dungeon Grid silhouette
     this.add.rectangle(0, 0, screenWidth, screenHeight, 0x070a12).setOrigin(0, 0);
 
