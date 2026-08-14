@@ -3,7 +3,6 @@ import * as Phaser from 'phaser';
 import { GridMap } from '../features/grid/domain/GridMap';
 import { Pathfinder } from '../features/grid/domain/Pathfinder';
 import { TileCoordinate } from '../features/grid/domain/TileCoordinate';
-import { TerrainType } from '../features/grid/domain/TerrainType';
 import { GridPresenter } from '../features/grid/presentation/GridPresenter';
 import { InputPresenter } from '../features/ui/presentation/InputPresenter';
 import { CombatTextPresenter } from '../features/ui/presentation/CombatTextPresenter';
@@ -30,7 +29,6 @@ import { VisibilityMap } from '../features/fog/domain/VisibilityMap';
 import { FogPresenter } from '../features/fog/presentation/FogPresenter';
 import { Unit } from '../features/combat/domain/Unit';
 import { EnemyFactory } from '../features/combat/domain/EnemyFactory';
-import { WeaponType } from '../features/combat/domain/WeaponType';
 import { Item, ItemType } from '../features/inventory/domain/Item';
 import { ItemRepository } from '../features/inventory/domain/ItemRepository';
 import { TurnState } from '../features/turn/domain/TurnState';
@@ -836,10 +834,7 @@ export class MainGameScene extends Phaser.Scene {
 
       if (clickedEnemy && selectedPlayer) {
         const dist = Math.abs(selectedPlayer.coord.x - coord.x) + Math.abs(selectedPlayer.coord.y - coord.y);
-        const playerTerrain = this.gridMap.getTerrain(selectedPlayer.coord);
-        const maxRange = (playerTerrain === TerrainType.WATER_PUDDLE && selectedPlayer.unit.weaponType === WeaponType.LANCE) ? 3 : 1;
-
-        if (dist <= maxRange) {
+        if (dist === 1) {
           this.isTargeting = false;
           await this.executePlayerAttack(selectedPlayer, clickedEnemy);
           return;
@@ -911,12 +906,6 @@ export class MainGameScene extends Phaser.Scene {
     }
   }
 
-  private isTileOccupied(coord: TileCoordinate, excludeUnitId?: string): boolean {
-    const hasPlayer = this.playerSquad.some(p => p.unit.currentHp > 0 && p.unit.id !== excludeUnitId && p.coord.equals(coord));
-    const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.unit.id !== excludeUnitId && e.coord.equals(coord));
-    return hasPlayer || hasEnemy;
-  }
-
   private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, coord: TileCoordinate, fast: boolean = false): Promise<void> {
     this.isProcessingAction = true;
     this.combatForecastPresenter.hide();
@@ -925,57 +914,10 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter.clearHighlights();
 
     const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
-
-    // Process ICE Sliding
-    let finalCoord = coord;
-    if (this.gridMap.getTerrain(finalCoord) === TerrainType.ICE) {
-      let dx = finalCoord.x - leaderPreviousCoord.x;
-      let dy = finalCoord.y - leaderPreviousCoord.y;
-
-      // Normalize to 1, 0, -1 in case of teleport or multi-tile pathing simplifying vector
-      if (dx !== 0) dx = dx > 0 ? 1 : -1;
-      if (dy !== 0) dy = dy > 0 ? 1 : -1;
-
-      // Ensure it's a cardinal slide (ignore diagonals)
-      if (Math.abs(dx) + Math.abs(dy) === 1) {
-        let slideX = finalCoord.x;
-        let slideY = finalCoord.y;
-
-        while (true) {
-          const checkCoord = new TileCoordinate(slideX + dx, slideY + dy);
-          if (!this.gridMap.isWalkable(checkCoord)) break;
-          if (this.isTileOccupied(checkCoord, selectedPlayer.unit.id)) break;
-
-          slideX += dx;
-          slideY += dy;
-          finalCoord = new TileCoordinate(slideX, slideY);
-
-          if (this.gridMap.getTerrain(finalCoord) !== TerrainType.ICE) break;
-        }
-      }
-    }
-
-    selectedPlayer.coord = finalCoord;
+    selectedPlayer.coord = coord;
     this.audioService.playSound('hero_step');
-    await selectedPlayer.graphic.moveTo(finalCoord, fast);
-    this.centerCameraOn(finalCoord, !fast);
-
-    // Post-movement Terrain Effects
-    const finalTerrain = this.gridMap.getTerrain(finalCoord);
-    if (finalTerrain === TerrainType.MAGMA) {
-      selectedPlayer.unit.applyDamage(4);
-      selectedPlayer.graphic.updateHp(selectedPlayer.unit.currentHp, selectedPlayer.unit.maxHp);
-
-      const screenX = finalCoord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-      const screenY = finalCoord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-      this.combatTextPresenter.showDamage(screenX, screenY, 4, false, false);
-
-      if (selectedPlayer.unit.currentHp <= 0) {
-        selectedPlayer.graphic.clear();
-      }
-    } else if (finalTerrain === TerrainType.WATER_PUDDLE) {
-      selectedPlayer.unit.isBurned = false;
-    }
+    await selectedPlayer.graphic.moveTo(coord, fast);
+    this.centerCameraOn(coord, !fast);
 
     if (!this.isEncounterActive) {
       const companion = this.playerSquad.find(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0);
@@ -1144,9 +1086,7 @@ export class MainGameScene extends Phaser.Scene {
     const adjacentEnemy = this.enemySquad.find(e => {
       if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
       const dist = Math.abs(player.coord.x - e.coord.x) + Math.abs(player.coord.y - e.coord.y);
-      const playerTerrain = this.gridMap.getTerrain(player.coord);
-      const maxRange = (playerTerrain === TerrainType.WATER_PUDDLE && player.unit.weaponType === WeaponType.LANCE) ? 3 : 1;
-      return dist <= maxRange;
+      return dist === 1;
     });
 
     const worldX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE + 4;
@@ -1225,11 +1165,7 @@ export class MainGameScene extends Phaser.Scene {
     this.isProcessingAction = true;
     this.combatForecastPresenter.hide();
 
-    const attackerTerrain = this.gridMap.getTerrain(player.coord);
-    const defenderTerrain = this.gridMap.getTerrain(enemy.coord);
-    const dist = Math.abs(player.coord.x - enemy.coord.x) + Math.abs(player.coord.y - enemy.coord.y);
-
-    const summary = this.attackUnitUseCase.execute(player.unit, enemy.unit, undefined, undefined, attackerTerrain, defenderTerrain, dist);
+    const summary = this.attackUnitUseCase.execute(player.unit, enemy.unit);
 
     const screenX = enemy.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
     const screenY = enemy.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
@@ -1353,35 +1289,12 @@ export class MainGameScene extends Phaser.Scene {
           enemyData.coord = result.targetCoordinate;
           this.audioService.playSound('hero_step');
           await enemyData.graphic.moveTo(enemyData.coord);
-
-          const enemyFinalTerrain = this.gridMap.getTerrain(enemyData.coord);
-          if (enemyFinalTerrain === TerrainType.MAGMA) {
-            enemyData.unit.applyDamage(4);
-            enemyData.graphic.updateHp(enemyData.unit.currentHp, enemyData.unit.maxHp);
-
-            if (this.visibilityMap.isVisible(enemyData.coord)) {
-              const screenX = enemyData.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-              const screenY = enemyData.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
-              this.combatTextPresenter.showDamage(screenX, screenY, 4, false, false);
-            }
-
-            if (enemyData.unit.currentHp <= 0) {
-              enemyData.graphic.clear();
-            }
-          } else if (enemyFinalTerrain === TerrainType.WATER_PUDDLE) {
-            enemyData.unit.isBurned = false;
-          }
-
           this.updateFogAndVisibility();
 
-          if (enemyData.unit.currentHp > 0 && result.targetToAttack) {
+          if (result.targetToAttack) {
             const targetPlayer = this.playerSquad.find(p => p.unit.id === result.targetToAttack!.id);
             if (targetPlayer) {
-              const attackerTerrain = this.gridMap.getTerrain(enemyData.coord);
-              const defenderTerrain = this.gridMap.getTerrain(targetPlayer.coord);
-              const dist = Math.abs(enemyData.coord.x - targetPlayer.coord.x) + Math.abs(enemyData.coord.y - targetPlayer.coord.y);
-
-              const summary = this.attackUnitUseCase.execute(enemyData.unit, targetPlayer.unit, undefined, undefined, attackerTerrain, defenderTerrain, dist);
+              const summary = this.attackUnitUseCase.execute(enemyData.unit, targetPlayer.unit);
 
               const screenX = targetPlayer.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
               const screenY = targetPlayer.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);

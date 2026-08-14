@@ -1,7 +1,6 @@
 import { GridMap } from "./GridMap";
 import { TileCoordinate } from "./TileCoordinate";
 import { Room } from "./BspNode";
-import { TerrainType } from "./TerrainType";
 
 interface Edge {
   u: number;
@@ -65,15 +64,7 @@ export class DungeonGenerator {
         for (let x = room.x; x < room.x + room.width; x++) {
           for (let y = room.y; y < room.y + room.height; y++) {
             if (x >= 0 && x < this.width && y >= 0 && y < this.height) {
-              const coord = new TileCoordinate(x, y);
-              map.removeObstacle(coord);
-
-              // 10% chance to spawn an elemental terrain
-              if (Math.random() < 0.10) {
-                const types = [TerrainType.ICE, TerrainType.MAGMA, TerrainType.WATER_PUDDLE, TerrainType.TALL_GRASS];
-                const selectedType = types[Math.floor(Math.random() * types.length)]!;
-                map.setTerrain(coord, selectedType);
-              }
+              map.removeObstacle(new TileCoordinate(x, y));
             }
           }
         }
