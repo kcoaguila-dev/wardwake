@@ -13,12 +13,12 @@ export class CombatForecastPresenter {
     this.container.setVisible(false);
 
     // Compact floating pill
-    this.bgRect = this.scene.add.rectangle(0, 0, 140, 20, 0x0f172a, 0.94)
+    this.bgRect = this.scene.add.rectangle(0, 0, 180, 20, 0x0f172a, 0.94)
       .setOrigin(0.5, 0.5)
       .setStrokeStyle(1.5, 0xffd700);
 
     this.forecastText = this.scene.add.text(0, 0, '', {
-      fontSize: '10px',
+      fontSize: '9.5px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffffff',
@@ -28,8 +28,14 @@ export class CombatForecastPresenter {
   }
 
   public show(attacker: Unit, defender: Unit, worldX: number, worldY: number): void {
-    const result = CombatResolver.calculateDamage(attacker, defender);
-    const newHp = Math.max(0, defender.currentHp - result.damageDealt);
+    const { hitChance, critChance, hasAdvantage, hasDisadvantage } = CombatResolver.calculateRates(attacker, defender);
+    // Calculate deterministic base damage for forecast
+    let bonusDamage = 0;
+    if (hasAdvantage) bonusDamage = CombatResolver.ADVANTAGE_BONUS_DAMAGE;
+    else if (hasDisadvantage) bonusDamage = CombatResolver.DISADVANTAGE_PENALTY_DAMAGE;
+    const baseDamage = Math.max(1, (attacker.attack + bonusDamage) - defender.defense);
+
+    const newHp = Math.max(0, defender.currentHp - baseDamage);
     const isLethal = newHp === 0;
 
     let icon = '⚔️';
@@ -39,21 +45,24 @@ export class CombatForecastPresenter {
     let strokeColor = 0x38bdf8; // Default Cyan
     let textColor = '#ffffff';
 
+    const hitPct = Math.round(hitChance * 100);
+    const critPct = Math.round(critChance * 100);
+
     let previewString = '';
     if (isLethal) {
-      previewString = `${icon} ${result.damageDealt} DMG (1-Hit Kill! 🔥)`;
+      previewString = `${icon} ${baseDamage} DMG (1-Hit Kill! 🔥) [Hit ${hitPct}% | Crit ${critPct}%]`;
       strokeColor = 0xff4444;
       textColor = '#fca5a5';
-    } else if (result.hasAdvantage) {
-      previewString = `${icon} ${result.damageDealt} DMG [${defender.currentHp}➔${newHp} HP]`;
+    } else if (hasAdvantage) {
+      previewString = `${icon} ${baseDamage} DMG [${defender.currentHp}➔${newHp} HP] [Hit ${hitPct}% | Crit ${critPct}%]`;
       strokeColor = 0xffd700;
       textColor = '#fef08a';
-    } else if (result.hasDisadvantage) {
-      previewString = `${icon} ${result.damageDealt} DMG [${defender.currentHp}➔${newHp} HP]`;
+    } else if (hasDisadvantage) {
+      previewString = `${icon} ${baseDamage} DMG [${defender.currentHp}➔${newHp} HP] [Hit ${hitPct}% | Crit ${critPct}%]`;
       strokeColor = 0x64748b;
       textColor = '#cbd5e1';
     } else {
-      previewString = `${icon} ${result.damageDealt} DMG [${defender.currentHp}➔${newHp} HP]`;
+      previewString = `${icon} ${baseDamage} DMG [${defender.currentHp}➔${newHp} HP] [Hit ${hitPct}% | Crit ${critPct}%]`;
       strokeColor = 0x38bdf8;
       textColor = '#ffffff';
     }
@@ -63,7 +72,7 @@ export class CombatForecastPresenter {
     this.forecastText.setText(previewString);
 
     // Auto-adjust pill width based on text length
-    const pillWidth = Math.max(130, this.forecastText.width + 16);
+    const pillWidth = Math.max(150, this.forecastText.width + 16);
     this.bgRect.setSize(pillWidth, 20);
 
     // Position directly above the targeted unit in world space

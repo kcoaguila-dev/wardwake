@@ -9,10 +9,13 @@ export class ActionMenuPresenter {
   private itemText: Phaser.GameObjects.Text;
   private waitBtn: Phaser.GameObjects.Rectangle;
   private waitText: Phaser.GameObjects.Text;
+  private cancelBtn: Phaser.GameObjects.Rectangle;
+  private cancelText: Phaser.GameObjects.Text;
 
   public onAttack?: () => void;
   public onItem?: () => void;
   public onWait?: () => void;
+  public onCancel?: () => void;
 
   private canAttack: boolean = false;
 
@@ -22,7 +25,7 @@ export class ActionMenuPresenter {
     this.container.setVisible(false);
 
     const width = 120;
-    const height = 110;
+    const height = 138;
     this.bg = this.scene.add.rectangle(0, 0, width, height, 0x111622, 0.96)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0x4466aa)
@@ -97,10 +100,32 @@ export class ActionMenuPresenter {
     this.waitBtn.on('pointerover', () => this.waitBtn.setFillStyle(0x3f5b8a));
     this.waitBtn.on('pointerout', () => this.waitBtn.setFillStyle(0x2a3b5c));
 
+    // 4. CANCEL Button (y = 106)
+    const cancelY = 106;
+    this.cancelBtn = this.scene.add.rectangle(startX, cancelY, btnWidth, btnHeight, 0x3d1c24)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    this.cancelText = this.scene.add.text(startX + 10, cancelY + 5, '❌ CANCEL', {
+      fontSize: '13px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#f87171'
+    }).setInteractive({ useHandCursor: true });
+
+    const handleCancel = () => {
+      if (this.onCancel) this.onCancel();
+    };
+    this.cancelBtn.on('pointerdown', handleCancel);
+    this.cancelText.on('pointerdown', handleCancel);
+    this.cancelBtn.on('pointerover', () => this.cancelBtn.setFillStyle(0x5c222c));
+    this.cancelBtn.on('pointerout', () => this.cancelBtn.setFillStyle(0x3d1c24));
+
     this.container.add([
       this.attackBtn, this.attackText,
       this.itemBtn, this.itemText,
-      this.waitBtn, this.waitText
+      this.waitBtn, this.waitText,
+      this.cancelBtn, this.cancelText
     ]);
   }
 
@@ -120,7 +145,7 @@ export class ActionMenuPresenter {
 
     // Keep menu inside world map boundaries
     const mapMaxX = 18 * 32 - 125;
-    const mapMaxY = 18 * 32 - 115;
+    const mapMaxY = 18 * 32 - 145;
     if (finalX > mapMaxX) finalX = worldX - 125;
     if (finalY > mapMaxY) finalY = mapMaxY;
     if (finalX < 5) finalX = 5;

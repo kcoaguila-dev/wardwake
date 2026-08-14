@@ -6,6 +6,10 @@ export interface CombatResult {
   damageDealt: number;
   hasAdvantage: boolean;
   hasDisadvantage: boolean;
+  isHit: boolean;
+  isCrit: boolean;
+  hitChance: number;
+  critChance: number;
 }
 
 export class CombatResolver {
@@ -17,8 +21,29 @@ export class CombatResolver {
     return -(GameDatabase.combatRules?.weaponTriangleDisadvantagePenalty ?? 3);
   }
 
-  public static readonly ADVANTAGE_BONUS_ACCURACY = 0.15;
-  public static readonly DISADVANTAGE_PENALTY_ACCURACY = -0.15;
+  public static get BASE_HIT_RATE(): number {
+    return GameDatabase.combatRules?.baseHitRate ?? 0.90;
+  }
+
+  public static get ADVANTAGE_ACCURACY_BONUS(): number {
+    return GameDatabase.combatRules?.advantageAccuracyBonus ?? 0.10;
+  }
+
+  public static get DISADVANTAGE_ACCURACY_PENALTY(): number {
+    return GameDatabase.combatRules?.disadvantageAccuracyPenalty ?? 0.15;
+  }
+
+  public static get BASE_CRIT_CHANCE(): number {
+    return GameDatabase.combatRules?.baseCritChance ?? 0.10;
+  }
+
+  public static get ADVANTAGE_CRIT_BONUS(): number {
+    return GameDatabase.combatRules?.advantageCritBonus ?? 0.10;
+  }
+
+  public static get CRIT_DAMAGE_MULTIPLIER(): number {
+    return GameDatabase.combatRules?.critDamageMultiplier ?? 2.0;
+  }
 
   /**
    * Evaluates if the attacker has a weapon triangle advantage against the defender.
@@ -39,28 +64,71 @@ export class CombatResolver {
   }
 
   /**
-   * Calculates the damage the attacker will deal to the defender,
-   * factoring in data-driven weapon triangle rules.
+   * Calculates accuracy and critical rates for an attack.
    */
-  public static calculateDamage(attacker: Unit, defender: Unit): CombatResult {
+  public static calculateRates(attacker: Unit, defender: Unit): { hitChance: number; critChance: number; hasAdvantage: boolean; hasDisadvantage: boolean } {
     const advantage = this.hasAdvantage(attacker.weaponType, defender.weaponType);
     const disadvantage = this.hasDisadvantage(attacker.weaponType, defender.weaponType);
 
-    let bonusDamage = 0;
+    let hitChance = this.BASE_HIT_RATE;
     if (advantage) {
-      bonusDamage = this.ADVANTAGE_BONUS_DAMAGE;
+      hitChance = Math.min(1.0, hitChance + this.ADVANTAGE_ACCURACY_BONUS);
     } else if (disadvantage) {
+      hitChance = Math.max(0.1, hitChance - this.DISADVANTAGE_ACCURACY_PENALTY);
+    }
+
+    let critChance = this.BASE_CRIT_CHANCE;
+    if (advantage) {
+      critChance += this.ADVANTAGE_CRIT_BONUS;
+    }
+
+    return { hitChance, critChance, hasAdvantage: advantage, hasDisadvantage: disadvantage };
+  }
+
+  /**
+   * Calculates the damage the attacker will deal to the defender,
+   * factoring in data-driven weapon triangle rules, accuracy roll, and crit roll.
+   */
+  public static calculateDamage(attacker: Unit, defender: Unit, rollHit?: number, rollCrit?: number): CombatResult {
+    const { hitChance, critChance, hasAdvantage, hasDisadvantage } = this.calculateRates(attacker, defender);
+
+    const hitRoll = rollHit !== undefined ? rollHit : Math.random();
+    const isHit = hitRoll <= hitChance;
+
+    if (!isHit) {
+      return {
+        damageDealt: 0,
+        hasAdvantage,
+        hasDisadvantage,
+        isHit: false,
+        isCrit: false,
+        hitChance,
+        critChance
+      };
+    }
+
+    let bonusDamage = 0;
+    if (hasAdvantage) {
+      bonusDamage = this.ADVANTAGE_BONUS_DAMAGE;
+    } else if (hasDisadvantage) {
       bonusDamage = this.DISADVANTAGE_PENALTY_DAMAGE;
     }
 
-    const calculatedDamage = (attacker.attack + bonusDamage) - defender.defense;
-    const minDmg = GameDatabase.combatRules?.minDamage ?? 1;
-    const damageDealt = Math.max(minDmg, calculatedDamage);
+    const baseDamage = Math.max(GameDatabase.combatRules?.minDamage ?? 1, (attacker.attack + bonusDamage) - defender.defense);
+
+    const critRoll = rollCrit !== undefined ? rollCrit : Math.random();
+    const isCrit = critRoll <= critChance;
+
+    const damageDealt = isCrit ? Math.round(baseDamage * this.CRIT_DAMAGE_MULTIPLIER) : baseDamage;
 
     return {
       damageDealt,
-      hasAdvantage: advantage,
-      hasDisadvantage: disadvantage
+      hasAdvantage,
+      hasDisadvantage,
+      isHit: true,
+      isCrit,
+      hitChance,
+      critChance
     };
   }
 }

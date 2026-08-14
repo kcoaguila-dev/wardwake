@@ -20,7 +20,7 @@ describe('AttackUnitUseCase', () => {
     const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.SWORD);
     const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.AXE);
 
-    useCase.execute(attacker, defender);
+    useCase.execute(attacker, defender, 0.1, 0.99);
 
     expect(mockAudioService.playSound).toHaveBeenCalledWith('sword_slash');
     expect(mockAudioService.playSound).toHaveBeenCalledTimes(1);
@@ -30,7 +30,7 @@ describe('AttackUnitUseCase', () => {
     const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.AXE);
     const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.LANCE);
 
-    useCase.execute(attacker, defender);
+    useCase.execute(attacker, defender, 0.1, 0.99);
 
     expect(mockAudioService.playSound).toHaveBeenCalledWith('axe_smash');
     expect(mockAudioService.playSound).toHaveBeenCalledTimes(1);
@@ -40,7 +40,7 @@ describe('AttackUnitUseCase', () => {
     const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.LANCE);
     const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.SWORD);
 
-    useCase.execute(attacker, defender);
+    useCase.execute(attacker, defender, 0.1, 0.99);
 
     expect(mockAudioService.playSound).toHaveBeenCalledWith('lance_pierce');
     expect(mockAudioService.playSound).toHaveBeenCalledTimes(1);
@@ -50,10 +50,9 @@ describe('AttackUnitUseCase', () => {
     const attacker = new Unit('1', 'Attacker', 10, 10, 5, WeaponType.BOW);
     const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.MAGIC);
 
-    // Damage = max(1, 10 - 5) = 5
     expect(defender.currentHp).toBe(10);
 
-    useCase.execute(attacker, defender);
+    useCase.execute(attacker, defender, 0.1, 0.99);
 
     expect(defender.currentHp).toBe(5);
   });
@@ -63,7 +62,7 @@ describe('AttackUnitUseCase', () => {
     const defender = new Unit('2', 'Defender', 10, 10, 5, WeaponType.AXE);
 
     // Damage = max(1, (20 + 3) - 5) = 18. Defender has 10 HP. Should be fatal.
-    const summary = useCase.execute(attacker, defender);
+    const summary = useCase.execute(attacker, defender, 0.1, 0.99);
 
     expect(summary.isFatal).toBe(true);
     expect(defender.currentHp).toBe(0);

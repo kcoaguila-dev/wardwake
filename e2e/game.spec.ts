@@ -48,6 +48,23 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
+  test('Tab key switches active party leader dynamically', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // Press Tab to cycle leader
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(400);
+
+    // Move with new leader
+    await page.keyboard.press('KeyS');
+    await page.waitForTimeout(400);
+
+    await expect(canvas).toBeVisible();
+  });
+
   test('Fast Corridor Sprinting with Shift + Directional Key', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');

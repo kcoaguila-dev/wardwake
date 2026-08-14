@@ -8,6 +8,8 @@ export interface CombatSummary {
   isFatal: boolean;
   hasAdvantage: boolean;
   hasDisadvantage: boolean;
+  isHit: boolean;
+  isCrit: boolean;
 }
 
 export class AttackUnitUseCase {
@@ -17,24 +19,27 @@ export class AttackUnitUseCase {
     this.audioService = audioService;
   }
 
-  public execute(attacker: Unit, defender: Unit): CombatSummary {
-    const combatResult = CombatResolver.calculateDamage(attacker, defender);
+  public execute(attacker: Unit, defender: Unit, rollHit?: number, rollCrit?: number): CombatSummary {
+    const combatResult = CombatResolver.calculateDamage(attacker, defender, rollHit, rollCrit);
     const isFatal = defender.applyDamage(combatResult.damageDealt);
 
-    let soundId = 'sword_slash';
-    if (attacker.weaponType === WeaponType.AXE) {
-      soundId = 'axe_smash';
-    } else if (attacker.weaponType === WeaponType.LANCE) {
-      soundId = 'lance_pierce';
+    if (combatResult.isHit) {
+      let soundId = 'sword_slash';
+      if (attacker.weaponType === WeaponType.AXE) {
+        soundId = 'axe_smash';
+      } else if (attacker.weaponType === WeaponType.LANCE) {
+        soundId = 'lance_pierce';
+      }
+      this.audioService.playSound(soundId);
     }
-
-    this.audioService.playSound(soundId);
 
     return {
       damageDealt: combatResult.damageDealt,
       isFatal,
       hasAdvantage: combatResult.hasAdvantage,
       hasDisadvantage: combatResult.hasDisadvantage,
+      isHit: combatResult.isHit,
+      isCrit: combatResult.isCrit
     };
   }
 }

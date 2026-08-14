@@ -116,4 +116,58 @@ export class CombatTextPresenter {
       }
     });
   }
+
+  showCritical(x: number, y: number, amount: number): void {
+    // Screen Shake for impactful Critical Hit
+    this.scene.cameras.main.shake(150, 0.008);
+
+    const text = this.scene.add.text(x, y - 10, `💥 CRIT! ${amount}`, {
+      fontSize: "18px",
+      color: "#ffdd00", // Bright Electric Gold
+      fontStyle: "bold",
+      stroke: "#ff0000",
+      strokeThickness: 4,
+    });
+
+    text.setOrigin(0.5, 0.5);
+    text.setDepth(110);
+    text.setScale(1.5);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: y - 45,
+      scale: 1.1,
+      alpha: 0,
+      duration: 1200,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        text.destroy();
+      }
+    });
+  }
+
+  showMiss(x: number, y: number): void {
+    const text = this.scene.add.text(x, y, `💨 MISS!`, {
+      fontSize: "14px",
+      color: "#94a3b8", // Slate Muted Blue
+      fontStyle: "bold",
+      stroke: "#0f172a",
+      strokeThickness: 3,
+    });
+
+    text.setOrigin(0.5, 0.5);
+    text.setDepth(100);
+    text.setScale(1.2);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: y - 25,
+      alpha: 0,
+      duration: 900,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        text.destroy();
+      }
+    });
+  }
 }

@@ -23,6 +23,12 @@ export interface CombatRulesConfig {
   weaponTriangleAdvantageBonus: number;
   weaponTriangleDisadvantagePenalty: number;
   minDamage: number;
+  baseHitRate: number;
+  advantageAccuracyBonus: number;
+  disadvantageAccuracyPenalty: number;
+  baseCritChance: number;
+  advantageCritBonus: number;
+  critDamageMultiplier: number;
   expPerHit: number;
   expPerKill: number;
   expLevelUpThreshold: number;
