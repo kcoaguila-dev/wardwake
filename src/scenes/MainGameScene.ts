@@ -15,6 +15,7 @@ import { ExecuteEnemyTurnUseCase } from '../features/ai/application/ExecuteEnemy
 import { GenerateFloorUseCase } from '../features/grid/application/GenerateFloorUseCase';
 import { Unit } from '../features/combat/domain/Unit';
 import { WeaponType } from '../features/combat/domain/WeaponType';
+import { EnemyFactory } from '../features/combat/domain/EnemyFactory';
 import { IAudioService } from '../features/combat/application/ports/IAudioService';
 import { TurnState } from '../features/turn/domain/TurnState';
 import { UnitPresenter } from '../features/combat/presentation/UnitPresenter';
@@ -101,7 +102,7 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter.clearHighlights();
 
     // 1. Generate Procedural Layout & Dynamic Spawns (3-4 Enemies on 18x18)
-    const enemyCount = Math.min(5, 3 + Math.floor((floorNumber - 1) / 2));
+    const enemyCount = EnemyFactory.getEnemyCountForFloor(floorNumber);
     const floorData = this.generateFloorUseCase.execute(2, enemyCount);
 
     this.gridMap = floorData.map;
@@ -140,10 +141,7 @@ export class MainGameScene extends Phaser.Scene {
 
     for (let i = 0; i < floorData.enemySpawns.length; i++) {
       const coord = floorData.enemySpawns[i]!;
-      const isAxe = i % 2 === 0;
-      const unit = isAxe
-        ? new Unit(`e${i + 1}`, 'Axe Warrior', 15 + floorNumber * 2, 5 + floorNumber, 1, WeaponType.AXE)
-        : new Unit(`e${i + 1}`, 'Sword Guard', 18 + floorNumber * 2, 4 + floorNumber, 2, WeaponType.SWORD);
+      const unit = EnemyFactory.createEnemy(floorNumber, i);
 
       const graphic = new UnitPresenter(this, unit, coord, false);
       graphic.updateHp(unit.currentHp, unit.maxHp);
