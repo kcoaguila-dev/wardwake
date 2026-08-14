@@ -34,6 +34,31 @@ export class CombatTextPresenter {
     });
   }
 
+  showHeal(x: number, y: number, amount: number): void {
+    const text = this.scene.add.text(x, y, `+${amount} HP`, {
+      fontSize: "14px",
+      color: "#55ff55",
+      fontStyle: "bold",
+      stroke: "#000000",
+      strokeThickness: 3,
+    });
+
+    text.setOrigin(0.5, 0.5);
+    text.setScale(1.2);
+
+    this.scene.tweens.add({
+      targets: text,
+      y: y - 25,
+      scale: 1.0,
+      alpha: 0,
+      duration: 1000,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        text.destroy();
+      }
+    });
+  }
+
   showDamage(x: number, y: number, amount: number, isAdvantage: boolean = false, isDisadvantage: boolean = false): void {
     let color = "#ff4444"; // Normal Red
     if (isAdvantage) {

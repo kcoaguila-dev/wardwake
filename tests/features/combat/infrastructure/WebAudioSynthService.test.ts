@@ -1,6 +1,3 @@
-/**
- * @jest-environment jsdom
- */
 import { WebAudioSynthService } from '../../../../src/features/combat/infrastructure/WebAudioSynthService';
 
 describe('WebAudioSynthService', () => {
@@ -8,7 +5,7 @@ describe('WebAudioSynthService', () => {
   let service: WebAudioSynthService;
 
   beforeEach(() => {
-    // Mock the Web Audio API
+    // Mock the Web Audio API in Node/browser environment
     mockAudioContext = {
       state: 'running',
       resume: jest.fn().mockResolvedValue(undefined),
@@ -45,7 +42,9 @@ describe('WebAudioSynthService', () => {
       destination: {},
     };
 
-    (window as any).AudioContext = jest.fn().mockImplementation(() => mockAudioContext);
+    (global as any).window = (global as any).window || {};
+    (global as any).window.AudioContext = jest.fn().mockImplementation(() => mockAudioContext);
+    (global as any).AudioContext = (global as any).window.AudioContext;
 
     service = new WebAudioSynthService();
   });
@@ -56,7 +55,7 @@ describe('WebAudioSynthService', () => {
 
   it('should initialize correctly with AudioContext', () => {
     expect(service.isMuted).toBe(false);
-    expect((window as any).AudioContext).toHaveBeenCalled();
+    expect((global as any).window.AudioContext).toHaveBeenCalled();
   });
 
   it('should toggle mute state correctly', () => {
