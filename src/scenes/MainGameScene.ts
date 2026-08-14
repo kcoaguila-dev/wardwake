@@ -43,6 +43,9 @@ import { TrapRepository } from '../features/traps/domain/TrapRepository';
 import { TrapPresenter } from '../features/traps/presentation/TrapPresenter';
 import { GamepadInputService, GamepadAction } from '../features/ui/infrastructure/GamepadInputService';
 import { VirtualPadPresenter } from '../features/ui/presentation/VirtualPadPresenter';
+import { TownStorageService } from '../features/progression/infrastructure/TownStorageService';
+import { ApplyProgressionUseCase } from '../features/progression/application/ApplyProgressionUseCase';
+import { TownManagerUseCase } from '../features/progression/application/TownManagerUseCase';
 
 export class MainGameScene extends Phaser.Scene {
   // Map Dimensions (Expansive 24x24 for 3x3 Chunsoft Macro-Grid with Winding Hallways)
@@ -179,7 +182,12 @@ export class MainGameScene extends Phaser.Scene {
       this.runTotalExp = 0;
       this.runRelicsFound = 0;
       this.turnCount = 1;
-      this.startFloor(1);
+      this.floorCount = 1;
+      this.audioService.playSound('hero_step');
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('TownScene');
+      });
     };
 
     this.fogPresenter = new FogPresenter(this);
@@ -588,6 +596,10 @@ export class MainGameScene extends Phaser.Scene {
       const heroBlueprints = GameDatabase.heroes.getAll();
       const p1Unit = GameDatabase.createHeroUnit(heroBlueprints[0]?.id || 'hero_sword_fighter', 'p1');
       const p2Unit = GameDatabase.createHeroUnit(heroBlueprints[1]?.id || 'hero_lance_knight', 'p2');
+
+      const townData = TownStorageService.load();
+      ApplyProgressionUseCase.execute(p1Unit, townData);
+      ApplyProgressionUseCase.execute(p2Unit, townData);
 
       this.playerSquad = [
         { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) },
@@ -1621,6 +1633,13 @@ export class MainGameScene extends Phaser.Scene {
       turnsTaken: this.turnCount,
       relicsFound: this.runRelicsFound
     };
+
+    // Meta-Progression: Award Gold
+    const goldEarned = (stats.monstersSlain * 5) + (stats.floorsCleared * 20) + (isVictory ? 500 : 0);
+    const townData = TownStorageService.load();
+    const townManager = new TownManagerUseCase(townData);
+    townManager.addGold(goldEarned);
+    TownStorageService.save(townManager.getTownData());
 
     this.runSummaryModalPresenter.show(stats);
   }

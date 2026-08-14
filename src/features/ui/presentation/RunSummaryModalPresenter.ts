@@ -80,8 +80,8 @@ export class RunSummaryModalPresenter {
       .setStrokeStyle(1.5, 0x38bdf8)
       .setInteractive({ useHandCursor: true });
 
-    this.restartText = this.scene.add.text(btnX + btnWidth / 2, btnY + btnHeight / 2, '🔄 PLAY AGAIN', {
-      fontSize: '12px',
+    this.restartText = this.scene.add.text(btnX + btnWidth / 2, btnY + btnHeight / 2, '🔙 RETURN TO TOWN', {
+      fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffffff'
@@ -129,12 +129,16 @@ export class RunSummaryModalPresenter {
       this.subtitleText.setText('All heroes have fallen in the dungeon depths.');
     }
 
+    const goldEarned = (stats.monstersSlain * 5) + (stats.floorsCleared * 20) + (stats.isVictory ? 500 : 0);
+
     const lines = [
       `🏰 Floors Cleared:   ${stats.floorsCleared}`,
       `⚔️ Monsters Slain:   ${stats.monstersSlain}`,
       `⭐ Total EXP Earned: ${stats.totalExp}`,
       `⏳ Turns Taken:      ${stats.turnsTaken}`,
-      `🗡️ Relics Collected: ${stats.relicsFound}`
+      `🗡️ Relics Collected: ${stats.relicsFound}`,
+      ``,
+      `💰 Gold Earned:      ${goldEarned}`
     ];
     this.statsText.setText(lines.join('\n'));
 

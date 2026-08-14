@@ -172,7 +172,7 @@ export class TitleScene extends Phaser.Scene {
       this.audioService.playSound('sword_slash');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        this.scene.start('MainGameScene');
+        this.scene.start('TownScene');
       });
     };
 
