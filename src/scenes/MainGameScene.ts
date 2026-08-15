@@ -691,13 +691,47 @@ export class MainGameScene extends Phaser.Scene {
       ApplyProgressionUseCase.execute(p1Unit, townData);
       ApplyProgressionUseCase.execute(p2Unit, townData);
 
+      let p2Coord = floorData.playerSpawns[1]!;
+      if (p2Coord.equals(floorData.playerSpawns[0]!)) {
+        const adjacentOffsets = [
+          { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
+        ];
+        for (const offset of adjacentOffsets) {
+          const candidate = new TileCoordinate(floorData.playerSpawns[0]!.x + offset.dx, floorData.playerSpawns[0]!.y + offset.dy);
+          if (this.gridMap.isWalkable(candidate)) {
+            p2Coord = candidate;
+            break;
+          }
+        }
+      }
+
       this.playerSquad = [
         { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) },
-        { unit: p2Unit, coord: floorData.playerSpawns[1]!, hasActed: false, graphic: new UnitPresenter(this, p2Unit, floorData.playerSpawns[1]!, true, false) }
+        { unit: p2Unit, coord: p2Coord, hasActed: false, graphic: new UnitPresenter(this, p2Unit, p2Coord, true, false) }
       ];
     } else {
       this.playerSquad.forEach((p, idx) => {
         p.coord = floorData.playerSpawns[idx] || floorData.playerSpawns[0]!;
+
+        // De-duplicate spawn coordinates for companions if they overlap with an earlier spawned player
+        if (idx > 0) {
+          const isOverlapping = this.playerSquad.slice(0, idx).some(other => other.coord.equals(p.coord));
+          if (isOverlapping) {
+            // Find closest free adjacent walkable tile
+            const adjacentOffsets = [
+              { dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }
+            ];
+            for (const offset of adjacentOffsets) {
+              const candidate = new TileCoordinate(p.coord.x + offset.dx, p.coord.y + offset.dy);
+              const alreadyOccupied = this.playerSquad.slice(0, idx).some(other => other.coord.equals(candidate));
+              if (this.gridMap.isWalkable(candidate) && !alreadyOccupied) {
+                p.coord = candidate;
+                break;
+              }
+            }
+          }
+        }
+
         p.hasActed = false;
         if (!isResuming) {
           p.unit.currentHp = p.unit.maxHp;
@@ -1040,10 +1074,9 @@ export class MainGameScene extends Phaser.Scene {
     if (this.isEncounterActive) {
       const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
       const filteredMoves = validMoves.filter(move => {
-        const isAdjacentAlly = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move) && (Math.abs(selectedPlayer.coord.x - move.x) + Math.abs(selectedPlayer.coord.y - move.y) === 1));
-        const hasDistantPlayer = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move) && !isAdjacentAlly);
+        const hasPlayer = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move));
         const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-        return !hasDistantPlayer && !hasEnemy;
+        return !hasPlayer && !hasEnemy;
       });
       this.gridPresenter.highlightWalkableArea(filteredMoves, selectedPlayer.coord);
     } else {
@@ -1227,6 +1260,15 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, coord: TileCoordinate, fast: boolean = false): Promise<void> {
+    // Mutual Exclusion Guard: do not allow movement into an occupied tile unless doing an explicit swap
+    const isOccupiedByAlly = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(coord));
+    const isOccupiedByEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(coord));
+
+    if (isOccupiedByAlly || isOccupiedByEnemy) {
+      console.warn("Attempted to move to an occupied tile without a swap. Movement blocked.");
+      return;
+    }
+
     this.isProcessingAction = true;
     this.combatForecastPresenter.hide();
     this.actionMenuPresenter.hide();
@@ -1279,7 +1321,9 @@ export class MainGameScene extends Phaser.Scene {
         for (let y = 0; y < this.gridMap.height; y++) {
           for (let x = 0; x < this.gridMap.width; x++) {
             const c = new TileCoordinate(x, y);
-            if (this.gridMap.isWalkable(c) && !this.staircaseCoord.equals(c) && !c.equals(coord)) {
+            const isOccupied = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(c)) ||
+                               this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(c));
+            if (this.gridMap.isWalkable(c) && !this.staircaseCoord.equals(c) && !c.equals(coord) && !isOccupied) {
               safeCoords.push(c);
             }
           }
