@@ -113,4 +113,18 @@ describe('WebAudioSynthService', () => {
     service.playSound('staircase_descend');
     expect(mockAudioContext.createOscillator).toHaveBeenCalled();
   });
+  it('should resumeAudioContext correctly', async () => {
+    mockAudioContext.state = 'suspended';
+    await service.resumeAudioContext();
+    expect(mockAudioContext.resume).toHaveBeenCalled();
+  });
+
+  it('should startBgm correctly and resume context if suspended', () => {
+    mockAudioContext.state = 'suspended';
+    service.startBgm('explore');
+    expect(mockAudioContext.resume).toHaveBeenCalled();
+    expect((service as any).currentBgmMode).toBe('explore');
+    expect((service as any).bgmStep).toBe(0);
+    expect((service as any).bgmIntervalId).not.toBeNull();
+  });
 });
