@@ -10,6 +10,7 @@ import { CombatForecastPresenter } from '../features/ui/presentation/CombatForec
 import { MinimapPresenter } from '../features/ui/presentation/MinimapPresenter';
 import { ActionMenuPresenter } from '../features/ui/presentation/ActionMenuPresenter';
 import { InventoryMenuPresenter } from '../features/ui/presentation/InventoryMenuPresenter';
+import { SkillMenuPresenter } from '../features/ui/presentation/SkillMenuPresenter';
 import { PartyHudPresenter } from '../features/ui/presentation/PartyHudPresenter';
 import { StairsModalPresenter } from '../features/ui/presentation/StairsModalPresenter';
 import { RunSummaryModalPresenter, RunSummaryStats } from '../features/ui/presentation/RunSummaryModalPresenter';
@@ -80,6 +81,7 @@ export class MainGameScene extends Phaser.Scene {
   private minimapPresenter!: MinimapPresenter;
   private actionMenuPresenter!: ActionMenuPresenter;
   private inventoryMenuPresenter!: InventoryMenuPresenter;
+  private skillMenuPresenter!: SkillMenuPresenter;
   private stairsModalPresenter!: StairsModalPresenter;
   private runSummaryModalPresenter!: RunSummaryModalPresenter;
   private settingsModalPresenter!: SettingsModalPresenter;
@@ -187,7 +189,7 @@ export class MainGameScene extends Phaser.Scene {
     this.actionBarPresenter.onSkill = () => {
       const activeHero = this.getActiveHero();
       if (activeHero && !this.isProcessingAction) {
-        this.showActionMenuForPlayer(activeHero);
+        this.showSkillMenu(activeHero);
       }
     };
     this.actionBarPresenter.onItem = () => {
@@ -208,6 +210,32 @@ export class MainGameScene extends Phaser.Scene {
       this.inventoryMenuPresenter.hide();
       this.isMenuOpen = false;
     };
+
+    this.skillMenuPresenter = new SkillMenuPresenter(this);
+    this.skillMenuPresenter.onClose = () => {
+      this.skillMenuPresenter.hide();
+      this.isMenuOpen = false;
+    };
+    this.skillMenuPresenter.onSelectSkill = async (skillId: string) => {
+      this.skillMenuPresenter.hide();
+      this.isMenuOpen = false;
+      const activeHero = this.getActiveHero();
+      if (!activeHero) return;
+
+      if (skillId === 'spin_slash' || skillId === 'iron_bulwark') {
+        await this.executePlayerSkill(activeHero, skillId);
+      } else {
+        this.isSkillTargeting = true;
+        this.selectedSkillId = skillId;
+        this.combatForecastPresenter.hide();
+        const validMoves = this.getValidMovesUseCase.execute(activeHero.coord, 2);
+        this.gridPresenter.highlightWalkableArea(validMoves, activeHero.coord);
+        const scX = activeHero.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const scY = activeHero.coord.y * GridPresenter.TILE_SIZE - 12;
+        this.combatTextPresenter.showBanner(scX, scY, "🎯 Select target tile!");
+      }
+    };
+
     this.trapPresenter = new TrapPresenter(this);
 
     this.settingsModalPresenter = new SettingsModalPresenter(this, this.audioService);
@@ -239,6 +267,7 @@ export class MainGameScene extends Phaser.Scene {
       return (
         (this.stairsModalPresenter && this.stairsModalPresenter.isVisible()) ||
         (this.inventoryMenuPresenter && this.inventoryMenuPresenter.isVisible()) ||
+        (this.skillMenuPresenter && this.skillMenuPresenter.isVisible()) ||
         (this.settingsModalPresenter && this.settingsModalPresenter.isVisible()) ||
         (this.runSummaryModalPresenter && this.runSummaryModalPresenter.isVisible())
       );
@@ -547,6 +576,7 @@ export class MainGameScene extends Phaser.Scene {
   private async cancelActionMenu(): Promise<void> {
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
+    this.skillMenuPresenter.hide();
     this.stairsModalPresenter.hide();
     this.combatForecastPresenter.hide();
     this.isMenuOpen = false;
@@ -724,6 +754,7 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
+    this.skillMenuPresenter.hide();
     this.stairsModalPresenter.hide();
     this.gridPresenter.clearHighlights();
     this.trapPresenter.clear();
@@ -1239,6 +1270,7 @@ export class MainGameScene extends Phaser.Scene {
     if (
       (this.stairsModalPresenter && this.stairsModalPresenter.isVisible()) ||
       (this.inventoryMenuPresenter && this.inventoryMenuPresenter.isVisible()) ||
+      (this.skillMenuPresenter && this.skillMenuPresenter.isVisible()) ||
       (this.settingsModalPresenter && this.settingsModalPresenter.isVisible()) ||
       (this.runSummaryModalPresenter && this.runSummaryModalPresenter.isVisible())
     ) {
@@ -1648,6 +1680,14 @@ export class MainGameScene extends Phaser.Scene {
     };
 
     this.inventoryMenuPresenter.show(player.unit);
+  }
+
+  private showSkillMenu(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }): void {
+    this.isMenuOpen = true;
+    this.combatForecastPresenter.hide();
+    this.inventoryMenuPresenter.hide();
+    this.actionMenuPresenter.hide();
+    this.skillMenuPresenter.show(player.unit);
   }
 
   private async executePlayerSkill(player: { unit: Unit, coord: TileCoordinate, graphic: UnitPresenter, hasActed: boolean }, skillId: string, targetCoord?: TileCoordinate) {
