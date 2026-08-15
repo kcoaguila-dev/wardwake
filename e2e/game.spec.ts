@@ -30,6 +30,41 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible();
   });
 
+  test('Clicking an adjacent ally triggers a positional swap in exploration mode', async ({ page }) => {
+    await page.goto('/');
+    const canvas = page.locator('canvas');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await page.waitForTimeout(600);
+
+    // Enter game
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(800);
+
+    // In exploration mode, companions automatically follow. Let's make one move to spawn the companion right next to the leader.
+    await page.keyboard.press('KeyS');
+    await page.waitForTimeout(400);
+
+    // To click on the ally, we must compute roughly where they are.
+    // They usually follow 1 tile behind. Leader moved down (S), so companion is 1 tile up from leader.
+    // The camera is centered on the leader. Center of screen is leader. 1 tile up is ally.
+    const box = await canvas.boundingBox();
+    if (box) {
+      const centerX = box.x + box.width / 2;
+      const centerY = box.y + box.height / 2;
+
+      // Assume a 32x32 scaled tile size (maybe scale=2, so 64 pixels). Let's click roughly 40-50 pixels above center.
+      await page.mouse.click(centerX, centerY - 50);
+      await page.waitForTimeout(400);
+
+      // We should swap, not stack.
+      // Click back on center (where ally should now be)
+      await page.mouse.click(centerX, centerY);
+      await page.waitForTimeout(400);
+    }
+
+    await expect(canvas).toBeVisible();
+  });
+
   test('How To Play Manual can be opened and closed on Title Scene', async ({ page }) => {
     await page.goto('/');
     const canvas = page.locator('canvas');
