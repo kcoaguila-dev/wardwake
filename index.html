@@ -5,22 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#070a12" />
+    <meta name="theme-color" content="#06090e" />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     <title>Wardwake — Tactical Roguelike</title>
     <style>
       * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        -webkit-tap-highlight-color: transparent;
       }
 
       html, body {
-        margin: 0;
-        padding: 0;
         width: 100%;
         height: 100%;
-        background-color: #070a12;
+        background-color: #06090e;
         overflow: hidden;
         overscroll-behavior: none;
         touch-action: none;
@@ -30,75 +29,352 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
       }
 
-      #app {
-        position: absolute;
-        inset: 0;
+      #app-wrapper {
+        width: 100vw;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        background: #06090e;
+        overflow: hidden;
+      }
+
+      #game-container {
+        width: 100vw;
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 100vw;
-        height: 100vh;
+        background: #000;
+        flex-shrink: 0;
       }
 
       canvas {
         image-rendering: pixelated;
         image-rendering: crisp-edges;
-        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.9), 0 0 0 1px #1e293b;
-        border-radius: 4px;
+        display: block;
         max-width: 100vw;
         max-height: 100vh;
       }
 
-      /* Portrait Orientation Helper Banner on Mobile */
-      #orientation-hint {
-        display: none;
-        position: fixed;
-        top: 16px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(15, 23, 42, 0.92);
-        border: 1px solid #38bdf8;
-        border-radius: 20px;
-        padding: 8px 16px;
-        color: #f1f5f9;
-        font-size: 11px;
-        font-weight: 600;
-        letter-spacing: 0.5px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
-        z-index: 9999;
-        align-items: center;
-        gap: 8px;
-        pointer-events: auto;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        animation: pulseFade 2.5s infinite ease-in-out;
-      }
-
-      #orientation-hint span.dismiss {
-        cursor: pointer;
-        opacity: 0.7;
-        margin-left: 6px;
-        font-weight: bold;
-      }
-
-      @media screen and (orientation: portrait) and (max-width: 768px) {
-        #orientation-hint {
-          display: flex;
+      /* Desktop & Landscape Mobile: Canvas Centered, Mobile Panel Hidden */
+      @media screen and (min-width: 769px), screen and (orientation: landscape) {
+        #app-wrapper {
+          justify-content: center;
+        }
+        #game-container {
+          height: 100vh;
+        }
+        canvas {
+          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.9), 0 0 0 1px #1e293b;
+          border-radius: 4px;
+        }
+        #mobile-controller-panel {
+          display: none !important;
         }
       }
 
-      @keyframes pulseFade {
-        0%, 100% { opacity: 0.95; }
-        50% { opacity: 0.75; }
+      /* Mobile Portrait Mode: Split Screen Handheld Console Layout */
+      @media screen and (max-width: 768px) and (orientation: portrait) {
+        #app-wrapper {
+          justify-content: space-between;
+        }
+
+        #game-container {
+          width: 100vw;
+          aspect-ratio: 16 / 9;
+          max-height: 48dvh;
+          border-bottom: 2px solid #1e293b;
+          box-shadow: 0 6px 24px rgba(0,0,0,0.85);
+        }
+
+        #game-container canvas {
+          width: 100% !important;
+          height: 100% !important;
+          object-fit: contain;
+        }
+
+        #mobile-controller-panel {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          width: 100vw;
+          flex: 1 1 auto;
+          padding: 8px 12px 16px 12px;
+          background: linear-gradient(180deg, #0f172a 0%, #06090f 100%);
+          border-top: 1.5px solid #334155;
+          touch-action: none;
+        }
+
+        .controller-shoulder-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+
+        .btn-shoulder {
+          flex: 1;
+          height: 34px;
+          background: #1e293b;
+          border: 1.5px solid #475569;
+          border-radius: 8px;
+          color: #cbd5e1;
+          font-family: monospace;
+          font-size: 11px;
+          font-weight: bold;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          box-shadow: 0 3px 0 #0a0e17;
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
+        .btn-shoulder:active {
+          transform: translateY(2px);
+          box-shadow: 0 1px 0 #0a0e17;
+          background: #334155;
+          color: #f8fafc;
+        }
+
+        .controller-main-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          flex: 1;
+          padding: 4px 0;
+        }
+
+        /* Tactical Cross D-Pad */
+        .dpad-cluster {
+          position: relative;
+          width: 132px;
+          height: 132px;
+          display: grid;
+          grid-template-columns: repeat(3, 44px);
+          grid-template-rows: repeat(3, 44px);
+        }
+
+        .dpad-btn {
+          background: #1e293b;
+          border: 1.5px solid #475569;
+          color: #f8fafc;
+          font-size: 16px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          cursor: pointer;
+          user-select: none;
+          box-shadow: 0 3px 0 #0a0e17;
+          touch-action: manipulation;
+        }
+
+        .dpad-btn:active {
+          background: #3b82f6;
+          color: #ffffff;
+          transform: scale(0.95);
+        }
+
+        .dpad-up {
+          grid-column: 2;
+          grid-row: 1;
+          border-radius: 8px 8px 0 0;
+        }
+        .dpad-down {
+          grid-column: 2;
+          grid-row: 3;
+          border-radius: 0 0 8px 8px;
+        }
+        .dpad-left {
+          grid-column: 1;
+          grid-row: 2;
+          border-radius: 8px 0 0 8px;
+        }
+        .dpad-right {
+          grid-column: 3;
+          grid-row: 2;
+          border-radius: 0 8px 8px 0;
+        }
+        .dpad-center {
+          grid-column: 2;
+          grid-row: 2;
+          background: #0f172a;
+          border: 1px solid #334155;
+        }
+
+        /* Middle Utilities Column */
+        .utility-cluster {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .util-btn {
+          padding: 6px 12px;
+          background: #1e293b;
+          border: 1.5px solid #475569;
+          border-radius: 6px;
+          color: #cbd5e1;
+          font-size: 10px;
+          font-family: monospace;
+          font-weight: bold;
+          cursor: pointer;
+          box-shadow: 0 2px 0 #0a0e17;
+          touch-action: manipulation;
+        }
+        .util-btn:active {
+          background: #334155;
+          color: #ffffff;
+          transform: translateY(1px);
+        }
+
+        /* Action Diamond Cluster */
+        .action-cluster {
+          position: relative;
+          width: 132px;
+          height: 132px;
+          display: grid;
+          grid-template-columns: repeat(3, 44px);
+          grid-template-rows: repeat(3, 44px);
+        }
+
+        .act-btn {
+          width: 42px;
+          height: 42px;
+          border-radius: 50%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          font-family: monospace;
+          font-size: 15px;
+          font-weight: bold;
+          color: #ffffff;
+          cursor: pointer;
+          box-shadow: 0 4px 0 rgba(0,0,0,0.6);
+          user-select: none;
+          margin: auto;
+          touch-action: manipulation;
+        }
+
+        .act-btn:active {
+          transform: translateY(2px);
+          box-shadow: 0 1px 0 rgba(0,0,0,0.6);
+          filter: brightness(1.25);
+        }
+
+        .btn-y {
+          grid-column: 2;
+          grid-row: 1;
+          background: #d97706;
+          border: 1.5px solid #fbbf24;
+        }
+        .btn-x {
+          grid-column: 1;
+          grid-row: 2;
+          background: #2563eb;
+          border: 1.5px solid #60a5fa;
+        }
+        .btn-b {
+          grid-column: 3;
+          grid-row: 2;
+          background: #dc2626;
+          border: 1.5px solid #f87171;
+        }
+        .btn-a {
+          grid-column: 2;
+          grid-row: 3;
+          background: #059669;
+          border: 1.5px solid #34d399;
+        }
       }
     </style>
   </head>
   <body>
-    <div id="orientation-hint">
-      <span>📱 Rotate to Landscape for Full Widescreen</span>
-      <span class="dismiss" onclick="document.getElementById('orientation-hint').style.display='none'">✕</span>
+    <div id="app-wrapper">
+      <div id="game-container"></div>
+      <div id="mobile-controller-panel">
+        <div class="controller-shoulder-row">
+          <button class="btn-shoulder" data-action="LB">🛡️ LB (Swap)</button>
+          <button class="btn-shoulder" data-action="Y">✨ SKILL</button>
+          <button class="btn-shoulder" data-action="MENU">🎒 ITEM</button>
+          <button class="btn-shoulder" data-action="RB">⚡ RB (Dash)</button>
+        </div>
+        <div class="controller-main-row">
+          <div class="dpad-cluster">
+            <button class="dpad-btn dpad-up" data-action="UP">▲</button>
+            <button class="dpad-btn dpad-left" data-action="LEFT">◀</button>
+            <div class="dpad-center"></div>
+            <button class="dpad-btn dpad-right" data-action="RIGHT">▶</button>
+            <button class="dpad-btn dpad-down" data-action="DOWN">▼</button>
+          </div>
+          <div class="utility-cluster">
+            <button class="util-btn" data-action="WAIT">⏳ WAIT</button>
+            <button class="util-btn" data-action="END_TURN">⚔️ END TURN</button>
+          </div>
+          <div class="action-cluster">
+            <button class="act-btn btn-y" data-action="Y">Y</button>
+            <button class="act-btn btn-x" data-action="X">X</button>
+            <button class="act-btn btn-b" data-action="B">B</button>
+            <button class="act-btn btn-a" data-action="A">A</button>
+          </div>
+        </div>
+      </div>
     </div>
-    <div id="app"></div>
+    <script>
+      // Tactile Mobile Controller Event Dispatcher
+      (function() {
+        let repeatTimer = null;
+
+        function triggerAction(action) {
+          window.dispatchEvent(new CustomEvent('VIRTUAL_PAD_ACTION', { detail: action }));
+          if (navigator.vibrate) {
+            try { navigator.vibrate(15); } catch(e) {}
+          }
+        }
+
+        document.querySelectorAll('[data-action]').forEach(btn => {
+          const action = btn.getAttribute('data-action');
+
+          const startPress = (e) => {
+            e.preventDefault();
+            triggerAction(action);
+
+            if (['UP', 'DOWN', 'LEFT', 'RIGHT'].includes(action)) {
+              if (repeatTimer) clearInterval(repeatTimer);
+              repeatTimer = setTimeout(() => {
+                repeatTimer = setInterval(() => triggerAction(action), 120);
+              }, 200);
+            } else if (action === 'B') {
+              window.dispatchEvent(new CustomEvent('VIRTUAL_PAD_ACTION_DOWN', { detail: 'B' }));
+            }
+          };
+
+          const endPress = (e) => {
+            e.preventDefault();
+            if (repeatTimer) {
+              clearTimeout(repeatTimer);
+              clearInterval(repeatTimer);
+              repeatTimer = null;
+            }
+            if (action === 'B') {
+              window.dispatchEvent(new CustomEvent('VIRTUAL_PAD_ACTION_UP', { detail: 'B' }));
+            }
+          };
+
+          btn.addEventListener('touchstart', startPress, { passive: false });
+          btn.addEventListener('touchend', endPress, { passive: false });
+          btn.addEventListener('touchcancel', endPress, { passive: false });
+          btn.addEventListener('mousedown', startPress);
+          btn.addEventListener('mouseup', endPress);
+          btn.addEventListener('mouseleave', endPress);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

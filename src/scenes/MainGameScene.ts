@@ -301,6 +301,36 @@ export class MainGameScene extends Phaser.Scene {
         if (action === 'B') this.virtualBButtonDown = false;
     });
 
+    const onWindowPadAction = (e: any) => {
+      const action = e.detail as GamepadAction | 'WAIT' | 'END_TURN' | 'MENU';
+      if (action === 'WAIT') {
+        this.actionBarPresenter?.onWait?.();
+      } else if (action === 'END_TURN') {
+        this.onEndTurnClicked();
+      } else if (action === 'MENU') {
+        const activeHero = this.getActiveHero();
+        if (activeHero && !this.isProcessingAction) this.showInventoryMenu(activeHero);
+      } else {
+        this.handleGamepadAction(action as GamepadAction);
+      }
+    };
+    const onWindowPadDown = (e: any) => {
+      if (e.detail === 'B') this.virtualBButtonDown = true;
+    };
+    const onWindowPadUp = (e: any) => {
+      if (e.detail === 'B') this.virtualBButtonDown = false;
+    };
+
+    window.addEventListener('VIRTUAL_PAD_ACTION', onWindowPadAction);
+    window.addEventListener('VIRTUAL_PAD_ACTION_DOWN', onWindowPadDown);
+    window.addEventListener('VIRTUAL_PAD_ACTION_UP', onWindowPadUp);
+
+    this.events.once('shutdown', () => {
+      window.removeEventListener('VIRTUAL_PAD_ACTION', onWindowPadAction);
+      window.removeEventListener('VIRTUAL_PAD_ACTION_DOWN', onWindowPadDown);
+      window.removeEventListener('VIRTUAL_PAD_ACTION_UP', onWindowPadUp);
+    });
+
     // Tab key to cycle / switch active heroes
     this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
       event.preventDefault();

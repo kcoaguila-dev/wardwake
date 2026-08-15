@@ -306,5 +306,38 @@ export class TitleScene extends Phaser.Scene {
         this.howToPlayModal.show();
       }
     });
+
+    // Mobile Virtual Pad handler for Title Screen
+    const onTitlePadAction = (e: any) => {
+      const action = e.detail;
+      if (this.settingsModal.isVisible()) {
+        if (action === 'B') this.settingsModal.hide();
+        return;
+      }
+      if (this.howToPlayModal.isVisible()) {
+        if (action === 'B') this.howToPlayModal.hide();
+        return;
+      }
+      if (this.bestiaryModal.isVisible()) {
+        if (action === 'B') this.bestiaryModal.hide();
+        return;
+      }
+
+      if (action === 'A' || action === 'START') {
+        if (hasSave) handleResumeGame();
+        else handleStartNewGame();
+      } else if (action === 'Y') {
+        this.bestiaryModal.show();
+      } else if (action === 'X') {
+        this.settingsModal.show();
+      } else if (action === 'MENU') {
+        this.howToPlayModal.show();
+      }
+    };
+
+    window.addEventListener('VIRTUAL_PAD_ACTION', onTitlePadAction);
+    this.events.once('shutdown', () => {
+      window.removeEventListener('VIRTUAL_PAD_ACTION', onTitlePadAction);
+    });
   }
 }

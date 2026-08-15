@@ -18,7 +18,7 @@ const config: Phaser.Types.Core.GameConfig = {
         antialias: false
     },
     backgroundColor: '#0a0e17',
-    parent: 'app',
+    parent: 'game-container',
     scene: [PreloaderScene, TitleScene, TownScene, MainGameScene]
 };
 

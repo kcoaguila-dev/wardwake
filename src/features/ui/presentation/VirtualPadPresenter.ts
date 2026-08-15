@@ -17,6 +17,15 @@ export class VirtualPadPresenter {
 
     if (this.isMobile) {
       this.createPad();
+
+      // In mobile portrait mode, the dedicated HTML chassis handles controls outside canvas
+      const updateOrientationVisibility = () => {
+        const isPortrait = window.innerHeight > window.innerWidth && window.innerWidth <= 768;
+        this.container.setVisible(this.isVisible && !isPortrait);
+      };
+      window.addEventListener('resize', updateOrientationVisibility);
+      window.addEventListener('orientationchange', updateOrientationVisibility);
+      updateOrientationVisibility();
     }
   }
 
