@@ -15,6 +15,9 @@ export interface MonsterBlueprint {
   aiProfile?: string;
   isElite?: boolean;
   isBoss?: boolean;
+  detectionRadius?: number;
+  attackRange?: number;
+  isRanged?: boolean;
 }
 
 const rawBlueprints: MonsterBlueprint[] = (Array.isArray(monstersData)
@@ -60,6 +63,12 @@ export class MonsterRepository {
       case 'AXE':
         weapon = WeaponType.AXE;
         break;
+      case 'BOW':
+        weapon = WeaponType.BOW;
+        break;
+      case 'MAGIC':
+        weapon = WeaponType.MAGIC;
+        break;
       default:
         weapon = WeaponType.SWORD;
     }
@@ -70,6 +79,9 @@ export class MonsterRepository {
     const finalAtk = blueprint.baseAttack;
     const finalDef = blueprint.baseDefense;
 
-    return new Unit(uniqueId, blueprint.name, finalHp, finalAtk, finalDef, weapon);
+    const unit = new Unit(uniqueId, blueprint.name, finalHp, finalAtk, finalDef, weapon);
+    unit.detectionRadius = blueprint.detectionRadius ?? 3;
+    unit.attackRange = blueprint.attackRange ?? 1;
+    return unit;
   }
 }

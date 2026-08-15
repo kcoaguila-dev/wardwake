@@ -47,6 +47,12 @@ export class UnitPresenter {
           case WeaponType.LANCE:
             textureKey = 'enemy_skeleton_lance';
             break;
+          case WeaponType.BOW:
+            textureKey = 'enemy_goblin_archer';
+            break;
+          case WeaponType.MAGIC:
+            textureKey = 'enemy_dark_cultist';
+            break;
         }
       }
     }

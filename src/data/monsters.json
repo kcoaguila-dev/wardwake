@@ -8,7 +8,9 @@
     "baseDefense": 1,
     "expYield": 50,
     "floorTier": 1,
-    "lore": "A weak but nimble scout of the goblin horde. Usually found patrolling the upper floors, wielding rusted swords."
+    "lore": "A weak but nimble scout of the goblin horde. Usually found patrolling the upper floors, wielding rusted swords.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_orc_axe",
@@ -19,7 +21,9 @@
     "baseDefense": 2,
     "expYield": 60,
     "floorTier": 1,
-    "lore": "Brutish warriors who rely on raw strength. Their heavy axes can shatter frail defenses with ease."
+    "lore": "Brutish warriors who rely on raw strength. Their heavy axes can shatter frail defenses with ease.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_skeleton_lance",
@@ -30,7 +34,9 @@
     "baseDefense": 1,
     "expYield": 55,
     "floorTier": 1,
-    "lore": "Reanimated remains of fallen soldiers. They maintain their martial discipline, attacking with long-reaching lances."
+    "lore": "Reanimated remains of fallen soldiers. They maintain their martial discipline, attacking with long-reaching lances.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_hobgoblin",
@@ -41,7 +47,37 @@
     "baseDefense": 3,
     "expYield": 80,
     "floorTier": 2,
-    "lore": "Larger and more organized than their goblin kin. They coordinate their attacks to overwhelm intruders."
+    "lore": "Larger and more organized than their goblin kin. They coordinate their attacks to overwhelm intruders.",
+    "detectionRadius": 3,
+    "attackRange": 1
+  },
+  {
+    "id": "enemy_goblin_archer",
+    "name": "Goblin Archer",
+    "weaponType": "BOW",
+    "baseHp": 8,
+    "baseAttack": 4,
+    "baseDefense": 1,
+    "expYield": 55,
+    "floorTier": 1,
+    "lore": "A fragile but annoying goblin equipped with a crude bow, striking from afar.",
+    "detectionRadius": 5,
+    "attackRange": 3,
+    "isRanged": true
+  },
+  {
+    "id": "enemy_dark_cultist",
+    "name": "Dark Cultist",
+    "weaponType": "MAGIC",
+    "baseHp": 12,
+    "baseAttack": 7,
+    "baseDefense": 1,
+    "expYield": 70,
+    "floorTier": 2,
+    "lore": "Fanatical followers of the dark arts. They hurl volatile magic from a distance.",
+    "detectionRadius": 5,
+    "attackRange": 3,
+    "isRanged": true
   },
   {
     "id": "enemy_orc_berserker",
@@ -52,7 +88,9 @@
     "baseDefense": 3,
     "expYield": 95,
     "floorTier": 2,
-    "lore": "Fueled by sheer rage, these orcs abandon all defense to deliver devastating, reckless swings with their greataxes."
+    "lore": "Fueled by sheer rage, these orcs abandon all defense to deliver devastating, reckless swings with their greataxes.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_spectral_lancer",
@@ -63,7 +101,9 @@
     "baseDefense": 2,
     "expYield": 85,
     "floorTier": 2,
-    "lore": "Ethereal spirits bound to the dungeon. Their ghostly lances pierce through armor as if it were not there."
+    "lore": "Ethereal spirits bound to the dungeon. Their ghostly lances pierce through armor as if it were not there.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_dread_knight",
@@ -74,7 +114,9 @@
     "baseDefense": 5,
     "expYield": 130,
     "floorTier": 3,
-    "lore": "Elite undead warriors clad in dark, impenetrable armor. Their heavy swords carry the chill of the grave."
+    "lore": "Elite undead warriors clad in dark, impenetrable armor. Their heavy swords carry the chill of the grave.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_iron_golem",
@@ -85,7 +127,9 @@
     "baseDefense": 7,
     "expYield": 150,
     "floorTier": 3,
-    "lore": "A towering construct of iron and magic. Slow but immensely durable, armed with an integrated axe-blade."
+    "lore": "A towering construct of iron and magic. Slow but immensely durable, armed with an integrated axe-blade.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_phantom_halberdier",
@@ -96,7 +140,9 @@
     "baseDefense": 4,
     "expYield": 140,
     "floorTier": 3,
-    "lore": "Vengeful phantoms of ancient royal guards. They strike with terrifying precision using elongated halberds."
+    "lore": "Vengeful phantoms of ancient royal guards. They strike with terrifying precision using elongated halberds.",
+    "detectionRadius": 3,
+    "attackRange": 1
   },
   {
     "id": "enemy_dread_minotaur",
@@ -108,7 +154,9 @@
     "expYield": 200,
     "floorTier": 1,
     "isElite": true,
-    "lore": "A terrifying FOE that wanders the early floors. Its colossal axe and immense strength make it a deadly encounter."
+    "lore": "A terrifying FOE that wanders the early floors. Its colossal axe and immense strength make it a deadly encounter.",
+    "detectionRadius": 7,
+    "attackRange": 1
   },
   {
     "id": "enemy_shadow_reaper",
@@ -120,7 +168,9 @@
     "expYield": 200,
     "floorTier": 1,
     "isElite": true,
-    "lore": "An elite shadow entity that stalks the dark corridors. Its sweeping scythe-like lance cuts through the unwary."
+    "lore": "An elite shadow entity that stalks the dark corridors. Its sweeping scythe-like lance cuts through the unwary.",
+    "detectionRadius": 7,
+    "attackRange": 1
   },
   {
     "id": "enemy_crimson_warlord",
@@ -132,7 +182,9 @@
     "expYield": 220,
     "floorTier": 1,
     "isElite": true,
-    "lore": "A blood-soaked general of the dungeon's armies. This elite FOE challenges only the strongest of adventurers."
+    "lore": "A blood-soaked general of the dungeon's armies. This elite FOE challenges only the strongest of adventurers.",
+    "detectionRadius": 7,
+    "attackRange": 1
   },
   {
     "id": "boss_dread_champion",
@@ -144,7 +196,9 @@
     "expYield": 350,
     "floorTier": 5,
     "isBoss": true,
-    "lore": "The mid-tier boss ruling over the 5th floor. A hulking monstrosity wielding an axe forged in the deepest abysses."
+    "lore": "The mid-tier boss ruling over the 5th floor. A hulking monstrosity wielding an axe forged in the deepest abysses.",
+    "detectionRadius": 7,
+    "attackRange": 1
   },
   {
     "id": "boss_shadow_sovereign",
@@ -156,6 +210,8 @@
     "expYield": 600,
     "floorTier": 10,
     "isBoss": true,
-    "lore": "The ultimate ruler of Wardwake. Its dark sword brings oblivion, commanding the shadows to consume all intruders."
+    "lore": "The ultimate ruler of Wardwake. Its dark sword brings oblivion, commanding the shadows to consume all intruders.",
+    "detectionRadius": 7,
+    "attackRange": 1
   }
 ]

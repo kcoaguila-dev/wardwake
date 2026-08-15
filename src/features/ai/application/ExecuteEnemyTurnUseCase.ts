@@ -21,6 +21,38 @@ export class ExecuteEnemyTurnUseCase {
     private readonly occupiedTiles: TileCoordinate[] = []
   ) {}
 
+
+  private checkLineOfSight(start: TileCoordinate, end: TileCoordinate): boolean {
+    let x0 = start.x;
+    let y0 = start.y;
+    const x1 = end.x;
+    const y1 = end.y;
+
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = (x0 < x1) ? 1 : -1;
+    const sy = (y0 < y1) ? 1 : -1;
+    let err = dx - dy;
+
+    while (x0 !== x1 || y0 !== y1) {
+      if (x0 !== start.x || y0 !== start.y) {
+        if (!this.grid.isWalkable(new TileCoordinate(x0, y0))) {
+          return false;
+        }
+      }
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x0 += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y0 += sy;
+      }
+    }
+    return true;
+  }
+
   execute(enemyUnit: Unit, enemyCoord: TileCoordinate): EnemyTurnResult {
     if (enemyUnit.statusTurns > 0 && (enemyUnit.statusEffect === 'SLEEP' || enemyUnit.statusEffect === 'PETRIFIED')) {
       enemyUnit.decrementStatus();
@@ -54,6 +86,24 @@ export class ExecuteEnemyTurnUseCase {
         targetCoordinate: enemyCoord,
         targetToAttack: null
       };
+    }
+
+    // Check detection radius
+    if (minDistance > enemyUnit.detectionRadius) {
+      return {
+        targetCoordinate: enemyCoord,
+        targetToAttack: null
+      };
+    }
+
+    // Check ranged attack
+    if (enemyUnit.attackRange > 1 && minDistance <= enemyUnit.attackRange) {
+      if (this.checkLineOfSight(enemyCoord, closestPlayer.coord)) {
+        return {
+          targetCoordinate: enemyCoord,
+          targetToAttack: closestPlayer.unit
+        };
+      }
     }
 
     // 2. If already adjacent, no need to move, just attack

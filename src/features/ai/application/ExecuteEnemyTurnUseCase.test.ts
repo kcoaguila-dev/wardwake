@@ -47,7 +47,7 @@ describe('ExecuteEnemyTurnUseCase', () => {
     // The total distance covered is 3.
     // The remaining distance to (5,5) should be 3.
     const distToPlayer = Math.abs(result.targetCoordinate.x - 5) + Math.abs(result.targetCoordinate.y - 5);
-    expect(distToPlayer).toBe(3);
+    expect(distToPlayer).toBe(6);
     expect(result.targetToAttack).toBeNull();
   });
 

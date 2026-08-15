@@ -37,6 +37,10 @@ export class Unit {
 
   // Belly / Hunger properties
   public belly: number = 100;
+
+  // AI properties
+  public attackRange: number = 1;
+  public detectionRadius: number = 3;
   public maxBelly: number = 100;
 
   // Status effect properties

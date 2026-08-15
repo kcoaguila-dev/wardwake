@@ -19,10 +19,10 @@ describe('Data-Driven Repositories & Schemas', () => {
 
     test('retrieves monsters by tier properly', () => {
       const tier1 = MonsterRepository.getByTier(1);
-      expect(tier1.length).toBe(3);
+      expect(tier1.length).toBe(4);
 
       const tier2 = MonsterRepository.getByTier(2);
-      expect(tier2.length).toBe(3);
+      expect(tier2.length).toBe(4);
 
       const tier3 = MonsterRepository.getByTier(3);
       expect(tier3.length).toBe(3);

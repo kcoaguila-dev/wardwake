@@ -71,24 +71,24 @@ describe('EnemyFactory', () => {
         expect(enemy.weaponType).toBe(WeaponType.SWORD);
       });
 
-      it('creates Orc Berserker for index 1 on Floor 5', () => {
+      it('creates Dark Cultist for index 1 on Floor 5', () => {
         const enemy = EnemyFactory.createEnemy(5, 1);
         expect(enemy.id).toBe('e2');
+        expect(enemy.name).toBe('Dark Cultist');
+        expect(enemy.maxHp).toBe(12 + (5 * 2));
+        expect(enemy.attack).toBe(7);
+        expect(enemy.defense).toBe(1);
+        expect(enemy.weaponType).toBe(WeaponType.MAGIC);
+      });
+
+      it('creates Orc Berserker for index 2 on Floor 6', () => {
+        const enemy = EnemyFactory.createEnemy(6, 2);
+        expect(enemy.id).toBe('e3');
         expect(enemy.name).toBe('Orc Berserker');
-        expect(enemy.maxHp).toBe(22 + (5 * 2));
+        expect(enemy.maxHp).toBe(22 + (6 * 2));
         expect(enemy.attack).toBe(10);
         expect(enemy.defense).toBe(3);
         expect(enemy.weaponType).toBe(WeaponType.AXE);
-      });
-
-      it('creates Spectral Lancer for index 2 on Floor 6', () => {
-        const enemy = EnemyFactory.createEnemy(6, 2);
-        expect(enemy.id).toBe('e3');
-        expect(enemy.name).toBe('Spectral Lancer');
-        expect(enemy.maxHp).toBe(16 + (6 * 2));
-        expect(enemy.attack).toBe(9);
-        expect(enemy.defense).toBe(2);
-        expect(enemy.weaponType).toBe(WeaponType.LANCE);
       });
     });
 

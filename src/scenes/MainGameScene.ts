@@ -1829,7 +1829,14 @@ export class MainGameScene extends Phaser.Scene {
               const screenX = targetPlayer.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
               const screenY = targetPlayer.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
 
-              await enemyData.graphic.animateAttack(targetPlayer.coord);
+
+              const dist = Math.abs(enemyData.coord.x - targetPlayer.coord.x) + Math.abs(enemyData.coord.y - targetPlayer.coord.y);
+              if (dist > 1) {
+                const projTexture = enemyData.unit.weaponType === 'BOW' ? 'unit_lance' : 'unit_sword';
+                await enemyData.graphic.animateProjectile(targetPlayer.coord, projTexture);
+              } else {
+                await enemyData.graphic.animateAttack(targetPlayer.coord);
+              }
 
               if (summary.isHit) {
                 await targetPlayer.graphic.animateHit();
