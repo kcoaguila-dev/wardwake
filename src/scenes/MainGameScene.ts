@@ -49,7 +49,8 @@ import { ActionBarPresenter } from '../features/ui/presentation/ActionBarPresent
 import { TownStorageService } from '../features/progression/infrastructure/TownStorageService';
 import { ApplyProgressionUseCase } from '../features/progression/application/ApplyProgressionUseCase';
 import { TownManagerUseCase } from '../features/progression/application/TownManagerUseCase';
-import { SaveGameRepository } from '../features/save/infrastructure/SaveGameRepository';
+import { LocalStorageProfileRepository } from '../features/save/infrastructure/LocalStorageProfileRepository';
+import { SaveProfileUseCase } from '../features/save/application/SaveProfileUseCase';
 import { Room } from '../features/grid/domain/BspNode';
 
 export class MainGameScene extends Phaser.Scene {
@@ -206,6 +207,14 @@ export class MainGameScene extends Phaser.Scene {
     this.trapPresenter = new TrapPresenter(this);
 
     this.settingsModalPresenter = new SettingsModalPresenter(this, this.audioService);
+    this.settingsModalPresenter.onQuit = () => {
+      this.doSaveGameState();
+      this.audioService.playSound('sword_slash');
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('TitleScene');
+      });
+    };
 
     this.stairsModalPresenter = new StairsModalPresenter(this);
     this.stairsModalPresenter.onDescend = () => {
@@ -253,7 +262,9 @@ export class MainGameScene extends Phaser.Scene {
 
     // Load Initial Floor or Resume Saved Run
     if (this.isResumingSave) {
-      const saved = SaveGameRepository.load();
+      const activeS = LocalStorageProfileRepository.getActiveSlotId();
+      const loadedProf = LocalStorageProfileRepository.loadProfile(activeS);
+      const saved = loadedProf?.activeRun || null;
       if (saved) {
         this.floorCount = saved.floorNumber;
         this.turnCount = saved.turnsTaken;
@@ -891,15 +902,7 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     // 7. Auto-Save Run State
-    SaveGameRepository.save(
-      this.floorCount,
-      this.turnCount,
-      this.runMonstersSlain,
-      this.runRelicsFound,
-      this.playerSquad.map(p => p.unit),
-      this.selectedPlayerIndex ?? 0,
-      this.activeModifier
-    );
+    this.doSaveGameState();
 
     // 8. Update HUD & Phase
     this.hudPresenter.updateFloor(this.floorCount, this.activeModifier);
@@ -1924,8 +1927,49 @@ export class MainGameScene extends Phaser.Scene {
     TownStorageService.save(townManager.getTownData());
 
     // Clear active run save
-    SaveGameRepository.clear();
+    const sSlot = LocalStorageProfileRepository.getActiveSlotId();
+    const sProf = LocalStorageProfileRepository.loadProfile(sSlot);
+    if (sProf) {
+      sProf.activeRun = null;
+      SaveProfileUseCase.execute(sProf);
+    }
 
     this.runSummaryModalPresenter.show(stats);
+  }
+
+  private doSaveGameState(): void {
+    const activeSlotId = LocalStorageProfileRepository.getActiveSlotId();
+    const prof = LocalStorageProfileRepository.loadProfile(activeSlotId);
+    if (prof) {
+      prof.activeRun = {
+        version: 1,
+        floorNumber: this.floorCount,
+        turnsTaken: this.turnCount,
+        monstersSlain: this.runMonstersSlain,
+        relicsFound: this.runRelicsFound,
+        playerSquad: this.playerSquad.map(p => ({
+          id: p.unit.id,
+          name: p.unit.name,
+          maxHp: p.unit.maxHp,
+          currentHp: p.unit.currentHp,
+          maxSp: p.unit.maxSp,
+          currentSp: p.unit.currentSp,
+          attack: p.unit.attack,
+          defense: p.unit.defense,
+          weaponType: p.unit.weaponType,
+          exp: p.unit.exp,
+          level: p.unit.level,
+          belly: p.unit.belly,
+          maxBelly: p.unit.maxBelly,
+          inventory: p.unit.inventory,
+          equippedWeapon: p.unit.equippedWeapon,
+          equippedArmor: p.unit.equippedArmor
+        })),
+        selectedPlayerIndex: this.selectedPlayerIndex ?? 0,
+        activeModifier: this.activeModifier,
+        savedAt: Date.now()
+      };
+      SaveProfileUseCase.execute(prof);
+    }
   }
 }
