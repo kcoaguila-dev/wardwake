@@ -1314,22 +1314,21 @@ export class MainGameScene extends Phaser.Scene {
     // 2. Direct Ally Selection or Swap
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
-      if (this.selectedPlayerIndex === clickedPlayerIndex) {
-        if (this.isEncounterActive) {
-          this.showActionMenuForPlayer(this.playerSquad[clickedPlayerIndex]!);
-        }
-      } else if (!this.isEncounterActive && this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
+      if (this.isEncounterActive) {
+        this.selectHeroByIndex(clickedPlayerIndex);
+        return;
+      }
+
+      if (this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
         const currentHero = this.playerSquad[this.selectedPlayerIndex]!;
         const clickedHero = this.playerSquad[clickedPlayerIndex]!;
         const dist = Math.abs(currentHero.coord.x - clickedHero.coord.x) + Math.abs(currentHero.coord.y - clickedHero.coord.y);
-        if (dist === 1) {
+        if (dist === 1 && this.selectedPlayerIndex !== clickedPlayerIndex) {
           await this.swapPlayerPositions(currentHero, clickedHero);
           return;
         }
-        this.selectHeroByIndex(clickedPlayerIndex);
-      } else {
-        this.selectHeroByIndex(clickedPlayerIndex);
       }
+      this.selectHeroByIndex(clickedPlayerIndex);
       return;
     }
 
