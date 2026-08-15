@@ -128,6 +128,58 @@ export class GridPresenter {
     }
   }
 
+  highlightEnemyRange(moveTiles: TileCoordinate[], attackTiles: TileCoordinate[], enemyCoord?: TileCoordinate): void {
+    this.clearHighlights();
+    this.highlightGraphics.setDepth(1);
+
+    // 1. Draw Enemy Attack Range (outer reach) in translucent danger red
+    for (const atk of attackTiles) {
+      this.highlightGraphics.fillStyle(0xdc2626, 0.25);
+      this.highlightGraphics.fillRect(
+        atk.x * GridPresenter.TILE_SIZE + 1,
+        atk.y * GridPresenter.TILE_SIZE + 1,
+        GridPresenter.TILE_SIZE - 2,
+        GridPresenter.TILE_SIZE - 2
+      );
+      this.highlightGraphics.lineStyle(1, 0xef4444, 0.6);
+      this.highlightGraphics.strokeRect(
+        atk.x * GridPresenter.TILE_SIZE + 1,
+        atk.y * GridPresenter.TILE_SIZE + 1,
+        GridPresenter.TILE_SIZE - 2,
+        GridPresenter.TILE_SIZE - 2
+      );
+    }
+
+    // 2. Draw Enemy Walkable Movement Range in prominent crimson red
+    for (const move of moveTiles) {
+      this.highlightGraphics.fillStyle(0xef4444, 0.42);
+      this.highlightGraphics.fillRect(
+        move.x * GridPresenter.TILE_SIZE + 1,
+        move.y * GridPresenter.TILE_SIZE + 1,
+        GridPresenter.TILE_SIZE - 2,
+        GridPresenter.TILE_SIZE - 2
+      );
+      this.highlightGraphics.lineStyle(1.5, 0xf87171, 0.95);
+      this.highlightGraphics.strokeRect(
+        move.x * GridPresenter.TILE_SIZE + 1,
+        move.y * GridPresenter.TILE_SIZE + 1,
+        GridPresenter.TILE_SIZE - 2,
+        GridPresenter.TILE_SIZE - 2
+      );
+    }
+
+    // 3. Draw bold Crimson / Red selection border on the enemy
+    if (enemyCoord) {
+      this.highlightGraphics.lineStyle(2.5, 0xff0000, 1);
+      this.highlightGraphics.strokeRect(
+        enemyCoord.x * GridPresenter.TILE_SIZE,
+        enemyCoord.y * GridPresenter.TILE_SIZE,
+        GridPresenter.TILE_SIZE,
+        GridPresenter.TILE_SIZE
+      );
+    }
+  }
+
   clearHighlights(): void {
     this.highlightGraphics.clear();
   }

@@ -15,6 +15,7 @@ import { PartyHudPresenter } from '../features/ui/presentation/PartyHudPresenter
 import { StairsModalPresenter } from '../features/ui/presentation/StairsModalPresenter';
 import { RunSummaryModalPresenter, RunSummaryStats } from '../features/ui/presentation/RunSummaryModalPresenter';
 import { SettingsModalPresenter } from '../features/ui/presentation/SettingsModalPresenter';
+import { EnemyInspectionPresenter } from '../features/ui/presentation/EnemyInspectionPresenter';
 import { PhaseManagerUseCase } from '../features/turn/application/PhaseManagerUseCase';
 import { GetValidMovesUseCase } from '../features/grid/application/GetValidMovesUseCase';
 import { AttackUnitUseCase } from '../features/combat/application/AttackUnitUseCase';
@@ -89,6 +90,7 @@ export class MainGameScene extends Phaser.Scene {
   private fogPresenter!: FogPresenter;
   private virtualPadPresenter!: VirtualPadPresenter;
   private actionBarPresenter!: ActionBarPresenter;
+  private enemyInspectionPresenter!: EnemyInspectionPresenter;
 
   // Input
   private gamepadInputService!: GamepadInputService;
@@ -236,6 +238,7 @@ export class MainGameScene extends Phaser.Scene {
       }
     };
 
+    this.enemyInspectionPresenter = new EnemyInspectionPresenter(this);
     this.trapPresenter = new TrapPresenter(this);
 
     this.settingsModalPresenter = new SettingsModalPresenter(this, this.audioService);
@@ -1122,6 +1125,12 @@ export class MainGameScene extends Phaser.Scene {
         const screenY = activePlayer.coord.y * GridPresenter.TILE_SIZE - 10;
         this.combatTextPresenter.showBanner(screenX, screenY, hasNearbyDread ? '💀 DREAD THREAT DETECTED!' : '⚔️ COMBAT ENGAGED!');
       }
+
+      // Automatically select active hero to display bright cyan walkable grid by default!
+      const currentIdx = this.selectedPlayerIndex !== null ? this.selectedPlayerIndex : this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed);
+      if (currentIdx !== -1) {
+        this.selectHeroByIndex(currentIdx);
+      }
     } else if (!enemyNearby && this.isEncounterActive) {
       this.isEncounterActive = false;
       this.hudPresenter.updatePhase('🔵 EXPLORE');
@@ -1189,6 +1198,7 @@ export class MainGameScene extends Phaser.Scene {
 
     this.partyHudPresenter.updateParty(this.playerSquad, this.selectedPlayerIndex);
     this.combatForecastPresenter.hide();
+    this.enemyInspectionPresenter?.hide();
 
     if (this.isEncounterActive) {
       const obstacles = [
@@ -1220,6 +1230,7 @@ export class MainGameScene extends Phaser.Scene {
     this.selectedPlayerIndex = null;
     this.gridPresenter.clearHighlights();
     this.combatForecastPresenter.hide();
+    this.enemyInspectionPresenter?.hide();
     this.actionMenuPresenter.hide();
     this.inventoryMenuPresenter.hide();
     this.isTargeting = false;
@@ -1313,16 +1324,47 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 1. Direct Attack when clicking an adjacent or targeted enemy
+    // 1. Direct Attack or Enemy Inspection Range Highlight
     const activeHero = this.getActiveHero();
     const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord) && this.visibilityMap.isVisible(coord));
     if (clickedEnemy && activeHero) {
       const dist = Math.abs(activeHero.coord.x - coord.x) + Math.abs(activeHero.coord.y - coord.y);
       if (dist === 1 || this.isTargeting) {
         this.isTargeting = false;
+        this.enemyInspectionPresenter?.hide();
         await this.executePlayerAttack(activeHero, clickedEnemy);
         return;
       }
+
+      // Clicking an enemy from distance projects their tactical threat area in crimson RED!
+      const obstacles = [
+        ...this.playerSquad.filter(p => p.unit.currentHp > 0).map(p => p.coord),
+        ...this.enemySquad.filter(e => e.unit.id !== clickedEnemy.unit.id && e.unit.currentHp > 0).map(e => e.coord)
+      ];
+      const enemyMoveRange = clickedEnemy.unit.moveRange ?? 2;
+      const enemyAttackRange = clickedEnemy.unit.attackRange ?? 1;
+      const enemyValidMoves = this.getValidMovesUseCase.execute(clickedEnemy.coord, enemyMoveRange, obstacles);
+
+      // Compute attack tiles from reachable tiles
+      const enemyAttackTiles: TileCoordinate[] = [];
+      const consideredMoves = [clickedEnemy.coord, ...enemyValidMoves];
+      for (const m of consideredMoves) {
+        for (let dx = -enemyAttackRange; dx <= enemyAttackRange; dx++) {
+          for (let dy = -enemyAttackRange; dy <= enemyAttackRange; dy++) {
+            if (Math.abs(dx) + Math.abs(dy) > 0 && Math.abs(dx) + Math.abs(dy) <= enemyAttackRange) {
+              const atkCoord = new TileCoordinate(m.x + dx, m.y + dy);
+              if (this.gridMap.isWalkable(atkCoord) && !enemyAttackTiles.some(t => t.equals(atkCoord))) {
+                enemyAttackTiles.push(atkCoord);
+              }
+            }
+          }
+        }
+      }
+
+      this.combatForecastPresenter.hide();
+      this.gridPresenter.highlightEnemyRange(enemyValidMoves, enemyAttackTiles, clickedEnemy.coord);
+      this.enemyInspectionPresenter.show(clickedEnemy.unit, activeHero.unit);
+      return;
     }
 
     if (coord.equals(this.staircaseCoord)) {
