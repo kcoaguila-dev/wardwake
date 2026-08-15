@@ -30,10 +30,26 @@ export class WebAudioSynthService implements IAudioService {
     if (WebAudioSynthService.sharedCtx && WebAudioSynthService.sharedCtx.state === 'suspended') {
       WebAudioSynthService.sharedCtx.resume().catch(() => {});
     }
-    if (WebAudioSynthService.sharedCtx && (!WebAudioSynthService.sharedBgmGain || WebAudioSynthService.sharedBgmGain.context !== WebAudioSynthService.sharedCtx)) {
+    if (WebAudioSynthService.sharedCtx) {
+      if (!WebAudioSynthService.sharedBgmGain || WebAudioSynthService.sharedBgmGain.context !== WebAudioSynthService.sharedCtx) {
+        try {
+          WebAudioSynthService.sharedBgmGain = WebAudioSynthService.sharedCtx.createGain();
+          WebAudioSynthService.sharedBgmGain.connect(WebAudioSynthService.sharedCtx.destination);
+        } catch (e) {}
+      } else {
+        // Ensure it's connected even if we didn't just create it
+        try {
+          WebAudioSynthService.sharedBgmGain.disconnect();
+          WebAudioSynthService.sharedBgmGain.connect(WebAudioSynthService.sharedCtx.destination);
+        } catch (e) {}
+      }
+    }
+  }
+
+  public async resumeAudioContext(): Promise<void> {
+    if (this.ctx && this.ctx.state === 'suspended') {
       try {
-        WebAudioSynthService.sharedBgmGain = WebAudioSynthService.sharedCtx.createGain();
-        WebAudioSynthService.sharedBgmGain.connect(WebAudioSynthService.sharedCtx.destination);
+        await this.ctx.resume();
       } catch (e) {}
     }
   }
@@ -97,6 +113,10 @@ export class WebAudioSynthService implements IAudioService {
 
     this.ensureContext();
     if (!this.ctx) return;
+
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
 
     if (this.bgmGain) {
       this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;

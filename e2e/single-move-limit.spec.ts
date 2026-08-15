@@ -77,8 +77,8 @@ test.describe('Single Move Per Turn Limit E2E Tests', () => {
         };
       });
 
-      expect(moveResult.heroCoord.x).toBe(moveResult.target.x);
-      expect(moveResult.heroCoord.y).toBe(moveResult.target.y);
+      expect(moveResult.heroCoord?.x).toBe(moveResult.target?.x);
+      expect(moveResult.heroCoord?.y).toBe(moveResult.target?.y);
       expect(moveResult.hasMoved).toBe(true);
 
       // 2. Attempt to move hero again to another tile in the same turn

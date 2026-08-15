@@ -255,6 +255,7 @@ export class MainGameScene extends Phaser.Scene {
       this.isMenuOpen = false;
       this.isProcessingAction = false;
       this.audioService.playSound('staircase_descend');
+      this.audioService.startBgm('explore');
       this.startFloor(this.floorCount + 1);
       this.cameras.main.fadeIn(250, 0, 0, 0);
     };
@@ -346,6 +347,7 @@ export class MainGameScene extends Phaser.Scene {
             unit: u,
             coord: new TileCoordinate(0, 0),
             hasActed: false,
+            hasMoved: false,
             graphic: null as any
           };
         });
@@ -360,6 +362,14 @@ export class MainGameScene extends Phaser.Scene {
 
     // Start Ambient Retro BGM
     this.audioService.startBgm('explore');
+
+    // Resume audio context on first user interaction
+    this.input.on('pointerdown', () => {
+      (this.audioService as any).resumeAudioContext?.();
+    });
+    this.input.keyboard?.on('keydown', () => {
+      (this.audioService as any).resumeAudioContext?.();
+    });
 
     // Setup Input Listeners
     this.events.on('ON_TILE_CLICKED', this.onTileClicked, this);
@@ -666,7 +676,7 @@ export class MainGameScene extends Phaser.Scene {
     await this.movePlayerUnit(player, targetCoord);
   }
 
-  private async handleCorridorSprint(player: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, dx: number, dy: number): Promise<void> {
+  private async handleCorridorSprint(player: { unit: Unit; coord: TileCoordinate; hasActed: boolean; hasMoved: boolean; graphic: UnitPresenter }, dx: number, dy: number): Promise<void> {
     const maxSprintSteps = 14;
     for (let step = 0; step < maxSprintSteps; step++) {
       const nextCoord = new TileCoordinate(player.coord.x + dx, player.coord.y + dy);
@@ -705,8 +715,8 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private async swapPlayerPositions(
-    activePlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter },
-    allyPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }
+    activePlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; hasMoved: boolean; graphic: UnitPresenter },
+    allyPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; hasMoved: boolean; graphic: UnitPresenter }
   ): Promise<void> {
     this.isProcessingAction = true;
     this.combatForecastPresenter.hide();
