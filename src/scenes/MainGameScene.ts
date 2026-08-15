@@ -108,7 +108,7 @@ export class MainGameScene extends Phaser.Scene {
   private fogOfWar!: FogOfWar;
 
   // State
-  private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
+  private playerSquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; hasMoved: boolean; graphic: UnitPresenter }[] = [];
   private enemySquad: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }[] = [];
   private floorItems: { coord: TileCoordinate; item: Item; sprite: Phaser.GameObjects.Sprite }[] = [];
   private traps: Trap[] = [];
@@ -591,6 +591,7 @@ export class MainGameScene extends Phaser.Scene {
       if (activeHero && this.turnStartCoords.has(activeHero.unit.id)) {
         const startCoord = this.turnStartCoords.get(activeHero.unit.id)!;
         if (!activeHero.coord.equals(startCoord)) {
+          activeHero.hasMoved = false;
           activeHero.coord = new TileCoordinate(startCoord.x, startCoord.y);
           await activeHero.graphic.moveTo(activeHero.coord);
           this.updateFogAndVisibility();
@@ -814,8 +815,8 @@ export class MainGameScene extends Phaser.Scene {
       }
 
       this.playerSquad = [
-        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) },
-        { unit: p2Unit, coord: p2Coord, hasActed: false, graphic: new UnitPresenter(this, p2Unit, p2Coord, true, false) }
+        { unit: p1Unit, coord: floorData.playerSpawns[0]!, hasActed: false, hasMoved: false, graphic: new UnitPresenter(this, p1Unit, floorData.playerSpawns[0]!, true, true) },
+        { unit: p2Unit, coord: p2Coord, hasActed: false, hasMoved: false, graphic: new UnitPresenter(this, p2Unit, p2Coord, true, false) }
       ];
     } else {
       this.playerSquad.forEach((p, idx) => {
@@ -842,6 +843,7 @@ export class MainGameScene extends Phaser.Scene {
 
         const isAlive = p.unit.currentHp > 0;
         p.hasActed = false;
+        p.hasMoved = false;
         if (!p.graphic) {
           p.graphic = new UnitPresenter(this, p.unit, p.coord, true, false);
         } else {
@@ -1138,6 +1140,7 @@ export class MainGameScene extends Phaser.Scene {
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
           p.hasActed = false;
+          p.hasMoved = false;
           p.graphic.setExhausted(false);
         }
       });
@@ -1199,7 +1202,7 @@ export class MainGameScene extends Phaser.Scene {
     this.enemyInspectionPresenter?.hide();
 
     if (this.isEncounterActive) {
-      if (!selectedPlayer.hasActed) {
+      if (!selectedPlayer.hasActed && !selectedPlayer.hasMoved) {
         const obstacles = [
           ...this.playerSquad.filter((p, i) => i !== index && p.unit.currentHp > 0).map(p => p.coord),
           ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
@@ -1207,6 +1210,10 @@ export class MainGameScene extends Phaser.Scene {
         const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3, obstacles);
         this.gridPresenter.highlightWalkableArea(validMoves, selectedPlayer.coord);
 
+        const hasAdjacentEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && Math.abs(e.coord.x - selectedPlayer.coord.x) + Math.abs(e.coord.y - selectedPlayer.coord.y) === 1);
+        this.actionBarPresenter.updateState(hasAdjacentEnemy, true, true);
+      } else if (!selectedPlayer.hasActed && selectedPlayer.hasMoved) {
+        this.gridPresenter.clearHighlights();
         const hasAdjacentEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && Math.abs(e.coord.x - selectedPlayer.coord.x) + Math.abs(e.coord.y - selectedPlayer.coord.y) === 1);
         this.actionBarPresenter.updateState(hasAdjacentEnemy, true, true);
       } else {
@@ -1229,6 +1236,7 @@ export class MainGameScene extends Phaser.Scene {
     this.playerSquad.forEach(p => {
       if (p.unit.currentHp > 0) {
         p.hasActed = true;
+        p.hasMoved = true;
         p.graphic.setExhausted(true);
         p.graphic.setSelected(false);
       }
@@ -1431,6 +1439,27 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.isEncounterActive && selectedPlayer.hasMoved) {
+      const startCoord = this.turnStartCoords.get(selectedPlayer.unit.id) || selectedPlayer.coord;
+      // If clicking their starting coordinate or own character, undo move!
+      if (tileCoord.equals(startCoord) || tileCoord.equals(selectedPlayer.coord)) {
+        if (!selectedPlayer.coord.equals(startCoord)) {
+          selectedPlayer.hasMoved = false;
+          selectedPlayer.coord = new TileCoordinate(startCoord.x, startCoord.y);
+          await selectedPlayer.graphic.moveTo(startCoord);
+          this.updateFogAndVisibility();
+          this.selectHeroByIndex(this.selectedPlayerIndex);
+        }
+        return;
+      }
+
+      // If clicked anywhere else, movement is spent!
+      const scX = selectedPlayer.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+      const scY = selectedPlayer.coord.y * GridPresenter.TILE_SIZE - 12;
+      this.combatTextPresenter.showBanner(scX, scY, '⚠️ Movement already spent this turn');
+      return;
+    }
+
     // 3. Move calculation: obstacles (allies and enemies) block path traversal
     const obstacles = [
       ...this.playerSquad.filter((p, i) => i !== this.selectedPlayerIndex && p.unit.currentHp > 0).map(p => p.coord),
@@ -1448,7 +1477,7 @@ export class MainGameScene extends Phaser.Scene {
     }
   }
 
-  private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; graphic: UnitPresenter }, coord: TileCoordinate, fast: boolean = false): Promise<void> {
+  private async movePlayerUnit(selectedPlayer: { unit: Unit; coord: TileCoordinate; hasActed: boolean; hasMoved: boolean; graphic: UnitPresenter }, coord: TileCoordinate, fast: boolean = false): Promise<void> {
     // Mutual Exclusion Guard: do not allow movement into an occupied tile unless doing an explicit swap
     const isOccupiedByAlly = this.playerSquad.some(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0 && p.coord.equals(coord));
     const isOccupiedByEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(coord));
@@ -1462,6 +1491,10 @@ export class MainGameScene extends Phaser.Scene {
     this.actionMenuPresenter.hide();
     this.isMenuOpen = false;
     this.gridPresenter.clearHighlights();
+
+    if (this.isEncounterActive) {
+      selectedPlayer.hasMoved = true;
+    }
 
     const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
 
@@ -2080,6 +2113,7 @@ export class MainGameScene extends Phaser.Scene {
       if (p.unit.currentHp > 0) {
         p.unit.tickBuffs();
         p.hasActed = false;
+        p.hasMoved = false;
         p.graphic.setExhausted(false);
         this.turnStartCoords.set(p.unit.id, new TileCoordinate(p.coord.x, p.coord.y));
       }

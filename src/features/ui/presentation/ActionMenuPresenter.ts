@@ -171,10 +171,12 @@ export class ActionMenuPresenter {
     ]);
   }
 
+  private dynamicSkillItems: (Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text)[] = [];
+
   public updateSkills(unitSkills: { id: string, name: string, cost: number }[], currentSp: number): void {
-    // Clear old skill buttons
-    this.skillSubmenuContainer.removeAll(true);
-    this.skillSubmenuContainer.add(this.skillSubmenuBg);
+    // Clear old skill buttons safely without destroying background container or bg
+    this.dynamicSkillItems.forEach(item => item.destroy());
+    this.dynamicSkillItems = [];
 
     if (unitSkills.length === 0) {
       this.skillBtn.setFillStyle(0x1a2436);
@@ -185,6 +187,7 @@ export class ActionMenuPresenter {
         fontFamily: 'monospace',
         color: '#556677'
       });
+      this.dynamicSkillItems.push(noSkillText);
       this.skillSubmenuContainer.add(noSkillText);
       return;
     }
@@ -223,6 +226,7 @@ export class ActionMenuPresenter {
         btn.on('pointerout', () => btn.setFillStyle(0x2a3b5c));
       }
 
+      this.dynamicSkillItems.push(btn, text);
       this.skillSubmenuContainer.add([btn, text]);
       currentY += 32;
     }
