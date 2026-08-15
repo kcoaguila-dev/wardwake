@@ -5,6 +5,7 @@ export class InputPresenter {
   private lastHoveredTile: TileCoordinate | null = null;
   private mapWidth: number = 18;
   private mapHeight: number = 18;
+  public isModalOpen?: () => boolean;
 
   constructor(private scene: Phaser.Scene, width: number = 18, height: number = 18) {
     this.mapWidth = width;
@@ -19,6 +20,10 @@ export class InputPresenter {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    if (this.isModalOpen?.()) {
+      return;
+    }
+
     const screenHeight = this.scene.scale.height || 360;
     // Ignore clicks on Top HUD (y < 42) and Bottom Action Bar / Party HUD (y >= screenHeight - 85)
     if (pointer.y < 42 || pointer.y >= screenHeight - 85) {

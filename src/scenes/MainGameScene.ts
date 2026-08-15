@@ -223,11 +223,21 @@ export class MainGameScene extends Phaser.Scene {
       this.isProcessingAction = false;
       this.audioService.playSound('staircase_descend');
       this.startFloor(this.floorCount + 1);
+      this.cameras.main.fadeIn(250, 0, 0, 0);
     };
     this.stairsModalPresenter.onStay = () => {
       this.stairsModalPresenter.hide();
       this.isMenuOpen = false;
       this.isProcessingAction = false;
+    };
+
+    this.inputPresenter.isModalOpen = () => {
+      return (
+        (this.stairsModalPresenter && this.stairsModalPresenter.isVisible()) ||
+        (this.inventoryMenuPresenter && this.inventoryMenuPresenter.isVisible()) ||
+        (this.settingsModalPresenter && this.settingsModalPresenter.isVisible()) ||
+        (this.runSummaryModalPresenter && this.runSummaryModalPresenter.isVisible())
+      );
     };
 
     this.runSummaryModalPresenter = new RunSummaryModalPresenter(this);
@@ -1219,6 +1229,15 @@ export class MainGameScene extends Phaser.Scene {
 
   private async onTileClicked(coord: TileCoordinate) {
     if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
+      return;
+    }
+
+    if (
+      (this.stairsModalPresenter && this.stairsModalPresenter.isVisible()) ||
+      (this.inventoryMenuPresenter && this.inventoryMenuPresenter.isVisible()) ||
+      (this.settingsModalPresenter && this.settingsModalPresenter.isVisible()) ||
+      (this.runSummaryModalPresenter && this.runSummaryModalPresenter.isVisible())
+    ) {
       return;
     }
 
