@@ -34,8 +34,10 @@ export class UnitPresenter {
           break;
       }
     } else {
-      if (this.isElite) {
-        textureKey = 'enemy_dread_minotaur';
+      if (unit.blueprintId && this.scene.textures && this.scene.textures.exists(unit.blueprintId)) {
+        textureKey = unit.blueprintId;
+      } else if (this.isElite) {
+        textureKey = (this.scene.textures && this.scene.textures.exists('enemy_dread_minotaur')) ? 'enemy_dread_minotaur' : 'enemy_orc_axe';
       } else if (unit.isExplosive || unit.name.includes('Cinder Imp')) {
         textureKey = 'enemy_cinder_imp';
       } else {
@@ -55,8 +57,14 @@ export class UnitPresenter {
           case WeaponType.MAGIC:
             textureKey = 'enemy_dark_cultist';
             break;
+          default:
+            textureKey = 'enemy_goblin_sword';
         }
       }
+    }
+
+    if (this.scene.textures && !this.scene.textures.exists(textureKey)) {
+      textureKey = this.isPlayer ? 'unit_sword' : 'enemy_goblin_sword';
     }
 
     const x = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;

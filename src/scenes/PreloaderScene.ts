@@ -48,7 +48,7 @@ export class PreloaderScene extends Phaser.Scene {
         gGoblin.generateTexture('enemy_goblin_sword', 16, 16);
         gGoblin.destroy();
 
-        // 3. Generate Monster: Horned Orc Marauder (Axe brute)
+        // 3. Generate Monster: Horned Orc Marauder / Cleaver (Axe brute)
         const gOrc = this.make.graphics({ x: 0, y: 0 });
         gOrc.fillStyle(0xd7ccc8, 1);
         gOrc.fillRect(3, 0, 2, 3);
@@ -100,21 +100,17 @@ export class PreloaderScene extends Phaser.Scene {
         gArcher.fillRect(5, 2, 6, 6);
         gArcher.fillRect(3, 4, 2, 2); // Left Ear
         gArcher.fillRect(11, 4, 2, 2); // Right Ear
-        // Leather Hood / Quiver
         gArcher.fillStyle(0x4e342e, 1);
         gArcher.fillRect(4, 1, 8, 3);
         gArcher.fillRect(3, 8, 3, 5); // Quiver strap
-        // Piercing Amber Eyes
         gArcher.fillStyle(0xffb300, 1);
         gArcher.fillRect(6, 4, 1, 1);
         gArcher.fillRect(9, 4, 1, 1);
-        // Tunic & Boots
         gArcher.fillStyle(0x33691e, 1);
         gArcher.fillRect(5, 8, 6, 5);
         gArcher.fillStyle(0x1b5e20, 1);
         gArcher.fillRect(5, 13, 2, 3);
         gArcher.fillRect(9, 13, 2, 3);
-        // Recurve Wood Bow & String
         gArcher.fillStyle(0x8d6e63, 1);
         gArcher.fillRect(12, 1, 2, 2);
         gArcher.fillRect(14, 3, 2, 8);
@@ -126,84 +122,130 @@ export class PreloaderScene extends Phaser.Scene {
 
         // 6. Generate Monster: Dark Cultist (Magic / Occult Spellcaster)
         const gCultist = this.make.graphics({ x: 0, y: 0 });
-        // Deep Purple Hood & Cowl
         gCultist.fillStyle(0x311b92, 1);
         gCultist.fillRect(4, 1, 8, 8);
-        // Shadowed Face Void
         gCultist.fillStyle(0x0a0a0a, 1);
         gCultist.fillRect(5, 3, 6, 4);
-        // Glowing Neon Violet Eyes
         gCultist.fillStyle(0xe040fb, 1);
         gCultist.fillRect(6, 4, 1, 2);
         gCultist.fillRect(9, 4, 1, 2);
-        // Flowing Occult Robes
         gCultist.fillStyle(0x4a148c, 1);
         gCultist.fillRect(4, 8, 8, 8);
-        gCultist.fillStyle(0x7b1fa2, 1); // Robe Trim / Rune
+        gCultist.fillStyle(0x7b1fa2, 1);
         gCultist.fillRect(7, 8, 2, 8);
-        // Catalyst Staff with Floating Occult Orb
         gCultist.fillStyle(0x3e2723, 1);
         gCultist.fillRect(13, 3, 2, 13);
-        gCultist.fillStyle(0xe040fb, 1); // Floating Magic Orb
+        gCultist.fillStyle(0xe040fb, 1);
         gCultist.fillRect(12, 0, 4, 3);
-        gCultist.fillStyle(0xffffff, 1); // Magic Core Glow
+        gCultist.fillStyle(0xffffff, 1);
         gCultist.fillRect(13, 1, 2, 1);
         gCultist.generateTexture('enemy_dark_cultist', 16, 16);
         gCultist.destroy();
 
         // 7. Generate FOE Boss / Elite: Dread Minotaur (Huge horned beast, glowing crimson eyes & giant axe)
         const gMinotaur = this.make.graphics({ x: 0, y: 0 });
-        // Massive Curved Horns
         gMinotaur.fillStyle(0xffe082, 1);
         gMinotaur.fillRect(1, 0, 3, 3);
         gMinotaur.fillRect(12, 0, 3, 3);
         gMinotaur.fillRect(2, 2, 2, 2);
         gMinotaur.fillRect(12, 2, 2, 2);
-        // Dark Obsidian Head & Body
         gMinotaur.fillStyle(0x3e2723, 1);
         gMinotaur.fillRect(4, 2, 8, 7);
-        // Burning Red Eyes
         gMinotaur.fillStyle(0xff0000, 1);
         gMinotaur.fillRect(5, 4, 2, 2);
         gMinotaur.fillRect(9, 4, 2, 2);
-        // Heavy Spiked Dark Armor
         gMinotaur.fillStyle(0x212121, 1);
         gMinotaur.fillRect(3, 8, 10, 6);
         gMinotaur.fillRect(3, 14, 4, 2);
         gMinotaur.fillRect(9, 14, 4, 2);
-        // Colossal Obsidian Battleaxe
-        gMinotaur.fillStyle(0x9c27b0, 1); // Glowing Purple Core
+        gMinotaur.fillStyle(0x9c27b0, 1);
         gMinotaur.fillRect(12, 1, 4, 7);
         gMinotaur.fillStyle(0x212121, 1);
         gMinotaur.fillRect(13, 0, 2, 16);
+        gMinotaur.generateTexture('enemy_dread_minotaur', 16, 16);
+        gMinotaur.destroy();
+
         // 8. Generate Explosive Enemy: Cinder Imp (Volatile molten charcoal creature with fiery crown & glowing core)
         const gCinderImp = this.make.graphics({ x: 0, y: 0 });
-        // Fiery Crown / Top Horns
         gCinderImp.fillStyle(0xff3d00, 1);
         gCinderImp.fillRect(3, 0, 3, 3);
         gCinderImp.fillRect(10, 0, 3, 3);
         gCinderImp.fillStyle(0xffeb3b, 1);
         gCinderImp.fillRect(4, 1, 1, 2);
         gCinderImp.fillRect(11, 1, 1, 2);
-        // Charcoal Body
         gCinderImp.fillStyle(0x1c1917, 1);
         gCinderImp.fillRect(3, 3, 10, 10);
-        // Glowing Magma Cracks
         gCinderImp.fillStyle(0xf97316, 1);
         gCinderImp.fillRect(5, 5, 6, 2);
         gCinderImp.fillRect(7, 7, 2, 4);
         gCinderImp.fillRect(4, 10, 8, 2);
-        // Molten Amber Eyes
         gCinderImp.fillStyle(0xffeb3b, 1);
         gCinderImp.fillRect(5, 4, 2, 2);
         gCinderImp.fillRect(9, 4, 2, 2);
-        // Sparking Fuse Wick
         gCinderImp.fillStyle(0xef4444, 1);
         gCinderImp.fillRect(7, 0, 2, 2);
         gCinderImp.fillStyle(0xffffff, 1);
         gCinderImp.fillRect(7, 0, 1, 1);
         gCinderImp.generateTexture('enemy_cinder_imp', 16, 16);
         gCinderImp.destroy();
+
+        // 9. Generate Elite FOE: Shadow Reaper (Scythe / Lance shadow assassin)
+        const gReaper = this.make.graphics({ x: 0, y: 0 });
+        gReaper.fillStyle(0x0f172a, 1);
+        gReaper.fillRect(4, 1, 8, 14);
+        gReaper.fillStyle(0x38bdf8, 1); // Glowing Cyan Eyes
+        gReaper.fillRect(5, 4, 2, 1);
+        gReaper.fillRect(9, 4, 2, 1);
+        gReaper.fillStyle(0x64748b, 1); // Scythe Blade
+        gReaper.fillRect(11, 0, 5, 3);
+        gReaper.fillRect(10, 3, 2, 2);
+        gReaper.fillStyle(0x334155, 1); // Staff shaft
+        gReaper.fillRect(12, 3, 2, 13);
+        gReaper.generateTexture('enemy_shadow_reaper', 16, 16);
+        gReaper.destroy();
+
+        // 10. Generate Elite FOE: Crimson Warlord (Heavy scarlet armor & dual bloodblades)
+        const gWarlord = this.make.graphics({ x: 0, y: 0 });
+        gWarlord.fillStyle(0x991b1b, 1); // Crimson Heavy Plate
+        gWarlord.fillRect(3, 2, 10, 12);
+        gWarlord.fillStyle(0xfef08a, 1); // Golden Crest
+        gWarlord.fillRect(6, 0, 4, 3);
+        gWarlord.fillStyle(0xffffff, 1); // Visor Slit
+        gWarlord.fillRect(5, 4, 6, 1);
+        gWarlord.fillStyle(0xef4444, 1); // Glowing Blood Sword
+        gWarlord.fillRect(13, 1, 2, 14);
+        gWarlord.fillRect(1, 1, 2, 14);
+        gWarlord.generateTexture('enemy_crimson_warlord', 16, 16);
+        gWarlord.destroy();
+
+        // 11. Generate Boss: Dread Champion (Mid-tier Floor 5 Boss)
+        const gDreadBoss = this.make.graphics({ x: 0, y: 0 });
+        gDreadBoss.fillStyle(0x450a0a, 1);
+        gDreadBoss.fillRect(2, 2, 12, 12);
+        gDreadBoss.fillStyle(0xf59e0b, 1); // Golden Horns
+        gDreadBoss.fillRect(1, 0, 3, 3);
+        gDreadBoss.fillRect(12, 0, 3, 3);
+        gDreadBoss.fillStyle(0xdc2626, 1); // Crimson Core
+        gDreadBoss.fillRect(5, 5, 6, 6);
+        gDreadBoss.fillStyle(0xffffff, 1);
+        gDreadBoss.fillRect(6, 6, 4, 2);
+        gDreadBoss.generateTexture('boss_dread_champion', 16, 16);
+        gDreadBoss.destroy();
+
+        // 12. Generate Final Boss: Shadow Sovereign (Floor 10 Arch-fiend)
+        const gFinalBoss = this.make.graphics({ x: 0, y: 0 });
+        gFinalBoss.fillStyle(0x18181b, 1);
+        gFinalBoss.fillRect(2, 2, 12, 12);
+        gFinalBoss.fillStyle(0xa855f7, 1); // Regal Void Crown
+        gFinalBoss.fillRect(3, 0, 10, 3);
+        gFinalBoss.fillRect(5, 3, 6, 2);
+        gFinalBoss.fillStyle(0xec4899, 1); // Malevolent Magenta Eyes
+        gFinalBoss.fillRect(4, 5, 2, 2);
+        gFinalBoss.fillRect(10, 5, 2, 2);
+        gFinalBoss.fillStyle(0xc084fc, 1); // Void Blade
+        gFinalBoss.fillRect(13, 0, 3, 16);
+        gFinalBoss.generateTexture('boss_shadow_sovereign', 16, 16);
+        gFinalBoss.destroy();
 
         // Transition to TitleScene when loading is complete
         this.scene.start('TitleScene');
