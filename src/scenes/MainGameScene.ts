@@ -1883,6 +1883,14 @@ export class MainGameScene extends Phaser.Scene {
                 targetPlayer.graphic.updateHp(targetPlayer.unit.currentHp, targetPlayer.unit.maxHp);
                 if (summary.isFatal) {
                   targetPlayer.graphic.clear();
+                  const firstAliveIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0);
+                  if (firstAliveIdx !== -1) {
+                    this.selectHeroByIndex(firstAliveIdx);
+                    const newLeader = this.playerSquad[firstAliveIdx]!;
+                    const scX = newLeader.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+                    const scY = newLeader.coord.y * GridPresenter.TILE_SIZE - 12;
+                    this.combatTextPresenter.showBanner(scX, scY, `👑 ${newLeader.unit.name} took leadership!`);
+                  }
                 }
               } else {
                 this.combatTextPresenter.showMiss(screenX, screenY);
@@ -1921,9 +1929,9 @@ export class MainGameScene extends Phaser.Scene {
       }
     });
 
-    const nextActivePlayer = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
-    if (nextActivePlayer) {
-      this.centerCameraOn(nextActivePlayer.coord);
+    const nextActiveIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && !p.hasActed);
+    if (nextActiveIdx !== -1) {
+      this.selectHeroByIndex(nextActiveIdx);
     }
   }
 
