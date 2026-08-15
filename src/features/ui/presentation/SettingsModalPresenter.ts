@@ -14,6 +14,7 @@ export class SettingsModalPresenter {
   private bestiaryModal: BestiaryModalPresenter;
 
   public onClose?: () => void;
+  public onQuit?: () => void;
 
   constructor(private scene: Phaser.Scene, private audioService: WebAudioSynthService) {
     this.container = this.scene.add.container(0, 0);
@@ -32,7 +33,7 @@ export class SettingsModalPresenter {
       .setInteractive();
 
     const modalWidth = 360;
-    const modalHeight = 270;
+    const modalHeight = 300;
     const modalX = (screenWidth - modalWidth) / 2;
     const modalY = (screenHeight - modalHeight) / 2;
 
@@ -110,7 +111,21 @@ export class SettingsModalPresenter {
       color: '#cbd5e1'
     }).setOrigin(0.5, 0.5);
 
+
+    // Save & Quit Button
+    const saveBtnY = bestiaryBtnY + 30;
+    const saveBtn = this.scene.add.rectangle(muteBtnX, saveBtnY, muteBtnW, muteBtnH, 0xb91c1c).setOrigin(0, 0)
+      .setStrokeStyle(1, 0xef4444);
+
+    const saveBtnText = this.scene.add.text(screenWidth / 2, saveBtnY + 12, '💾 SAVE & EXIT TO TITLE', {
+      fontSize: '11px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#fca5a5'
+    }).setOrigin(0.5, 0.5);
+
     // 3. Keybindings Quick Reference Box
+
     const boxY = modalY + 172;
     this.scene.add.rectangle(modalX + 15, boxY, modalWidth - 30, 65, 0x090d16, 0.9)
       .setOrigin(0, 0)
@@ -187,7 +202,14 @@ export class SettingsModalPresenter {
         this.audioService.playSound('hero_step');
         this.bestiaryModal.show();
       }
+
+      // Save & Quit Button
+      else if (px >= muteBtnX && px <= muteBtnX + muteBtnW && py >= saveBtnY && py <= saveBtnY + muteBtnH) {
+        this.audioService.playSound('hero_step');
+        if (this.onQuit) this.onQuit();
+      }
       // Close Button
+
       else if (px >= closeBtnX && px <= closeBtnX + closeBtnW && py >= closeBtnY && py <= closeBtnY + closeBtnH) {
         this.hide();
         if (this.onClose) this.onClose();
@@ -208,6 +230,8 @@ export class SettingsModalPresenter {
       this.muteBtnText,
       bestiaryBtn,
       bestiaryBtnText,
+      saveBtn,
+      saveBtnText,
       this.controlsText,
       closeBtn,
       closeBtnText

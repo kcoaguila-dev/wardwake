@@ -2,6 +2,9 @@ import * as Phaser from 'phaser';
 import { WebAudioSynthService } from '../features/combat/infrastructure/WebAudioSynthService';
 import { TownStorageService } from '../features/progression/infrastructure/TownStorageService';
 import { TownManagerUseCase } from '../features/progression/application/TownManagerUseCase';
+import { LocalStorageProfileRepository } from '../features/save/infrastructure/LocalStorageProfileRepository';
+import { SaveProfileUseCase } from '../features/save/application/SaveProfileUseCase';
+import { TownData, INITIAL_TOWN_DATA } from '../features/progression/domain/TownData';
 import { TownStorageModalPresenter } from '../features/progression/presentation/TownStorageModalPresenter';
 import { GuildMasterModalPresenter } from '../features/progression/presentation/GuildMasterModalPresenter';
 
@@ -32,6 +35,24 @@ export class TownScene extends Phaser.Scene {
 
     // Start Retro Tavern BGM
     this.audioService.startBgm('town');
+
+    // Initialize or load profile
+    const activeSlot = LocalStorageProfileRepository.getActiveSlotId();
+    let profile = LocalStorageProfileRepository.loadProfile(activeSlot);
+
+    if (!profile) {
+      profile = {
+        schemaVersion: 1,
+        profileId: activeSlot,
+        lastPlayedAt: Date.now(),
+        townData: { ...INITIAL_TOWN_DATA },
+        activeRun: null,
+        compendium: { unlockedMonsterIds: [] },
+        statistics: { totalRuns: 0, totalClears: 0, totalDeaths: 0, totalGoldEarned: 0, monstersSlain: 0, floorsCleared: 0 }
+      };
+      SaveProfileUseCase.execute(profile);
+    }
+
 
     // 1. Background gradient (Cozy night feel)
     this.add.rectangle(0, 0, screenWidth, screenHeight, 0x0f172a).setOrigin(0, 0);
