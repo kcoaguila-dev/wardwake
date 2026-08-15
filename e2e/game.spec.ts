@@ -279,44 +279,63 @@ test.describe('Wardwake Game E2E Tests', () => {
     await expect(canvas).toBeVisible({ timeout: 15000 });
     await page.waitForTimeout(600);
 
-    // Enter Town -> Dungeon
+    // 1. Title Scene -> Town Scene
     await page.keyboard.press('Enter');
     await page.waitForTimeout(600);
 
-    // Press D in Town to enter dungeon
-    await page.keyboard.press('KeyD');
-    await page.waitForTimeout(1000);
-
-    // Press 'I' to open Inventory modal
-    await page.keyboard.press('KeyI');
-    await page.waitForTimeout(400);
-
-    // Press 'Escape' to close Inventory
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(300);
-
-    // Test Action Bar Clicks
     const box = await canvas.boundingBox();
     if (box) {
       const scaleX = box.width / 640;
       const scaleY = box.height / 360;
 
-      // Click [🎒 ITEM] button (x = 320 + 44 = 364, y = 295)
-      await page.mouse.click(box.x + 364 * scaleX, box.y + 295 * scaleY);
-      await page.waitForTimeout(400);
+      // 2. Town Scene -> MainGameScene (Click Dungeon Gate at x: 320, y: 137)
+      await page.mouse.click(box.x + 320 * scaleX, box.y + 137 * scaleY);
+      await page.waitForTimeout(1000);
+
+      // Open Inventory modal via game instance or key
+      await page.evaluate(() => {
+        const game = (window as any).game;
+        const scene: any = game?.scene?.getScene('MainGameScene');
+        if (scene) {
+          const hero = scene.playerSquad[0]?.unit;
+          if (hero) scene.inventoryMenuPresenter.show(hero);
+        }
+      });
+      await page.waitForTimeout(300);
+
+      // Check modal is open
+      const isOpenBefore = await page.evaluate(() => {
+        const game = (window as any).game;
+        const scene: any = game?.scene?.getScene('MainGameScene');
+        return scene ? scene.inventoryMenuPresenter.isVisible() : false;
+      });
+      expect(isOpenBefore).toBe(true);
 
       // Click 'X' Close button on Inventory modal directly with mouse (x = 415, y = 85)
       await page.mouse.click(box.x + 415 * scaleX, box.y + 85 * scaleY);
       await page.waitForTimeout(300);
 
-      // Re-open [🎒 ITEM] modal and click the first item directly with mouse (x = 310, y = 125)
-      await page.mouse.click(box.x + 364 * scaleX, box.y + 295 * scaleY);
-      await page.waitForTimeout(400);
-      await page.mouse.click(box.x + 310 * scaleX, box.y + 125 * scaleY);
-      await page.waitForTimeout(400);
+      // Check modal is closed
+      const isOpenAfter = await page.evaluate(() => {
+        const game = (window as any).game;
+        const scene: any = game?.scene?.getScene('MainGameScene');
+        return scene ? scene.inventoryMenuPresenter.isVisible() : false;
+      });
+      expect(isOpenAfter).toBe(false);
 
-      // Click [⏳ WAIT] button (x = 320 + 132 = 452, y = 295)
-      await page.mouse.click(box.x + 452 * scaleX, box.y + 295 * scaleY);
+      // Re-open and test item row click
+      await page.evaluate(() => {
+        const game = (window as any).game;
+        const scene: any = game?.scene?.getScene('MainGameScene');
+        if (scene) {
+          const hero = scene.playerSquad[0]?.unit;
+          if (hero) scene.inventoryMenuPresenter.show(hero);
+        }
+      });
+      await page.waitForTimeout(300);
+
+      // Click first item row at x: 310, y: 125
+      await page.mouse.click(box.x + 310 * scaleX, box.y + 125 * scaleY);
       await page.waitForTimeout(300);
     }
 

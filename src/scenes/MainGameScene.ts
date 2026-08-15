@@ -204,6 +204,10 @@ export class MainGameScene extends Phaser.Scene {
     };
 
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
+    this.inventoryMenuPresenter.onClose = () => {
+      this.inventoryMenuPresenter.hide();
+      this.isMenuOpen = false;
+    };
     this.trapPresenter = new TrapPresenter(this);
 
     this.settingsModalPresenter = new SettingsModalPresenter(this, this.audioService);

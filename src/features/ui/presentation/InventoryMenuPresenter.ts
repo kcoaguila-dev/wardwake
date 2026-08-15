@@ -3,7 +3,7 @@ import { Unit } from '../../combat/domain/Unit';
 import { Item, ItemType } from '../../inventory/domain/Item';
 
 export class InventoryMenuPresenter {
-  private container: Phaser.GameObjects.Container;
+  private baseElements: (Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text)[] = [];
   private backdrop: Phaser.GameObjects.Rectangle;
   private bg: Phaser.GameObjects.Rectangle;
   private titleText: Phaser.GameObjects.Text;
@@ -11,6 +11,7 @@ export class InventoryMenuPresenter {
   private closeBtnText: Phaser.GameObjects.Text;
   private itemGameObjects: (Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text)[] = [];
 
+  private visible: boolean = false;
   public onSelectItem?: (item: Item) => void;
   public onClose?: () => void;
 
@@ -22,48 +23,54 @@ export class InventoryMenuPresenter {
     const modalX = (screenWidth - width) / 2;
     const modalY = (screenHeight - height) / 2;
 
-    this.container = this.scene.add.container(modalX, modalY);
-    this.container.setScrollFactor(0);
-    this.container.setDepth(240);
-    this.container.setVisible(false);
-
-    // Full screen backdrop shield (depth 239)
-    this.backdrop = this.scene.add.rectangle(-modalX, -modalY, screenWidth, screenHeight, 0x000000, 0.6)
+    // 1. Full-screen backdrop shield (Depth 240)
+    this.backdrop = this.scene.add.rectangle(0, 0, screenWidth, screenHeight, 0x000000, 0.7)
       .setOrigin(0, 0)
-      .setInteractive()
-      .on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: any) => {
-        if (event && event.stopPropagation) event.stopPropagation();
-        if (this.onClose) this.onClose();
-      });
+      .setScrollFactor(0)
+      .setDepth(240)
+      .setInteractive();
 
-    // Modal Background
-    this.bg = this.scene.add.rectangle(0, 0, width, height, 0x0f172a, 0.98)
+    this.backdrop.on('pointerdown', (_pointer: Phaser.Input.Pointer, _lx: number, _ly: number, event: any) => {
+      if (event && event.stopPropagation) event.stopPropagation();
+      this.hide();
+      if (this.onClose) this.onClose();
+    });
+
+    // 2. Modal Background Window (Depth 241)
+    this.bg = this.scene.add.rectangle(modalX, modalY, width, height, 0x0f172a, 0.98)
       .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(241)
       .setStrokeStyle(2, 0x38bdf8)
       .setInteractive();
 
-    // Title
-    this.titleText = this.scene.add.text(14, 14, '🎒 INVENTORY', {
+    // 3. Title (Depth 242)
+    this.titleText = this.scene.add.text(modalX + 16, modalY + 16, '🎒 INVENTORY', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#38bdf8',
       fontStyle: 'bold'
-    });
+    }).setScrollFactor(0).setDepth(242);
 
-    // Dedicated Close Button
-    this.closeBtnBg = this.scene.add.rectangle(width - 20, 20, 26, 26, 0x1e293b)
+    // 4. Dedicated Close Button (Depth 243-244)
+    const closeX = modalX + width - 20;
+    const closeY = modalY + 20;
+    this.closeBtnBg = this.scene.add.rectangle(closeX, closeY, 26, 26, 0x1e293b)
+      .setScrollFactor(0)
+      .setDepth(243)
       .setStrokeStyle(1.5, 0xef4444)
       .setInteractive({ useHandCursor: true });
 
-    this.closeBtnText = this.scene.add.text(width - 20, 20, '✖', {
+    this.closeBtnText = this.scene.add.text(closeX, closeY, '✖', {
       fontSize: '13px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#f87171'
-    }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(244).setInteractive({ useHandCursor: true });
 
     const triggerClose = (_pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
       if (event && event.stopPropagation) event.stopPropagation();
+      this.hide();
       if (this.onClose) this.onClose();
     };
 
@@ -72,32 +79,52 @@ export class InventoryMenuPresenter {
     this.closeBtnBg.on('pointerover', () => this.closeBtnBg.setFillStyle(0x7f1d1d));
     this.closeBtnBg.on('pointerout', () => this.closeBtnBg.setFillStyle(0x1e293b));
 
-    this.container.add([this.backdrop, this.bg, this.titleText, this.closeBtnBg, this.closeBtnText]);
+    this.baseElements = [this.backdrop, this.bg, this.titleText, this.closeBtnBg, this.closeBtnText];
+
+    // Hide by default
+    this.setVisible(false);
+
+    // Keyboard shortcut to close
+    this.scene.input.keyboard?.on('keydown-ESC', () => {
+      if (this.visible && this.onClose) this.onClose();
+    });
+  }
+
+  private setVisible(state: boolean): void {
+    this.visible = state;
+    this.baseElements.forEach(el => el.setVisible(state));
+    this.itemGameObjects.forEach(el => el.setVisible(state));
   }
 
   public show(unit: Unit): void {
-    // Clear previous items
+    // Clear previous dynamic item rows
     this.itemGameObjects.forEach(obj => obj.destroy());
     this.itemGameObjects = [];
 
+    const screenWidth = this.scene.scale.width || 640;
+    const screenHeight = this.scene.scale.height || 360;
     const width = 230;
-    let startY = 44;
+    const height = 230;
+    const modalX = (screenWidth - width) / 2;
+    const modalY = (screenHeight - height) / 2;
+    const startY = 48;
 
     if (unit.inventory.length === 0) {
-      const emptyText = this.scene.add.text(width / 2, startY + 40, '(Bag is Empty)', {
+      const emptyText = this.scene.add.text(modalX + width / 2, modalY + startY + 40, '(Bag is Empty)', {
         fontSize: '11px',
         fontFamily: 'monospace',
         color: '#64748b'
-      }).setOrigin(0.5, 0.5);
+      }).setOrigin(0.5, 0.5).setScrollFactor(0).setDepth(242);
       this.itemGameObjects.push(emptyText);
-      this.container.add(emptyText);
     } else {
       unit.inventory.forEach((item, index) => {
-        const btnX = 10;
-        const btnY = startY + (index * 34);
+        const btnX = modalX + 10;
+        const btnY = modalY + startY + (index * 34);
 
         const btnBg = this.scene.add.rectangle(btnX, btnY, 210, 28, 0x1e293b)
           .setOrigin(0, 0)
+          .setScrollFactor(0)
+          .setDepth(243)
           .setStrokeStyle(1, 0x334155)
           .setInteractive({ useHandCursor: true });
 
@@ -111,11 +138,13 @@ export class InventoryMenuPresenter {
           fontFamily: 'monospace',
           fontStyle: 'bold',
           color: '#f8fafc'
-        }).setInteractive({ useHandCursor: true });
+        }).setScrollFactor(0).setDepth(244).setInteractive({ useHandCursor: true });
 
         const selectItem = (_pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
           if (event && event.stopPropagation) event.stopPropagation();
-          if (this.onSelectItem) this.onSelectItem(item);
+          if (this.visible && this.onSelectItem) {
+            this.onSelectItem(item);
+          }
         };
 
         btnBg.on('pointerdown', selectItem);
@@ -127,25 +156,24 @@ export class InventoryMenuPresenter {
         itemText.on('pointerout', () => btnBg.setFillStyle(0x1e293b));
 
         this.itemGameObjects.push(btnBg, itemText);
-        this.container.add([btnBg, itemText]);
       });
     }
 
-    const screenWidth = this.scene.scale.width || 640;
-    const screenHeight = this.scene.scale.height || 360;
-    this.container.setPosition((screenWidth - width) / 2, (screenHeight - 230) / 2);
-    this.container.setVisible(true);
+    this.setVisible(true);
   }
 
   public hide(): void {
-    this.container.setVisible(false);
+    this.setVisible(false);
   }
 
   public isVisible(): boolean {
-    return this.container.visible;
+    return this.visible;
   }
 
   public destroy(): void {
-    this.container.destroy();
+    this.baseElements.forEach(el => el.destroy());
+    this.itemGameObjects.forEach(el => el.destroy());
+    this.baseElements = [];
+    this.itemGameObjects = [];
   }
 }
