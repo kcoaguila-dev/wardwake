@@ -7,6 +7,7 @@ export class HudPresenter {
   private endTurnButton: Phaser.GameObjects.Text;
   private settingsButton: Phaser.GameObjects.Text;
   private muteButton: Phaser.GameObjects.Text;
+  private seedText?: Phaser.GameObjects.Text;
   private onMuteToggleCallback?: () => void;
   private onSettingsClickCallback?: () => void;
   private isMuted: boolean = false;
@@ -58,6 +59,19 @@ export class HudPresenter {
     this.endTurnButton.on('pointerdown', () => {
       this.scene.events.emit('ON_END_TURN_CLICKED');
     });
+
+    // Seed Text
+    this.seedText = this.scene.add.text(width / 2, 8, '', {
+      fontSize: '11px',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      color: '#34d399',
+      backgroundColor: '#064e3b',
+      padding: { x: 4, y: 2 }
+    }).setOrigin(0.5, 0);
+    this.seedText.setScrollFactor(0);
+    this.seedText.setDepth(11);
+    this.seedText.setVisible(false);
 
     // Settings Button (⚙️)
     this.settingsButton = this.scene.add.text(width - 54, 8, '⚙️', {
@@ -138,5 +152,14 @@ export class HudPresenter {
 
   updateEnemies(_count: number): void {
     // Deprecated for fog of war mystery
+  }
+
+  updateSeedInfo(seed: string | null): void {
+    if (seed && this.seedText) {
+      this.seedText.setText(`🌱 SEED: ${seed}`);
+      this.seedText.setVisible(true);
+    } else if (this.seedText) {
+      this.seedText.setVisible(false);
+    }
   }
 }

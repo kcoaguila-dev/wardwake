@@ -7,6 +7,7 @@ export interface RunSummaryStats {
   totalExp: number;
   turnsTaken: number;
   relicsFound: number;
+  seedScore?: number;
 }
 
 export class RunSummaryModalPresenter {
@@ -140,6 +141,12 @@ export class RunSummaryModalPresenter {
       ``,
       `💰 Gold Earned:      ${goldEarned}`
     ];
+
+    if (stats.seedScore !== undefined) {
+      lines.push(``);
+      lines.push(`🏆 Trial Score:      ${stats.seedScore}`);
+    }
+
     this.statsText.setText(lines.join('\n'));
 
     this.container.setVisible(true);
