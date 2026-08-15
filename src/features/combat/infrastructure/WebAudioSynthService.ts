@@ -1,7 +1,10 @@
 import { IAudioService } from '../application/ports/IAudioService';
 
 export class WebAudioSynthService implements IAudioService {
-  private ctx: AudioContext | null = null;
+  private static sharedCtx: AudioContext | null = null;
+  private static sharedBgmGain: GainNode | null = null;
+  public static globalBgmInterval: any = null;
+
   public isMuted: boolean = false;
   public bgmVolume: number = 0.8;
   public sfxVolume: number = 0.8;
@@ -9,19 +12,38 @@ export class WebAudioSynthService implements IAudioService {
   private bgmIntervalId: any = null;
   private currentBgmMode: 'title' | 'explore' | 'combat' | 'town' | 'dread' | null = null;
   private bgmStep: number = 0;
-  private bgmGain: GainNode | null = null;
 
   constructor() {
-    try {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (AudioContextClass) {
-        this.ctx = new AudioContextClass();
-      }
-    } catch (e) {
-      console.warn('Web Audio API not supported in this environment');
-    }
-
+    this.ensureContext();
     this.loadSettings();
+  }
+
+  private ensureContext(): void {
+    if (!WebAudioSynthService.sharedCtx || WebAudioSynthService.sharedCtx.state === 'closed') {
+      try {
+        const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+        if (AudioContextClass) {
+          WebAudioSynthService.sharedCtx = new AudioContextClass();
+        }
+      } catch (e) {}
+    }
+    if (WebAudioSynthService.sharedCtx && WebAudioSynthService.sharedCtx.state === 'suspended') {
+      WebAudioSynthService.sharedCtx.resume().catch(() => {});
+    }
+    if (WebAudioSynthService.sharedCtx && (!WebAudioSynthService.sharedBgmGain || WebAudioSynthService.sharedBgmGain.context !== WebAudioSynthService.sharedCtx)) {
+      try {
+        WebAudioSynthService.sharedBgmGain = WebAudioSynthService.sharedCtx.createGain();
+        WebAudioSynthService.sharedBgmGain.connect(WebAudioSynthService.sharedCtx.destination);
+      } catch (e) {}
+    }
+  }
+
+  private get ctx(): AudioContext | null {
+    return WebAudioSynthService.sharedCtx;
+  }
+
+  private get bgmGain(): GainNode | null {
+    return WebAudioSynthService.sharedBgmGain;
   }
 
   private loadSettings(): void {
@@ -67,22 +89,6 @@ export class WebAudioSynthService implements IAudioService {
     this.saveSettings();
   }
 
-  private ensureContext(): void {
-    if (!this.ctx || this.ctx.state === 'closed') {
-      try {
-        const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
-        if (AudioContextClass) {
-          this.ctx = new AudioContextClass();
-        }
-      } catch (e) {}
-    }
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
-  }
-
-  public static globalBgmInterval: any = null;
-
   public startBgm(mode: 'title' | 'explore' | 'combat' | 'town' | 'dread'): void {
     if (this.currentBgmMode === mode && this.bgmIntervalId) return;
     this.stopBgm();
@@ -92,11 +98,9 @@ export class WebAudioSynthService implements IAudioService {
     this.ensureContext();
     if (!this.ctx) return;
 
-    if (!this.bgmGain || this.bgmGain.context !== this.ctx) {
-      this.bgmGain = this.ctx.createGain();
-      this.bgmGain.connect(this.ctx.destination);
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
     }
-    this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
 
     const intervalMs = mode === 'combat' || mode === 'dread' ? 130 : (mode === 'title' ? 200 : 220);
     this.bgmIntervalId = setInterval(() => {

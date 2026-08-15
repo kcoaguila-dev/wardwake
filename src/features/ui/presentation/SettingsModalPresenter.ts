@@ -10,7 +10,6 @@ export class SettingsModalPresenter {
   private bgmLabel: Phaser.GameObjects.Text;
   private sfxLabel: Phaser.GameObjects.Text;
   private muteBtnText: Phaser.GameObjects.Text;
-  private controlsText: Phaser.GameObjects.Text;
   public bestiaryModal: BestiaryModalPresenter;
 
   public onClose?: () => void;
@@ -28,12 +27,12 @@ export class SettingsModalPresenter {
     const screenHeight = 360;
 
     // Dark backdrop shield
-    this.backdrop = this.scene.add.rectangle(0, 0, screenWidth, screenHeight, 0x000000, 0.85)
+    this.backdrop = this.scene.add.rectangle(0, 0, screenWidth, screenHeight, 0x000000, 0.88)
       .setOrigin(0, 0)
       .setInteractive();
 
-    const modalWidth = 360;
-    const modalHeight = 300;
+    const modalWidth = 380;
+    const modalHeight = 320;
     const modalX = (screenWidth - modalWidth) / 2;
     const modalY = (screenHeight - modalHeight) / 2;
 
@@ -43,7 +42,7 @@ export class SettingsModalPresenter {
       .setInteractive();
 
     // 1. Title
-    this.titleText = this.scene.add.text(screenWidth / 2, modalY + 20, '⚙️ SETTINGS', {
+    this.titleText = this.scene.add.text(screenWidth / 2, modalY + 18, '⚙️ SETTINGS', {
       fontSize: '14px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
@@ -51,119 +50,161 @@ export class SettingsModalPresenter {
     }).setOrigin(0.5, 0.5);
 
     // 2. Audio Sliders Section
-    const bgmRowY = modalY + 50;
-    const sfxRowY = modalY + 80;
-    const muteRowY = modalY + 110;
+    const bgmRowY = modalY + 44;
+    const sfxRowY = modalY + 70;
+    const muteRowY = modalY + 98;
+
+    const btnMinusX = modalX + 28;
+    const btnPlusX = modalX + modalWidth - 56;
+    const adjustBtnW = 28;
+    const adjustBtnH = 20;
 
     // BGM Controls: [ - ] BGM: 80% [ + ]
-    const btnMinusBgmX = modalX + 30;
-    const btnPlusBgmX = modalX + modalWidth - 60;
-    const bgmBtnW = 30;
-    const bgmBtnH = 22;
+    const bgmMinusBtn = this.scene.add.rectangle(btnMinusX, bgmRowY, adjustBtnW, adjustBtnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569)
+      .setInteractive({ useHandCursor: true });
+    const bgmMinusText = this.scene.add.text(btnMinusX + adjustBtnW / 2, bgmRowY + adjustBtnH / 2, '➖', {
+      fontSize: '10px'
+    }).setOrigin(0.5, 0.5);
 
-    const bgmMinusBtn = this.scene.add.rectangle(btnMinusBgmX, bgmRowY, bgmBtnW, bgmBtnH, 0x1e293b).setOrigin(0, 0);
-    this.scene.add.text(btnMinusBgmX + 10, bgmRowY + 4, '➖', { fontSize: '11px' });
+    const bgmPlusBtn = this.scene.add.rectangle(btnPlusX, bgmRowY, adjustBtnW, adjustBtnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569)
+      .setInteractive({ useHandCursor: true });
+    const bgmPlusText = this.scene.add.text(btnPlusX + adjustBtnW / 2, bgmRowY + adjustBtnH / 2, '➕', {
+      fontSize: '10px'
+    }).setOrigin(0.5, 0.5);
 
-    const bgmPlusBtn = this.scene.add.rectangle(btnPlusBgmX, bgmRowY, bgmBtnW, bgmBtnH, 0x1e293b).setOrigin(0, 0);
-    this.scene.add.text(btnPlusBgmX + 10, bgmRowY + 4, '➕', { fontSize: '11px' });
-
-    this.bgmLabel = this.scene.add.text(screenWidth / 2, bgmRowY + 11, `🎵 BGM Volume: ${Math.round(this.audioService.bgmVolume * 100)}%`, {
+    this.bgmLabel = this.scene.add.text(screenWidth / 2, bgmRowY + adjustBtnH / 2, `🎵 BGM Volume: ${Math.round(this.audioService.bgmVolume * 100)}%`, {
       fontSize: '11px',
       fontFamily: 'monospace',
       color: '#f8fafc'
     }).setOrigin(0.5, 0.5);
 
     // SFX Controls: [ - ] SFX: 80% [ + ]
-    const sfxMinusBtn = this.scene.add.rectangle(btnMinusBgmX, sfxRowY, bgmBtnW, bgmBtnH, 0x1e293b).setOrigin(0, 0);
-    this.scene.add.text(btnMinusBgmX + 10, sfxRowY + 4, '➖', { fontSize: '11px' });
+    const sfxMinusBtn = this.scene.add.rectangle(btnMinusX, sfxRowY, adjustBtnW, adjustBtnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569)
+      .setInteractive({ useHandCursor: true });
+    const sfxMinusText = this.scene.add.text(btnMinusX + adjustBtnW / 2, sfxRowY + adjustBtnH / 2, '➖', {
+      fontSize: '10px'
+    }).setOrigin(0.5, 0.5);
 
-    const sfxPlusBtn = this.scene.add.rectangle(btnPlusBgmX, sfxRowY, bgmBtnW, bgmBtnH, 0x1e293b).setOrigin(0, 0);
-    this.scene.add.text(btnPlusBgmX + 10, sfxRowY + 4, '➕', { fontSize: '11px' });
+    const sfxPlusBtn = this.scene.add.rectangle(btnPlusX, sfxRowY, adjustBtnW, adjustBtnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569)
+      .setInteractive({ useHandCursor: true });
+    const sfxPlusText = this.scene.add.text(btnPlusX + adjustBtnW / 2, sfxRowY + adjustBtnH / 2, '➕', {
+      fontSize: '10px'
+    }).setOrigin(0.5, 0.5);
 
-    this.sfxLabel = this.scene.add.text(screenWidth / 2, sfxRowY + 11, `💥 SFX Volume: ${Math.round(this.audioService.sfxVolume * 100)}%`, {
+    this.sfxLabel = this.scene.add.text(screenWidth / 2, sfxRowY + adjustBtnH / 2, `💥 SFX Volume: ${Math.round(this.audioService.sfxVolume * 100)}%`, {
       fontSize: '11px',
       fontFamily: 'monospace',
       color: '#f8fafc'
     }).setOrigin(0.5, 0.5);
 
     // Mute Toggle Button
-    const muteBtnW = 160;
-    const muteBtnH = 24;
-    const muteBtnX = (screenWidth - muteBtnW) / 2;
-    const muteBtn = this.scene.add.rectangle(muteBtnX, muteRowY, muteBtnW, muteBtnH, 0x1e293b).setOrigin(0, 0);
+    const mainBtnW = 180;
+    const mainBtnH = 22;
+    const mainBtnX = (screenWidth - mainBtnW) / 2;
 
-    this.muteBtnText = this.scene.add.text(screenWidth / 2, muteRowY + 12, this.audioService.isMuted ? '🔇 Sound: MUTED' : '🔊 Sound: ACTIVE', {
-      fontSize: '11px',
+    const muteBtn = this.scene.add.rectangle(mainBtnX, muteRowY, mainBtnW, mainBtnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569)
+      .setInteractive({ useHandCursor: true });
+
+    this.muteBtnText = this.scene.add.text(screenWidth / 2, muteRowY + mainBtnH / 2, this.audioService.isMuted ? '🔇 Sound: MUTED' : '🔊 Sound: ACTIVE', {
+      fontSize: '10.5px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: this.audioService.isMuted ? '#f87171' : '#4ade80'
     }).setOrigin(0.5, 0.5);
 
     // Bestiary Button
-    const bestiaryBtnY = muteRowY + 30;
-    const bestiaryBtn = this.scene.add.rectangle(muteBtnX, bestiaryBtnY, muteBtnW, muteBtnH, 0x1e293b).setOrigin(0, 0)
-      .setStrokeStyle(1, 0x475569);
+    const bestiaryBtnY = muteRowY + 28;
+    const bestiaryBtn = this.scene.add.rectangle(mainBtnX, bestiaryBtnY, mainBtnW, mainBtnH, 0x1e293b)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x475569)
+      .setInteractive({ useHandCursor: true });
 
-    const bestiaryBtnText = this.scene.add.text(screenWidth / 2, bestiaryBtnY + 12, '📖 OPEN BESTIARY', {
-      fontSize: '11px',
+    const bestiaryBtnText = this.scene.add.text(screenWidth / 2, bestiaryBtnY + mainBtnH / 2, '📖 OPEN BESTIARY', {
+      fontSize: '10.5px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#cbd5e1'
     }).setOrigin(0.5, 0.5);
 
-
     // Save & Quit Button
-    const saveBtnY = bestiaryBtnY + 30;
-    const saveBtn = this.scene.add.rectangle(muteBtnX, saveBtnY, muteBtnW, muteBtnH, 0xb91c1c).setOrigin(0, 0)
-      .setStrokeStyle(1, 0xef4444);
+    const saveBtnY = bestiaryBtnY + 28;
+    const saveBtn = this.scene.add.rectangle(mainBtnX, saveBtnY, mainBtnW, mainBtnH, 0xb91c1c)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0xef4444)
+      .setInteractive({ useHandCursor: true });
 
-    const saveBtnText = this.scene.add.text(screenWidth / 2, saveBtnY + 12, '💾 SAVE & EXIT TO TITLE', {
-      fontSize: '11px',
+    const saveBtnText = this.scene.add.text(screenWidth / 2, saveBtnY + mainBtnH / 2, '💾 SAVE & EXIT TO TITLE', {
+      fontSize: '10.5px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
-      color: '#fca5a5'
+      color: '#fef2f2'
     }).setOrigin(0.5, 0.5);
 
-    // 3. Keybindings Quick Reference Box
-
-    const boxY = modalY + 172;
-    this.scene.add.rectangle(modalX + 15, boxY, modalWidth - 30, 65, 0x090d16, 0.9)
+    // 3. Keybindings Quick Reference Box (Positioned cleanly below Save button!)
+    const boxY = saveBtnY + 34;
+    const boxH = 50;
+    const boxW = modalWidth - 30;
+    const boxBg = this.scene.add.rectangle(modalX + 15, boxY, boxW, boxH, 0x090d16, 0.95)
       .setOrigin(0, 0)
       .setStrokeStyle(1, 0x334155);
 
     const controlsLines = [
       '🎮 CONTROLS REFERENCE:',
-      '• WASD / Arrows  : Move & Bump Attack',
-      '• Shift + Move   : Corridor Sprint & Ally Swap',
-      '• Tab / Space    : Switch Leader / Wait Turn',
-      '• I / Esc        : Open Inventory / Cancel Menu'
+      '• WASD / Arrows : Move & Attack   • Shift: Sprint',
+      '• Tab / Space   : Switch / Wait   • I/Esc: Items/Cancel'
     ];
 
-    this.controlsText = this.scene.add.text(modalX + 25, boxY + 8, controlsLines.join('\n'), {
-      fontSize: '9.5px',
+    const controlsText = this.scene.add.text(modalX + 24, boxY + 6, controlsLines.join('\n'), {
+      fontSize: '9px',
       fontFamily: 'monospace',
       lineSpacing: 3,
       color: '#cbd5e1'
     });
 
     // 4. Close Button
-    const closeBtnW = 120;
-    const closeBtnH = 26;
+    const closeBtnW = 130;
+    const closeBtnH = 24;
     const closeBtnX = (screenWidth - closeBtnW) / 2;
-    const closeBtnY = modalY + modalHeight - 34;
+    const closeBtnY = modalY + modalHeight - 30;
 
     const closeBtn = this.scene.add.rectangle(closeBtnX, closeBtnY, closeBtnW, closeBtnH, 0x334155)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x64748b);
+      .setStrokeStyle(1, 0x64748b)
+      .setInteractive({ useHandCursor: true });
 
-    const closeBtnText = this.scene.add.text(screenWidth / 2, closeBtnY + 13, '❌ CLOSE (Esc)', {
-      fontSize: '11px',
+    const closeBtnText = this.scene.add.text(screenWidth / 2, closeBtnY + closeBtnH / 2, '❌ CLOSE (Esc)', {
+      fontSize: '10.5px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffffff'
     }).setOrigin(0.5, 0.5);
 
-    // Screen-space pointer listener
+    // Button Hover Effects
+    [
+      { btn: bgmMinusBtn, def: 0x1e293b, hov: 0x334155 },
+      { btn: bgmPlusBtn, def: 0x1e293b, hov: 0x334155 },
+      { btn: sfxMinusBtn, def: 0x1e293b, hov: 0x334155 },
+      { btn: sfxPlusBtn, def: 0x1e293b, hov: 0x334155 },
+      { btn: muteBtn, def: 0x1e293b, hov: 0x334155 },
+      { btn: bestiaryBtn, def: 0x1e293b, hov: 0x334155 },
+      { btn: saveBtn, def: 0xb91c1c, hov: 0xdc2626 },
+      { btn: closeBtn, def: 0x334155, hov: 0x475569 }
+    ].forEach(({ btn, def, hov }) => {
+      btn.on('pointerover', () => btn.setFillStyle(hov));
+      btn.on('pointerout', () => btn.setFillStyle(def));
+    });
+
+    // Pointer Click Dispatcher
     this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.isVisible() || this.bestiaryModal.isVisible()) return;
 
@@ -171,45 +212,44 @@ export class SettingsModalPresenter {
       const py = pointer.y;
 
       // BGM Minus
-      if (px >= btnMinusBgmX && px <= btnMinusBgmX + bgmBtnW && py >= bgmRowY && py <= bgmRowY + bgmBtnH) {
+      if (px >= btnMinusX && px <= btnMinusX + adjustBtnW && py >= bgmRowY && py <= bgmRowY + adjustBtnH) {
         this.audioService.setBgmVolume(this.audioService.bgmVolume - 0.1);
         this.updateLabels();
       }
       // BGM Plus
-      else if (px >= btnPlusBgmX && px <= btnPlusBgmX + bgmBtnW && py >= bgmRowY && py <= bgmRowY + bgmBtnH) {
+      else if (px >= btnPlusX && px <= btnPlusX + adjustBtnW && py >= bgmRowY && py <= bgmRowY + adjustBtnH) {
         this.audioService.setBgmVolume(this.audioService.bgmVolume + 0.1);
         this.updateLabels();
       }
       // SFX Minus
-      else if (px >= btnMinusBgmX && px <= btnMinusBgmX + bgmBtnW && py >= sfxRowY && py <= sfxRowY + bgmBtnH) {
+      else if (px >= btnMinusX && px <= btnMinusX + adjustBtnW && py >= sfxRowY && py <= sfxRowY + adjustBtnH) {
         this.audioService.setSfxVolume(this.audioService.sfxVolume - 0.1);
         this.audioService.playSound('hero_step');
         this.updateLabels();
       }
       // SFX Plus
-      else if (px >= btnPlusBgmX && px <= btnPlusBgmX + bgmBtnW && py >= sfxRowY && py <= sfxRowY + bgmBtnH) {
+      else if (px >= btnPlusX && px <= btnPlusX + adjustBtnW && py >= sfxRowY && py <= sfxRowY + adjustBtnH) {
         this.audioService.setSfxVolume(this.audioService.sfxVolume + 0.1);
         this.audioService.playSound('hero_step');
         this.updateLabels();
       }
       // Mute Toggle
-      else if (px >= muteBtnX && px <= muteBtnX + muteBtnW && py >= muteRowY && py <= muteRowY + muteBtnH) {
+      else if (px >= mainBtnX && px <= mainBtnX + mainBtnW && py >= muteRowY && py <= muteRowY + mainBtnH) {
         this.audioService.toggleMute();
         this.updateLabels();
       }
       // Bestiary Button
-      else if (px >= muteBtnX && px <= muteBtnX + muteBtnW && py >= bestiaryBtnY && py <= bestiaryBtnY + muteBtnH) {
+      else if (px >= mainBtnX && px <= mainBtnX + mainBtnW && py >= bestiaryBtnY && py <= bestiaryBtnY + mainBtnH) {
         this.audioService.playSound('hero_step');
         this.bestiaryModal.show();
       }
-
       // Save & Quit Button
-      else if (px >= muteBtnX && px <= muteBtnX + muteBtnW && py >= saveBtnY && py <= saveBtnY + muteBtnH) {
+      else if (px >= mainBtnX && px <= mainBtnX + mainBtnW && py >= saveBtnY && py <= saveBtnY + mainBtnH) {
         this.audioService.playSound('hero_step');
+        this.hide();
         if (this.onQuit) this.onQuit();
       }
       // Close Button
-
       else if (px >= closeBtnX && px <= closeBtnX + closeBtnW && py >= closeBtnY && py <= closeBtnY + closeBtnH) {
         this.hide();
         if (this.onClose) this.onClose();
@@ -221,10 +261,14 @@ export class SettingsModalPresenter {
       this.modalBg,
       this.titleText,
       bgmMinusBtn,
+      bgmMinusText,
       bgmPlusBtn,
+      bgmPlusText,
       this.bgmLabel,
       sfxMinusBtn,
+      sfxMinusText,
       sfxPlusBtn,
+      sfxPlusText,
       this.sfxLabel,
       muteBtn,
       this.muteBtnText,
@@ -232,7 +276,8 @@ export class SettingsModalPresenter {
       bestiaryBtnText,
       saveBtn,
       saveBtnText,
-      this.controlsText,
+      boxBg,
+      controlsText,
       closeBtn,
       closeBtnText
     ]);

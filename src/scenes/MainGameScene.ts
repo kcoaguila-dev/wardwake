@@ -52,6 +52,7 @@ import { TownStorageService } from '../features/progression/infrastructure/TownS
 import { ApplyProgressionUseCase } from '../features/progression/application/ApplyProgressionUseCase';
 import { TownManagerUseCase } from '../features/progression/application/TownManagerUseCase';
 import { LocalStorageProfileRepository } from '../features/save/infrastructure/LocalStorageProfileRepository';
+import { SaveGameRepository } from '../features/save/infrastructure/SaveGameRepository';
 import { SaveProfileUseCase } from '../features/save/application/SaveProfileUseCase';
 import { Room } from '../features/grid/domain/BspNode';
 
@@ -2187,6 +2188,7 @@ export class MainGameScene extends Phaser.Scene {
     TownStorageService.save(townManager.getTownData());
 
     // Clear active run save
+    SaveGameRepository.clear();
     const sSlot = LocalStorageProfileRepository.getActiveSlotId();
     const sProf = LocalStorageProfileRepository.loadProfile(sSlot);
     if (sProf) {
@@ -2198,6 +2200,17 @@ export class MainGameScene extends Phaser.Scene {
   }
 
   private doSaveGameState(): void {
+    const squadUnits = this.playerSquad.map(p => p.unit);
+    SaveGameRepository.save(
+      this.floorCount,
+      this.turnCount,
+      this.runMonstersSlain,
+      this.runRelicsFound,
+      squadUnits,
+      this.selectedPlayerIndex ?? 0,
+      this.activeModifier
+    );
+
     const activeSlotId = LocalStorageProfileRepository.getActiveSlotId();
     const prof = LocalStorageProfileRepository.loadProfile(activeSlotId);
     if (prof) {
@@ -2207,23 +2220,23 @@ export class MainGameScene extends Phaser.Scene {
         turnsTaken: this.turnCount,
         monstersSlain: this.runMonstersSlain,
         relicsFound: this.runRelicsFound,
-        playerSquad: this.playerSquad.map(p => ({
-          id: p.unit.id,
-          name: p.unit.name,
-          maxHp: p.unit.maxHp,
-          currentHp: p.unit.currentHp,
-          maxSp: p.unit.maxSp,
-          currentSp: p.unit.currentSp,
-          attack: p.unit.attack,
-          defense: p.unit.defense,
-          weaponType: p.unit.weaponType,
-          exp: p.unit.exp,
-          level: p.unit.level,
-          belly: p.unit.belly,
-          maxBelly: p.unit.maxBelly,
-          inventory: p.unit.inventory,
-          equippedWeapon: p.unit.equippedWeapon,
-          equippedArmor: p.unit.equippedArmor
+        playerSquad: squadUnits.map(p => ({
+          id: p.id,
+          name: p.name,
+          maxHp: p.maxHp,
+          currentHp: p.currentHp,
+          maxSp: p.maxSp,
+          currentSp: p.currentSp,
+          attack: p.attack,
+          defense: p.defense,
+          weaponType: p.weaponType,
+          exp: p.exp,
+          level: p.level,
+          belly: p.belly,
+          maxBelly: p.maxBelly,
+          inventory: p.inventory,
+          equippedWeapon: p.equippedWeapon,
+          equippedArmor: p.equippedArmor
         })),
         selectedPlayerIndex: this.selectedPlayerIndex ?? 0,
         activeModifier: this.activeModifier,

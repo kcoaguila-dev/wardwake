@@ -46,6 +46,9 @@ describe('WebAudioSynthService', () => {
     (global as any).window.AudioContext = jest.fn().mockImplementation(() => mockAudioContext);
     (global as any).AudioContext = (global as any).window.AudioContext;
 
+    (WebAudioSynthService as any).sharedCtx = null;
+    (WebAudioSynthService as any).sharedBgmGain = null;
+
     service = new WebAudioSynthService();
   });
 
@@ -67,9 +70,10 @@ describe('WebAudioSynthService', () => {
   });
 
   it('should not play sound if muted', () => {
+    mockAudioContext.createOscillator.mockClear();
     service.toggleMute();
     service.playSound('sword_slash');
-    expect(mockAudioContext.createGain).not.toHaveBeenCalled();
+    expect(mockAudioContext.createOscillator).not.toHaveBeenCalled();
   });
 
   it('should resume AudioContext if suspended', () => {
