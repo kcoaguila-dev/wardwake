@@ -177,7 +177,7 @@ export class MainGameScene extends Phaser.Scene {
     this.actionBarPresenter = new ActionBarPresenter(this);
     this.actionBarPresenter.onAttack = () => {
       const activeHero = this.getActiveHero();
-      if (!activeHero || this.isProcessingAction) return;
+      if (!activeHero || this.isProcessingAction || (this.isEncounterActive && activeHero.hasActed)) return;
       const adjacentEnemy = this.enemySquad.find(e => {
         if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
         const dist = Math.abs(activeHero.coord.x - e.coord.x) + Math.abs(activeHero.coord.y - e.coord.y);
@@ -191,21 +191,18 @@ export class MainGameScene extends Phaser.Scene {
     };
     this.actionBarPresenter.onSkill = () => {
       const activeHero = this.getActiveHero();
-      if (activeHero && !this.isProcessingAction) {
-        this.showSkillMenu(activeHero);
-      }
+      if (!activeHero || this.isProcessingAction || (this.isEncounterActive && activeHero.hasActed)) return;
+      this.showSkillMenu(activeHero);
     };
     this.actionBarPresenter.onItem = () => {
       const activeHero = this.getActiveHero();
-      if (activeHero && !this.isProcessingAction) {
-        this.showInventoryMenu(activeHero);
-      }
+      if (!activeHero || this.isProcessingAction || (this.isEncounterActive && activeHero.hasActed)) return;
+      this.showInventoryMenu(activeHero);
     };
     this.actionBarPresenter.onWait = () => {
       const activeHero = this.getActiveHero();
-      if (activeHero && !this.isProcessingAction) {
-        this.finalizePlayerTurn(activeHero);
-      }
+      if (!activeHero || this.isProcessingAction || (this.isEncounterActive && activeHero.hasActed)) return;
+      this.finalizePlayerTurn(activeHero);
     };
 
     this.inventoryMenuPresenter = new InventoryMenuPresenter(this);
@@ -1202,14 +1199,23 @@ export class MainGameScene extends Phaser.Scene {
     this.enemyInspectionPresenter?.hide();
 
     if (this.isEncounterActive) {
-      const obstacles = [
-        ...this.playerSquad.filter((p, i) => i !== index && p.unit.currentHp > 0).map(p => p.coord),
-        ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
-      ];
-      const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3, obstacles);
-      this.gridPresenter.highlightWalkableArea(validMoves, selectedPlayer.coord);
+      if (!selectedPlayer.hasActed) {
+        const obstacles = [
+          ...this.playerSquad.filter((p, i) => i !== index && p.unit.currentHp > 0).map(p => p.coord),
+          ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
+        ];
+        const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3, obstacles);
+        this.gridPresenter.highlightWalkableArea(validMoves, selectedPlayer.coord);
+
+        const hasAdjacentEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && Math.abs(e.coord.x - selectedPlayer.coord.x) + Math.abs(e.coord.y - selectedPlayer.coord.y) === 1);
+        this.actionBarPresenter.updateState(hasAdjacentEnemy, true, true);
+      } else {
+        this.gridPresenter.clearHighlights();
+        this.actionBarPresenter.updateState(false, false, true);
+      }
     } else {
       this.gridPresenter.clearHighlights();
+      this.actionBarPresenter.updateState(false, true, false);
     }
 
     this.centerCameraOn(selectedPlayer.coord);
@@ -1297,10 +1303,12 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
   }
 
-  private async onTileClicked(coord: TileCoordinate) {
+  private async onTileClicked(coord: TileCoordinate | { x: number, y: number }) {
     if (this.isProcessingAction || this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       return;
     }
+
+    const tileCoord = coord instanceof TileCoordinate ? coord : new TileCoordinate(coord.x, coord.y);
 
     if (
       (this.stairsModalPresenter && this.stairsModalPresenter.isVisible()) ||
@@ -1312,26 +1320,52 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    if (this.isEncounterActive && this.isMenuOpen && !this.isTargeting && !this.isSkillTargeting) {
-      await this.cancelActionMenu();
+    // 1. Direct Ally Selection or Swap (can be clicked even if menu was open)
+    const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && p.coord.equals(tileCoord));
+    if (clickedPlayerIndex !== -1) {
+      this.actionMenuPresenter.hide();
+      this.isMenuOpen = false;
+      if (this.isEncounterActive) {
+        this.selectHeroByIndex(clickedPlayerIndex);
+        return;
+      }
+
+      if (this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
+        const currentHero = this.playerSquad[this.selectedPlayerIndex]!;
+        const clickedHero = this.playerSquad[clickedPlayerIndex]!;
+        const dist = Math.abs(currentHero.coord.x - clickedHero.coord.x) + Math.abs(currentHero.coord.y - clickedHero.coord.y);
+        if (dist === 1 && this.selectedPlayerIndex !== clickedPlayerIndex) {
+          await this.swapPlayerPositions(currentHero, clickedHero);
+          return;
+        }
+      }
+      this.selectHeroByIndex(clickedPlayerIndex);
       return;
     }
 
     if (this.isSkillTargeting && this.selectedPlayerIndex !== null && this.selectedSkillId) {
       const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
       if (selectedPlayer) {
-        await this.executePlayerSkill(selectedPlayer, this.selectedSkillId, coord);
+        await this.executePlayerSkill(selectedPlayer, this.selectedSkillId, tileCoord);
       }
       return;
     }
 
-    // 1. Direct Attack or Enemy Inspection Range Highlight
+    // 2. Direct Attack or Enemy Inspection Range Highlight
     const activeHero = this.getActiveHero();
-    const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord) && this.visibilityMap.isVisible(coord));
+    const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(tileCoord) && this.visibilityMap.isVisible(tileCoord));
     if (clickedEnemy && activeHero) {
-      const dist = Math.abs(activeHero.coord.x - coord.x) + Math.abs(activeHero.coord.y - coord.y);
+      const dist = Math.abs(activeHero.coord.x - tileCoord.x) + Math.abs(activeHero.coord.y - tileCoord.y);
       if (dist === 1 || this.isTargeting) {
+        if (this.isEncounterActive && activeHero.hasActed) {
+          const scX = activeHero.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+          const scY = activeHero.coord.y * GridPresenter.TILE_SIZE - 12;
+          this.combatTextPresenter.showBanner(scX, scY, '⏳ Turn completed');
+          return;
+        }
         this.isTargeting = false;
+        this.actionMenuPresenter.hide();
+        this.isMenuOpen = false;
         this.enemyInspectionPresenter?.hide();
         await this.executePlayerAttack(activeHero, clickedEnemy);
         return;
@@ -1363,39 +1397,20 @@ export class MainGameScene extends Phaser.Scene {
       }
 
       this.combatForecastPresenter.hide();
+      this.actionMenuPresenter.hide();
+      this.isMenuOpen = false;
       this.gridPresenter.highlightEnemyRange(enemyValidMoves, enemyAttackTiles, clickedEnemy.coord);
       this.enemyInspectionPresenter.show(clickedEnemy.unit, activeHero.unit);
       return;
     }
 
-    if (coord.equals(this.staircaseCoord)) {
+    if (tileCoord.equals(this.staircaseCoord)) {
       const heroOnStairs = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(this.staircaseCoord));
       if (heroOnStairs) {
         this.stairsModalPresenter.show(this.floorCount + 1);
         this.isMenuOpen = true;
         return;
       }
-    }
-
-    // 2. Direct Ally Selection or Swap
-    const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && p.coord.equals(coord));
-    if (clickedPlayerIndex !== -1) {
-      if (this.isEncounterActive) {
-        this.selectHeroByIndex(clickedPlayerIndex);
-        return;
-      }
-
-      if (this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
-        const currentHero = this.playerSquad[this.selectedPlayerIndex]!;
-        const clickedHero = this.playerSquad[clickedPlayerIndex]!;
-        const dist = Math.abs(currentHero.coord.x - clickedHero.coord.x) + Math.abs(currentHero.coord.y - clickedHero.coord.y);
-        if (dist === 1 && this.selectedPlayerIndex !== clickedPlayerIndex) {
-          await this.swapPlayerPositions(currentHero, clickedHero);
-          return;
-        }
-      }
-      this.selectHeroByIndex(clickedPlayerIndex);
-      return;
     }
 
     if (this.selectedPlayerIndex === null) {
@@ -1412,7 +1427,7 @@ export class MainGameScene extends Phaser.Scene {
     }
 
     const selectedPlayer = this.playerSquad[this.selectedPlayerIndex];
-    if (!selectedPlayer) {
+    if (!selectedPlayer || (this.isEncounterActive && selectedPlayer.hasActed)) {
       return;
     }
 
@@ -1422,10 +1437,14 @@ export class MainGameScene extends Phaser.Scene {
       ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
     ];
     const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3, obstacles);
-    const isReachable = validMoves.some(move => move.equals(coord));
+    const isReachable = validMoves.some(move => move.equals(tileCoord));
 
     if (isReachable) {
-      await this.movePlayerUnit(selectedPlayer, coord);
+      this.actionMenuPresenter.hide();
+      this.isMenuOpen = false;
+      await this.movePlayerUnit(selectedPlayer, tileCoord);
+    } else if (this.isEncounterActive && this.isMenuOpen) {
+      await this.cancelActionMenu();
     }
   }
 
@@ -1936,20 +1955,22 @@ export class MainGameScene extends Phaser.Scene {
     player.hasActed = true;
     player.graphic.setSelected(false);
     player.graphic.setExhausted(true);
-    this.selectedPlayerIndex = null;
     this.gridPresenter.clearHighlights();
     this.combatForecastPresenter.hide();
+    this.enemyInspectionPresenter?.hide();
     this.turnStartCoords.set(player.unit.id, new TileCoordinate(player.coord.x, player.coord.y));
 
     const allActed = this.playerSquad.every(p => p.unit.currentHp <= 0 || p.hasActed);
     if (allActed) {
+      this.selectedPlayerIndex = null;
       this.phaseManager.advancePhase();
       this.hudPresenter.updatePhase('🔴 ENEMY');
       this.executeEnemyPhase();
     } else {
       const nextActiveHero = this.playerSquad.find(p => p.unit.currentHp > 0 && !p.hasActed);
       if (nextActiveHero) {
-        this.centerCameraOn(nextActiveHero.coord);
+        const nextIdx = this.playerSquad.indexOf(nextActiveHero);
+        this.selectHeroByIndex(nextIdx);
       }
     }
   }
