@@ -6,22 +6,26 @@ export class HowToPlayModalPresenter {
   private modalBg: Phaser.GameObjects.Rectangle;
   private titleText: Phaser.GameObjects.Text;
   private contentText: Phaser.GameObjects.Text;
+  private closeBtn: Phaser.GameObjects.Rectangle;
+  private closeBtnText: Phaser.GameObjects.Text;
 
   public onClose?: () => void;
 
   constructor(private scene: Phaser.Scene) {
+    const screenWidth = 640;
+    const screenHeight = 360;
+
     this.container = this.scene.add.container(0, 0);
     this.container.setDepth(350);
     this.container.setScrollFactor(0);
     this.container.setVisible(false);
 
-    const screenWidth = 640;
-    const screenHeight = 360;
-
-    // Dark backdrop shield
+    // Dark backdrop shield - clicking backdrop closes modal
     this.backdrop = this.scene.add.rectangle(0, 0, screenWidth, screenHeight, 0x000000, 0.85)
       .setOrigin(0, 0)
-      .setInteractive();
+      .setInteractive({ useHandCursor: true });
+    
+    this.backdrop.on('pointerdown', () => this.handleClose());
 
     const modalWidth = 440;
     const modalHeight = 270;
@@ -31,7 +35,7 @@ export class HowToPlayModalPresenter {
     this.modalBg = this.scene.add.rectangle(modalX, modalY, modalWidth, modalHeight, 0x0c1322, 0.98)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0xffd700)
-      .setInteractive();
+      .setInteractive(); // Prevent click-through to backdrop
 
     // 1. Title
     this.titleText = this.scene.add.text(screenWidth / 2, modalY + 20, '📖 EXPEDITION FIELD MANUAL', {
@@ -66,43 +70,41 @@ export class HowToPlayModalPresenter {
     });
 
     // 3. Close Button
-    const closeBtnW = 130;
-    const closeBtnH = 26;
+    const closeBtnW = 140;
+    const closeBtnH = 28;
     const closeBtnX = (screenWidth - closeBtnW) / 2;
-    const closeBtnY = modalY + modalHeight - 34;
+    const closeBtnY = modalY + modalHeight - 36;
 
-    const closeBtn = this.scene.add.rectangle(closeBtnX, closeBtnY, closeBtnW, closeBtnH, 0x334155)
+    this.closeBtn = this.scene.add.rectangle(closeBtnX, closeBtnY, closeBtnW, closeBtnH, 0x1e293b)
       .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x64748b);
+      .setStrokeStyle(1.5, 0xef4444)
+      .setInteractive({ useHandCursor: true });
 
-    const closeBtnText = this.scene.add.text(screenWidth / 2, closeBtnY + 13, '❌ CLOSE (Esc)', {
+    this.closeBtnText = this.scene.add.text(screenWidth / 2, closeBtnY + 14, '❌ CLOSE (Esc)', {
       fontSize: '11px',
       fontFamily: 'monospace',
       fontStyle: 'bold',
       color: '#ffffff'
-    }).setOrigin(0.5, 0.5);
+    }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
 
-    // Screen-space pointer listener
-    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isVisible()) return;
-
-      const px = pointer.x;
-      const py = pointer.y;
-
-      if (px >= closeBtnX && px <= closeBtnX + closeBtnW && py >= closeBtnY && py <= closeBtnY + closeBtnH) {
-        this.hide();
-        if (this.onClose) this.onClose();
-      }
-    });
+    this.closeBtn.on('pointerover', () => this.closeBtn.setFillStyle(0x334155));
+    this.closeBtn.on('pointerout', () => this.closeBtn.setFillStyle(0x1e293b));
+    this.closeBtn.on('pointerdown', () => this.handleClose());
+    this.closeBtnText.on('pointerdown', () => this.handleClose());
 
     this.container.add([
       this.backdrop,
       this.modalBg,
       this.titleText,
       this.contentText,
-      closeBtn,
-      closeBtnText
+      this.closeBtn,
+      this.closeBtnText
     ]);
+  }
+
+  private handleClose(): void {
+    this.hide();
+    if (this.onClose) this.onClose();
   }
 
   public show(): void {

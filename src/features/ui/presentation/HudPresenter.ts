@@ -41,7 +41,7 @@ export class HudPresenter {
     this.turnText.setScrollFactor(0);
     this.turnText.setDepth(11);
 
-    // End Turn Button
+    // End Turn Button - only visible during active Combat Mode
     this.endTurnButton = this.scene.add.text(width - 152, 8, '[⏳ END TURN]', {
       fontSize: '11px',
       fontFamily: 'monospace',
@@ -52,6 +52,7 @@ export class HudPresenter {
     });
     this.endTurnButton.setScrollFactor(0);
     this.endTurnButton.setDepth(11);
+    this.endTurnButton.setVisible(false); // Hidden by default in explore mode
     this.endTurnButton.setInteractive({ useHandCursor: true });
     this.endTurnButton.on('pointerover', () => this.endTurnButton.setColor('#ffff00'));
     this.endTurnButton.on('pointerout', () => this.endTurnButton.setColor('#e2e8f0'));
@@ -128,6 +129,8 @@ export class HudPresenter {
 
   updatePhase(phase: string): void {
     this.phaseText.setText(phase);
+    const isCombat = phase.includes('COMBAT');
+    this.endTurnButton.setVisible(isCombat);
     this.relayout();
   }
 

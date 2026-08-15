@@ -7,7 +7,7 @@ export class WebAudioSynthService implements IAudioService {
   public sfxVolume: number = 0.8;
 
   private bgmIntervalId: any = null;
-  private currentBgmMode: 'title' | 'explore' | 'combat' | 'town' | null = null;
+  private currentBgmMode: 'title' | 'explore' | 'combat' | 'town' | 'dread' | null = null;
   private bgmStep: number = 0;
   private bgmGain: GainNode | null = null;
 
@@ -67,7 +67,9 @@ export class WebAudioSynthService implements IAudioService {
     this.saveSettings();
   }
 
-  public startBgm(mode: 'title' | 'explore' | 'combat' | 'town'): void {
+  public static globalBgmInterval: any = null;
+
+  public startBgm(mode: 'title' | 'explore' | 'combat' | 'town' | 'dread'): void {
     if (this.currentBgmMode === mode && this.bgmIntervalId) return;
     this.stopBgm();
     this.currentBgmMode = mode;
@@ -84,16 +86,21 @@ export class WebAudioSynthService implements IAudioService {
     }
     this.bgmGain.gain.value = this.isMuted ? 0 : 0.22 * this.bgmVolume;
 
-    const intervalMs = mode === 'combat' ? 140 : (mode === 'title' ? 200 : 220);
+    const intervalMs = mode === 'combat' || mode === 'dread' ? 130 : (mode === 'title' ? 200 : 220);
     this.bgmIntervalId = setInterval(() => {
       this.tickBgm();
     }, intervalMs);
+    WebAudioSynthService.globalBgmInterval = this.bgmIntervalId;
   }
 
   public stopBgm(): void {
     if (this.bgmIntervalId) {
       clearInterval(this.bgmIntervalId);
       this.bgmIntervalId = null;
+    }
+    if (WebAudioSynthService.globalBgmInterval) {
+      clearInterval(WebAudioSynthService.globalBgmInterval);
+      WebAudioSynthService.globalBgmInterval = null;
     }
     this.currentBgmMode = null;
   }
@@ -114,9 +121,9 @@ export class WebAudioSynthService implements IAudioService {
       ];
 
       const freq = melodyNotes[this.bgmStep % melodyNotes.length]!;
-      this.playSynthPluck(freq, 'triangle', 0.28, t, 0.75);
+      this.playSynthPluck(freq, 'triangle', 0.35, t, 0.7);
 
-      // Shimmering High Bell Chime on key beats
+      // Shimmering Harmony on every 4th step
       if (this.bgmStep % 4 === 0) {
         this.playSynthPluck(freq * 2, 'sine', 0.4, t, 0.35);
       }
@@ -153,6 +160,16 @@ export class WebAudioSynthService implements IAudioService {
       if (leadFreq > 0) {
         this.playSynthPluck(leadFreq, 'sawtooth', 0.16, t, 0.45);
       }
+    } else if (mode === 'dread') {
+      // Ominous Dread FOE / Boss Tension Theme (Heavy Sub-Bass & Fast Percussive Synth)
+      const dreadBass = [55.00, 58.27, 55.00, 51.91, 55.00, 58.27, 65.41, 61.74]; // A1, Bb1, A1, Ab1, A1, Bb1, C2, B1
+      const dreadLead = [220.00, 233.08, 220.00, 207.65, 293.66, 277.18, 246.94, 233.08];
+
+      const bassFreq = dreadBass[this.bgmStep % dreadBass.length]!;
+      this.playSynthPluck(bassFreq, 'sawtooth', 0.12, t, 0.9);
+
+      const leadFreq = dreadLead[this.bgmStep % dreadLead.length]!;
+      this.playSynthPluck(leadFreq, 'square', 0.10, t, 0.6);
     }
 
     this.bgmStep++;
