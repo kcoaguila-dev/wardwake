@@ -1,4 +1,3 @@
-/** @jest-environment jsdom */
 import { SeedGenerator } from '../../../src/features/trials/domain/SeedGenerator';
 
 describe('SeedGenerator', () => {

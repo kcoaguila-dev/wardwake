@@ -16,7 +16,7 @@ class MockRescueRepository implements RescueRepository {
 describe('CompleteRescueUseCase', () => {
   it('should mark mission rescued and award town gold', () => {
     const repo = new MockRescueRepository();
-    const initialTownData: TownData = { gold: 100, storage: [], unlockedClasses: [], compendium: [] };
+    const initialTownData: TownData = { gold: 100, upgrades: { maxHp: 0, maxBelly: 0, attack: 0 }, storedItems: [] };
     const townManager = new TownManagerUseCase(initialTownData);
     const useCase = new CompleteRescueUseCase(repo, townManager);
 
@@ -40,7 +40,7 @@ describe('CompleteRescueUseCase', () => {
 
   it('should gracefully handle object execution', () => {
      const repo = new MockRescueRepository();
-     const initialTownData: TownData = { gold: 100, storage: [], unlockedClasses: [], compendium: [] };
+     const initialTownData: TownData = { gold: 100, upgrades: { maxHp: 0, maxBelly: 0, attack: 0 }, storedItems: [] };
      const townManager = new TownManagerUseCase(initialTownData);
      const useCase = new CompleteRescueUseCase(repo, townManager);
 
