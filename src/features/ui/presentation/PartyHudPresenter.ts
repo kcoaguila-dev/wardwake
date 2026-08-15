@@ -182,12 +182,18 @@ export class PartyHudPresenter {
     this.container.add(this.p2Card);
   }
 
+  private currentLeaderIndex: number = 0;
+
   public updateParty(players: { unit: Unit }[], activeLeaderIndex: number | null = null): void {
+    if (activeLeaderIndex !== null && activeLeaderIndex !== undefined) {
+      this.currentLeaderIndex = activeLeaderIndex;
+    }
+
     // 1. Update Card 1
     if (players[0]) {
       const u1 = players[0].unit;
       const isDead = u1.currentHp <= 0;
-      const isLeader = !isDead && (activeLeaderIndex === 0 || (activeLeaderIndex === null && !isDead));
+      const isLeader = !isDead && (this.currentLeaderIndex === 0 || (this.currentLeaderIndex === 1 && (players[1]?.unit?.currentHp ?? 0) <= 0));
 
       if (isDead) {
         this.p1Bg.setStrokeStyle(1, 0x475569);
@@ -236,7 +242,7 @@ export class PartyHudPresenter {
     if (players[1]) {
       const u2 = players[1].unit;
       const isDead = u2.currentHp <= 0;
-      const isLeader = !isDead && (activeLeaderIndex === 1 || (activeLeaderIndex === null && (players[0]?.unit?.currentHp ?? 0) <= 0));
+      const isLeader = !isDead && (this.currentLeaderIndex === 1 || (this.currentLeaderIndex === 0 && (players[0]?.unit?.currentHp ?? 0) <= 0));
 
       if (isDead) {
         this.p2Bg.setStrokeStyle(1, 0x475569);

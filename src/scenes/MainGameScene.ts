@@ -250,12 +250,12 @@ export class MainGameScene extends Phaser.Scene {
 
     this.fogPresenter = new FogPresenter(this);
 
-    // Set Camera Bounds for Expanded 24x24 Map
+    // Set Camera Bounds with bottom padding for HUD clearance
     this.cameras.main.setBounds(
-      0,
+      -32,
       -40,
-      MainGameScene.MAP_WIDTH * GridPresenter.TILE_SIZE,
-      MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
+      MainGameScene.MAP_WIDTH * GridPresenter.TILE_SIZE + 64,
+      MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 120
     );
 
     // Responsive Scale Resize Listener for Dynamic Aspect Ratios
@@ -919,7 +919,7 @@ export class MainGameScene extends Phaser.Scene {
     this.hudPresenter.updateFloor(this.floorCount, this.activeModifier);
     this.hudPresenter.updatePhase('🔵 EXPLORE');
     this.hudPresenter.updateTurns(this.turnCount);
-    this.partyHudPresenter.updateParty(this.playerSquad);
+    this.partyHudPresenter.updateParty(this.playerSquad, this.selectedPlayerIndex);
 
     while (this.phaseManager.getPhase() !== TurnState.PLAYER_PHASE) {
       this.phaseManager.advancePhase();
@@ -1167,10 +1167,14 @@ export class MainGameScene extends Phaser.Scene {
     const worldX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
     const worldY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
 
+    // Viewport HUD Offset: Top HUD is 42px. Bottom Action Bar + Party HUD is 80px.
+    // Shift targetCenterY by +28 so characters are NEVER covered by the bottom HUD!
+    const targetCenterY = worldY + 28;
+
     if (animate) {
-      this.cameras.main.pan(worldX, worldY, 200, 'Sine.easeInOut');
+      this.cameras.main.pan(worldX, targetCenterY, 200, 'Sine.easeInOut');
     } else {
-      this.cameras.main.centerOn(worldX, worldY);
+      this.cameras.main.centerOn(worldX, targetCenterY);
     }
   }
 
@@ -1234,7 +1238,6 @@ export class MainGameScene extends Phaser.Scene {
     // 1. Direct Attack when clicking an adjacent or targeted enemy
     const activeHero = this.getActiveHero();
     const clickedEnemy = this.enemySquad.find(e => e.unit.currentHp > 0 && e.coord.equals(coord) && this.visibilityMap.isVisible(coord));
-
     if (clickedEnemy && activeHero) {
       const dist = Math.abs(activeHero.coord.x - coord.x) + Math.abs(activeHero.coord.y - coord.y);
       if (dist === 1 || this.isTargeting) {
@@ -1253,14 +1256,14 @@ export class MainGameScene extends Phaser.Scene {
       }
     }
 
-    // 2. Direct Swap or Selection when clicking an ally
+    // 2. Direct Ally Selection or Swap
     const clickedPlayerIndex = this.playerSquad.findIndex(p => p.unit.currentHp > 0 && p.coord.equals(coord));
     if (clickedPlayerIndex !== -1) {
       if (this.selectedPlayerIndex === clickedPlayerIndex) {
         if (this.isEncounterActive) {
           this.showActionMenuForPlayer(this.playerSquad[clickedPlayerIndex]!);
         }
-      } else if (this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
+      } else if (!this.isEncounterActive && this.selectedPlayerIndex !== null && this.playerSquad[this.selectedPlayerIndex]) {
         const currentHero = this.playerSquad[this.selectedPlayerIndex]!;
         const clickedHero = this.playerSquad[clickedPlayerIndex]!;
         const dist = Math.abs(currentHero.coord.x - clickedHero.coord.x) + Math.abs(currentHero.coord.y - clickedHero.coord.y);
@@ -1495,7 +1498,7 @@ export class MainGameScene extends Phaser.Scene {
       this.combatTextPresenter.showBanner(screenX, screenY, '⚠️ The dungeon wind grows turbulent! Head for the stairs!');
     }
 
-    this.partyHudPresenter.updateParty(this.playerSquad);
+    this.partyHudPresenter.updateParty(this.playerSquad, this.selectedPlayerIndex);
     this.isProcessingAction = false;
     this.updateFogAndVisibility();
     this.checkEncounterState();
@@ -1615,7 +1618,7 @@ export class MainGameScene extends Phaser.Scene {
         this.combatTextPresenter.showBanner(screenX, screenY, `⚔️ Equipped ${item.name}!`);
       }
 
-      this.partyHudPresenter.updateParty(this.playerSquad);
+      this.partyHudPresenter.updateParty(this.playerSquad, this.selectedPlayerIndex);
       if (this.isEncounterActive) {
         this.finalizePlayerTurn(player);
       }

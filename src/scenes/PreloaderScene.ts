@@ -94,7 +94,64 @@ export class PreloaderScene extends Phaser.Scene {
         gSkel.generateTexture('enemy_skeleton_lance', 16, 16);
         gSkel.destroy();
 
-        // 5. Generate FOE Boss / Elite: Dread Minotaur (Huge horned beast, glowing crimson eyes & giant axe)
+        // 5. Generate Monster: Goblin Archer (Bow / Pierce ranged specialist)
+        const gArcher = this.make.graphics({ x: 0, y: 0 });
+        gArcher.fillStyle(0x2e7d32, 1); // Darker Forest Green Skin
+        gArcher.fillRect(5, 2, 6, 6);
+        gArcher.fillRect(3, 4, 2, 2); // Left Ear
+        gArcher.fillRect(11, 4, 2, 2); // Right Ear
+        // Leather Hood / Quiver
+        gArcher.fillStyle(0x4e342e, 1);
+        gArcher.fillRect(4, 1, 8, 3);
+        gArcher.fillRect(3, 8, 3, 5); // Quiver strap
+        // Piercing Amber Eyes
+        gArcher.fillStyle(0xffb300, 1);
+        gArcher.fillRect(6, 4, 1, 1);
+        gArcher.fillRect(9, 4, 1, 1);
+        // Tunic & Boots
+        gArcher.fillStyle(0x33691e, 1);
+        gArcher.fillRect(5, 8, 6, 5);
+        gArcher.fillStyle(0x1b5e20, 1);
+        gArcher.fillRect(5, 13, 2, 3);
+        gArcher.fillRect(9, 13, 2, 3);
+        // Recurve Wood Bow & String
+        gArcher.fillStyle(0x8d6e63, 1);
+        gArcher.fillRect(12, 1, 2, 2);
+        gArcher.fillRect(14, 3, 2, 8);
+        gArcher.fillRect(12, 11, 2, 2);
+        gArcher.fillStyle(0xffffff, 1); // Bowstring
+        gArcher.fillRect(13, 3, 1, 8);
+        gArcher.generateTexture('enemy_goblin_archer', 16, 16);
+        gArcher.destroy();
+
+        // 6. Generate Monster: Dark Cultist (Magic / Occult Spellcaster)
+        const gCultist = this.make.graphics({ x: 0, y: 0 });
+        // Deep Purple Hood & Cowl
+        gCultist.fillStyle(0x311b92, 1);
+        gCultist.fillRect(4, 1, 8, 8);
+        // Shadowed Face Void
+        gCultist.fillStyle(0x0a0a0a, 1);
+        gCultist.fillRect(5, 3, 6, 4);
+        // Glowing Neon Violet Eyes
+        gCultist.fillStyle(0xe040fb, 1);
+        gCultist.fillRect(6, 4, 1, 2);
+        gCultist.fillRect(9, 4, 1, 2);
+        // Flowing Occult Robes
+        gCultist.fillStyle(0x4a148c, 1);
+        gCultist.fillRect(4, 8, 8, 8);
+        gCultist.fillStyle(0x7b1fa2, 1); // Robe Trim / Rune
+        gCultist.fillRect(7, 8, 2, 8);
+        // Catalyst Staff with Floating Occult Orb
+        gCultist.fillStyle(0x3e2723, 1);
+        gCultist.fillRect(13, 3, 2, 13);
+        gCultist.fillStyle(0xe040fb, 1); // Floating Magic Orb
+        gCultist.fillRect(12, 0, 4, 3);
+        gCultist.fillStyle(0xffffff, 1); // Magic Core Glow
+        gCultist.fillRect(13, 1, 2, 1);
+        gCultist.generateTexture('enemy_dark_cultist', 16, 16);
+        gCultist.destroy();
+
+        // 7. Generate FOE Boss / Elite: Dread Minotaur (Huge horned beast, glowing crimson eyes & giant axe)
         const gMinotaur = this.make.graphics({ x: 0, y: 0 });
         // Massive Curved Horns
         gMinotaur.fillStyle(0xffe082, 1);

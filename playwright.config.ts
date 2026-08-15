@@ -9,6 +9,7 @@ export default defineConfig({
     reuseExistingServer: true,
     timeout: 120000,
   },
+  workers: 1,
   use: {
     baseURL: 'http://localhost:5173',
     headless: true,

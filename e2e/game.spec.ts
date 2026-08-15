@@ -305,9 +305,15 @@ test.describe('Wardwake Game E2E Tests', () => {
       await page.mouse.click(box.x + 364 * scaleX, box.y + 295 * scaleY);
       await page.waitForTimeout(400);
 
-      // Dismiss inventory modal via Escape
-      await page.keyboard.press('Escape');
+      // Click 'X' Close button on Inventory modal directly with mouse (x = 415, y = 85)
+      await page.mouse.click(box.x + 415 * scaleX, box.y + 85 * scaleY);
       await page.waitForTimeout(300);
+
+      // Re-open [🎒 ITEM] modal and click the first item directly with mouse (x = 310, y = 125)
+      await page.mouse.click(box.x + 364 * scaleX, box.y + 295 * scaleY);
+      await page.waitForTimeout(400);
+      await page.mouse.click(box.x + 310 * scaleX, box.y + 125 * scaleY);
+      await page.waitForTimeout(400);
 
       // Click [⏳ WAIT] button (x = 320 + 132 = 452, y = 295)
       await page.mouse.click(box.x + 452 * scaleX, box.y + 295 * scaleY);
