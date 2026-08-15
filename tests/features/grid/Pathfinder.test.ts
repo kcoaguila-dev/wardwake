@@ -68,4 +68,29 @@ describe("Pathfinder", () => {
     // (0,0), (1,0), (2,0), (0,1), (1,1), (0,2) = 6 tiles
     expect(reachable.length).toBe(6);
   });
+
+  it("should treat dynamic obstacles (allies/enemies) as blocking tiles and not pathfind through them", () => {
+    // 1-tile corridor: (5,5) -> (5,4) [occupied by ally] -> (5,3) [empty]
+    const start = new TileCoordinate(5, 5);
+    const allyCoord = new TileCoordinate(5, 4);
+    const targetBeyondAlly = new TileCoordinate(5, 3);
+
+    // Without obstacles: can reach (5,3)
+    const withoutObstacles = pathfinder.calculateReachableTiles(start, 2, grid, []);
+    expect(withoutObstacles.some(t => t.equals(targetBeyondAlly))).toBe(true);
+
+    // With ally obstacle in corridor: cannot pathfind through (5,4) to reach (5,3)
+    // Wall off sides to simulate 1-tile corridor
+    grid.addObstacle(new TileCoordinate(4, 5));
+    grid.addObstacle(new TileCoordinate(6, 5));
+    grid.addObstacle(new TileCoordinate(4, 4));
+    grid.addObstacle(new TileCoordinate(6, 4));
+    grid.addObstacle(new TileCoordinate(4, 3));
+    grid.addObstacle(new TileCoordinate(6, 3));
+    grid.addObstacle(new TileCoordinate(5, 6)); // Wall behind
+
+    const withObstacles = pathfinder.calculateReachableTiles(start, 3, grid, [allyCoord]);
+    expect(withObstacles.some(t => t.equals(targetBeyondAlly))).toBe(false);
+    expect(withObstacles.some(t => t.equals(allyCoord))).toBe(false);
+  });
 });

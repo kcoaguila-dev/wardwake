@@ -295,11 +295,22 @@ test.describe('Wardwake Game E2E Tests', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
-    // Click on canvas where Action Bar is located (around x=320, y=294 in game canvas)
+    // Test Action Bar Clicks
     const box = await canvas.boundingBox();
     if (box) {
-      // Click Wait button on action bar (around center-right)
-      await page.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.8);
+      const scaleX = box.width / 640;
+      const scaleY = box.height / 360;
+
+      // Click [🎒 ITEM] button (x = 320 + 44 = 364, y = 295)
+      await page.mouse.click(box.x + 364 * scaleX, box.y + 295 * scaleY);
+      await page.waitForTimeout(400);
+
+      // Dismiss inventory modal via Escape
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+
+      // Click [⏳ WAIT] button (x = 320 + 132 = 452, y = 295)
+      await page.mouse.click(box.x + 452 * scaleX, box.y + 295 * scaleY);
       await page.waitForTimeout(300);
     }
 

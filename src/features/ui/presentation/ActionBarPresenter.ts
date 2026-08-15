@@ -30,108 +30,71 @@ export class ActionBarPresenter {
     this.container.setDepth(85);
 
     // Subtle dark dock background
-    const bg = this.scene.add.rectangle(0, 0, barWidth, barHeight, 0x0a0e17, 0.92)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x1e293b);
+    const bg = this.scene.add.rectangle(barWidth / 2, barHeight / 2, barWidth, barHeight, 0x0a0e17, 0.94)
+      .setStrokeStyle(1.5, 0x1e293b);
     this.container.add(bg);
 
     const btnW = 82;
     const btnH = 22;
-    const btnY = 4;
+    const btnCenterY = barHeight / 2;
     const spacing = 88;
+    const firstBtnCenterX = 6 + btnW / 2;
+
+    // Helper to create reliable interactive button
+    const createDockButton = (centerX: number, label: string, onClick: () => void) => {
+      const rect = this.scene.add.rectangle(centerX, btnCenterY, btnW, btnH, 0x1e293b)
+        .setStrokeStyle(1.5, 0x475569)
+        .setInteractive({ useHandCursor: true });
+
+      const text = this.scene.add.text(centerX, btnCenterY, label, {
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        fontStyle: 'bold',
+        color: '#cbd5e1'
+      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+
+      const clickHandler = (pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
+        if (event && event.stopPropagation) event.stopPropagation();
+        onClick();
+      };
+
+      rect.on('pointerdown', clickHandler);
+      text.on('pointerdown', clickHandler);
+
+      rect.on('pointerover', () => rect.setFillStyle(0x334155));
+      rect.on('pointerout', () => this.refreshStyles());
+
+      this.container.add([rect, text]);
+      return { rect, text };
+    };
 
     // 1. ATTACK Button
-    this.attackBtn = this.scene.add.rectangle(6, btnY, btnW, btnH, 0x1e293b)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0x475569)
-      .setInteractive({ useHandCursor: true });
-
-    this.attackText = this.scene.add.text(6 + btnW / 2, btnY + btnH / 2, '⚔️ ATTACK', {
-      fontSize: '10px',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-      color: '#94a3b8'
-    }).setOrigin(0.5, 0.5);
-
-    const triggerAttack = () => {
+    const attack = createDockButton(firstBtnCenterX, '⚔️ ATTACK', () => {
       if (this.onAttack) this.onAttack();
-    };
-    this.attackBtn.on('pointerdown', triggerAttack);
-    this.attackText.on('pointerdown', triggerAttack);
+    });
+    this.attackBtn = attack.rect;
+    this.attackText = attack.text;
 
     // 2. SKILL Button
-    this.skillBtn = this.scene.add.rectangle(6 + spacing, btnY, btnW, btnH, 0x1e293b)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0x475569)
-      .setInteractive({ useHandCursor: true });
-
-    this.skillText = this.scene.add.text(6 + spacing + btnW / 2, btnY + btnH / 2, '✨ SKILL', {
-      fontSize: '10px',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-      color: '#cbd5e1'
-    }).setOrigin(0.5, 0.5);
-
-    const triggerSkill = () => {
+    const skill = createDockButton(firstBtnCenterX + spacing, '✨ SKILL', () => {
       if (this.onSkill) this.onSkill();
-    };
-    this.skillBtn.on('pointerdown', triggerSkill);
-    this.skillText.on('pointerdown', triggerSkill);
+    });
+    this.skillBtn = skill.rect;
+    this.skillText = skill.text;
 
     // 3. ITEM Button
-    this.itemBtn = this.scene.add.rectangle(6 + spacing * 2, btnY, btnW, btnH, 0x1e293b)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0x475569)
-      .setInteractive({ useHandCursor: true });
-
-    this.itemText = this.scene.add.text(6 + spacing * 2 + btnW / 2, btnY + btnH / 2, '🎒 ITEM', {
-      fontSize: '10px',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-      color: '#cbd5e1'
-    }).setOrigin(0.5, 0.5);
-
-    const triggerItem = () => {
+    const item = createDockButton(firstBtnCenterX + spacing * 2, '🎒 ITEM', () => {
       if (this.onItem) this.onItem();
-    };
-    this.itemBtn.on('pointerdown', triggerItem);
-    this.itemText.on('pointerdown', triggerItem);
+    });
+    this.itemBtn = item.rect;
+    this.itemText = item.text;
 
     // 4. WAIT Button
-    this.waitBtn = this.scene.add.rectangle(6 + spacing * 3, btnY, btnW, btnH, 0x1e293b)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1.5, 0x475569)
-      .setInteractive({ useHandCursor: true });
-
-    this.waitText = this.scene.add.text(6 + spacing * 3 + btnW / 2, btnY + btnH / 2, '⏳ WAIT', {
-      fontSize: '10px',
-      fontFamily: 'monospace',
-      fontStyle: 'bold',
-      color: '#cbd5e1'
-    }).setOrigin(0.5, 0.5);
-
-    const triggerWait = () => {
+    const wait = createDockButton(firstBtnCenterX + spacing * 3, '⏳ WAIT', () => {
       if (this.onWait) this.onWait();
-    };
-    this.waitBtn.on('pointerdown', triggerWait);
-    this.waitText.on('pointerdown', triggerWait);
-
-    this.container.add([
-      this.attackBtn, this.attackText,
-      this.skillBtn, this.skillText,
-      this.itemBtn, this.itemText,
-      this.waitBtn, this.waitText
-    ]);
-
-    // Hover styling
-    const setupHover = (btn: Phaser.GameObjects.Rectangle) => {
-      btn.on('pointerover', () => btn.setFillStyle(0x334155));
-      btn.on('pointerout', () => this.refreshStyles());
-    };
-    setupHover(this.attackBtn);
-    setupHover(this.skillBtn);
-    setupHover(this.itemBtn);
-    setupHover(this.waitBtn);
+    });
+    this.waitBtn = wait.rect;
+    this.waitText = wait.text;
   }
 
   public updateState(canAttack: boolean, isCombat: boolean): void {

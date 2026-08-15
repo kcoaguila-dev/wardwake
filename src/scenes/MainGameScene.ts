@@ -1110,13 +1110,12 @@ export class MainGameScene extends Phaser.Scene {
     this.combatForecastPresenter.hide();
 
     if (this.isEncounterActive) {
-      const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
-      const filteredMoves = validMoves.filter(move => {
-        const hasPlayer = this.playerSquad.some((p, i) => i !== index && p.unit.currentHp > 0 && p.coord.equals(move));
-        const hasEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-        return !hasPlayer && !hasEnemy;
-      });
-      this.gridPresenter.highlightWalkableArea(filteredMoves, selectedPlayer.coord);
+      const obstacles = [
+        ...this.playerSquad.filter((p, i) => i !== index && p.unit.currentHp > 0).map(p => p.coord),
+        ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
+      ];
+      const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3, obstacles);
+      this.gridPresenter.highlightWalkableArea(validMoves, selectedPlayer.coord);
     } else {
       this.gridPresenter.clearHighlights();
     }
@@ -1281,15 +1280,13 @@ export class MainGameScene extends Phaser.Scene {
       return;
     }
 
-    // 3. Filter moves: strictly exclude any tile occupied by an ally or enemy
-    const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3);
-    const filteredMoves = validMoves.filter(move => {
-      const isOccupiedByAlly = this.playerSquad.some(p => p.unit.currentHp > 0 && p.coord.equals(move));
-      const isOccupiedByEnemy = this.enemySquad.some(e => e.unit.currentHp > 0 && e.coord.equals(move));
-      return !isOccupiedByAlly && !isOccupiedByEnemy;
-    });
-
-    const isReachable = filteredMoves.some(move => move.equals(coord));
+    // 3. Move calculation: obstacles (allies and enemies) block path traversal
+    const obstacles = [
+      ...this.playerSquad.filter((p, i) => i !== this.selectedPlayerIndex && p.unit.currentHp > 0).map(p => p.coord),
+      ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
+    ];
+    const validMoves = this.getValidMovesUseCase.execute(selectedPlayer.coord, 3, obstacles);
+    const isReachable = validMoves.some(move => move.equals(coord));
 
     if (isReachable) {
       await this.movePlayerUnit(selectedPlayer, coord);

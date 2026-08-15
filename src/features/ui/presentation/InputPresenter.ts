@@ -19,6 +19,11 @@ export class InputPresenter {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
+    // Ignore clicks on Top HUD (y < 42) and Bottom Action Bar / Party HUD (y >= 275)
+    if (pointer.y < 42 || pointer.y >= 275) {
+      return;
+    }
+
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const tileX = Math.floor(worldPoint.x / 32);
     const tileY = Math.floor(worldPoint.y / 32);
@@ -32,6 +37,14 @@ export class InputPresenter {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    // Ignore hover highlights over Top HUD or Bottom Action Bar / Party HUD
+    if (pointer.y < 42 || pointer.y >= 275) {
+      if (this.lastHoveredTile) {
+        this.lastHoveredTile = null;
+        this.scene.events.emit("ON_TILE_HOVER", new TileCoordinate(-1, -1));
+      }
+      return;
+    }
     const worldPoint = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
     const tileX = Math.floor(worldPoint.x / 32);
     const tileY = Math.floor(worldPoint.y / 32);
