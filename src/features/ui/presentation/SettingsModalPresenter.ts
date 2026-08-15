@@ -11,7 +11,7 @@ export class SettingsModalPresenter {
   private sfxLabel: Phaser.GameObjects.Text;
   private muteBtnText: Phaser.GameObjects.Text;
   private controlsText: Phaser.GameObjects.Text;
-  private bestiaryModal: BestiaryModalPresenter;
+  public bestiaryModal: BestiaryModalPresenter;
 
   public onClose?: () => void;
   public onQuit?: () => void;

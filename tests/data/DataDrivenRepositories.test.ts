@@ -25,7 +25,7 @@ describe('Data-Driven Repositories & Schemas', () => {
       expect(tier2.length).toBe(4);
 
       const tier3 = MonsterRepository.getByTier(3);
-      expect(tier3.length).toBe(3);
+      expect(tier3.length).toBe(4);
     });
 
     test('creates Unit instance with proper stat scaling', () => {

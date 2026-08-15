@@ -67,6 +67,20 @@ export class WebAudioSynthService implements IAudioService {
     this.saveSettings();
   }
 
+  private ensureContext(): void {
+    if (!this.ctx || this.ctx.state === 'closed') {
+      try {
+        const AudioContextClass = typeof window !== 'undefined' ? (window.AudioContext || (window as any).webkitAudioContext) : null;
+        if (AudioContextClass) {
+          this.ctx = new AudioContextClass();
+        }
+      } catch (e) {}
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
+  }
+
   public static globalBgmInterval: any = null;
 
   public startBgm(mode: 'title' | 'explore' | 'combat' | 'town' | 'dread'): void {
@@ -75,12 +89,10 @@ export class WebAudioSynthService implements IAudioService {
     this.currentBgmMode = mode;
     this.bgmStep = 0;
 
+    this.ensureContext();
     if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume().catch(() => {});
-    }
 
-    if (!this.bgmGain) {
+    if (!this.bgmGain || this.bgmGain.context !== this.ctx) {
       this.bgmGain = this.ctx.createGain();
       this.bgmGain.connect(this.ctx.destination);
     }

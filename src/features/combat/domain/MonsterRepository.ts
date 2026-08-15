@@ -16,8 +16,12 @@ export interface MonsterBlueprint {
   isElite?: boolean;
   isBoss?: boolean;
   detectionRadius?: number;
+  moveRange?: number;
   attackRange?: number;
   isRanged?: boolean;
+  isExplosive?: boolean;
+  explosionRadius?: number;
+  explosionDamage?: number;
 }
 
 const rawBlueprints: MonsterBlueprint[] = (Array.isArray(monstersData)
@@ -80,8 +84,13 @@ export class MonsterRepository {
     const finalDef = blueprint.baseDefense;
 
     const unit = new Unit(uniqueId, blueprint.name, finalHp, finalAtk, finalDef, weapon);
+    unit.blueprintId = blueprint.id;
     unit.detectionRadius = blueprint.detectionRadius ?? 3;
+    unit.moveRange = blueprint.moveRange ?? 2;
     unit.attackRange = blueprint.attackRange ?? 1;
+    unit.isExplosive = blueprint.isExplosive ?? false;
+    unit.explosionRadius = blueprint.explosionRadius ?? 1;
+    unit.explosionDamage = blueprint.explosionDamage ?? 16;
     return unit;
   }
 }

@@ -26,7 +26,8 @@ export class AttackUnitUseCase {
     const isFatal = defender.applyDamage(combatResult.damageDealt);
 
     if (isFatal) {
-      if (defender.id.startsWith('enemy_') || defender.id.startsWith('boss_')) {
+      const monsterId = defender.blueprintId || (defender.id.startsWith('enemy_') || defender.id.startsWith('boss_') ? defender.id : null);
+      if (monsterId) {
         try {
           if (typeof localStorage !== 'undefined') {
             let bestiary: string[] = [];
@@ -34,8 +35,8 @@ export class AttackUnitUseCase {
             if (stored) {
               bestiary = JSON.parse(stored);
             }
-            if (!bestiary.includes(defender.id)) {
-              bestiary.push(defender.id);
+            if (!bestiary.includes(monsterId)) {
+              bestiary.push(monsterId);
               localStorage.setItem('wardwake_bestiary', JSON.stringify(bestiary));
             }
           }

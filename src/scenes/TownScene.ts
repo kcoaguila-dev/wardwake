@@ -144,6 +144,7 @@ export class TownScene extends Phaser.Scene {
       this.audioService.playSound('sword_slash');
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.audioService.stopBgm();
         this.scene.start('MainGameScene');
       });
     });

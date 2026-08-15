@@ -38,10 +38,16 @@ export class Unit {
   // Belly / Hunger properties
   public belly: number = 100;
 
-  // AI properties
+  // AI & Tactical properties
+  public blueprintId?: string;
+  public moveRange: number = 2;
   public attackRange: number = 1;
   public detectionRadius: number = 3;
   public maxBelly: number = 100;
+  public isExplosive: boolean = false;
+  public explosionRadius: number = 1;
+  public explosionDamage: number = 16;
+  public fuseActive: boolean = false;
 
   // Status effect properties
   public statusEffect: StatusEffect | null = null;

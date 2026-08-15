@@ -98,14 +98,69 @@ describe('ExecuteEnemyTurnUseCase', () => {
 
     const useCase = new ExecuteEnemyTurnUseCase(grid, pathfinder, players);
     const enemyCoord = new TileCoordinate(2, 2);
+    enemyUnit.moveRange = 3;
 
     const result = useCase.execute(enemyUnit, enemyCoord);
 
-    // Expected path: (2,2) -> (2,1) -> (3,1) -> (4,1) -> (4,2)
-    // Movement range is 3. Max it can reach is (4,1).
-    // From (4,1), it is adjacent to (4,2).
-    // Wait, (2,2)->(2,1)->(3,1)->(4,1) is exactly 3 steps. And from (4,1) the player is at (4,2) which is adjacent.
     expect(result.targetCoordinate.equals(new TileCoordinate(4, 1))).toBe(true);
     expect(result.targetToAttack).toBe(player1);
+  });
+
+  it('should respect distinct moveRange for different monster archetypes', () => {
+    const player1 = new Unit('player-1', 'Hero1', 20, 5, 2, WeaponType.SWORD);
+    const players = [{ unit: player1, coord: new TileCoordinate(6, 2) }];
+    const useCase = new ExecuteEnemyTurnUseCase(grid, pathfinder, players);
+
+    // Slow Iron Golem (Move 1)
+    const golem = new Unit('golem-1', 'Iron Golem', 30, 8, 5, WeaponType.AXE);
+    golem.detectionRadius = 6;
+    golem.moveRange = 1;
+    const golemResult = useCase.execute(golem, new TileCoordinate(2, 2));
+    expect(golemResult.targetCoordinate.equals(new TileCoordinate(3, 2))).toBe(true);
+
+    // Fast Scout (Move 3)
+    const scout = new Unit('scout-1', 'Goblin Scout', 10, 5, 1, WeaponType.SWORD);
+    scout.detectionRadius = 6;
+    scout.moveRange = 3;
+    const scoutResult = useCase.execute(scout, new TileCoordinate(2, 2));
+    expect(scoutResult.targetCoordinate.equals(new TileCoordinate(5, 2))).toBe(true);
+  });
+
+  it('should allow ranged archers/spearmen to attack from afar if within attackRange', () => {
+    const player1 = new Unit('player-1', 'Hero1', 20, 5, 2, WeaponType.SWORD);
+    const players = [{ unit: player1, coord: new TileCoordinate(5, 2) }]; // distance = 3
+    const useCase = new ExecuteEnemyTurnUseCase(grid, pathfinder, players);
+
+    const archer = new Unit('archer-1', 'Goblin Archer', 8, 4, 1, WeaponType.BOW);
+    archer.detectionRadius = 5;
+    archer.attackRange = 3;
+
+    const result = useCase.execute(archer, new TileCoordinate(2, 2));
+    expect(result.targetCoordinate.equals(new TileCoordinate(2, 2))).toBe(true);
+    expect(result.targetToAttack).toBe(player1);
+  });
+
+  it('should handle explosive Cinder Imp: ignites fuse when adjacent, detonates on subsequent turn', () => {
+    const player1 = new Unit('player-1', 'Hero1', 20, 5, 2, WeaponType.SWORD);
+    const players = [{ unit: player1, coord: new TileCoordinate(3, 2) }];
+    const useCase = new ExecuteEnemyTurnUseCase(grid, pathfinder, players);
+
+    const cinderImp = new Unit('imp-1', 'Cinder Imp', 8, 3, 0, WeaponType.MAGIC);
+    cinderImp.isExplosive = true;
+    cinderImp.moveRange = 2;
+    cinderImp.explosionDamage = 16;
+    cinderImp.explosionRadius = 1;
+
+    // Turn 1: Advance to adjacent tile (2, 2) -> ignite fuse
+    const turn1 = useCase.execute(cinderImp, new TileCoordinate(1, 2));
+    expect(turn1.targetCoordinate.equals(new TileCoordinate(2, 2))).toBe(true);
+    expect(turn1.fuseIgnited).toBe(true);
+    expect(cinderImp.fuseActive).toBe(true);
+
+    // Turn 2: Primed explosive detonates in 3x3 AoE!
+    const turn2 = useCase.execute(cinderImp, new TileCoordinate(2, 2));
+    expect(turn2.isExploding).toBe(true);
+    expect(turn2.explosionDamage).toBe(16);
+    expect(turn2.explosionRadius).toBe(1);
   });
 });

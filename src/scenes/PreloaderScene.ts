@@ -176,8 +176,34 @@ export class PreloaderScene extends Phaser.Scene {
         gMinotaur.fillRect(12, 1, 4, 7);
         gMinotaur.fillStyle(0x212121, 1);
         gMinotaur.fillRect(13, 0, 2, 16);
-        gMinotaur.generateTexture('enemy_dread_minotaur', 16, 16);
-        gMinotaur.destroy();
+        // 8. Generate Explosive Enemy: Cinder Imp (Volatile molten charcoal creature with fiery crown & glowing core)
+        const gCinderImp = this.make.graphics({ x: 0, y: 0 });
+        // Fiery Crown / Top Horns
+        gCinderImp.fillStyle(0xff3d00, 1);
+        gCinderImp.fillRect(3, 0, 3, 3);
+        gCinderImp.fillRect(10, 0, 3, 3);
+        gCinderImp.fillStyle(0xffeb3b, 1);
+        gCinderImp.fillRect(4, 1, 1, 2);
+        gCinderImp.fillRect(11, 1, 1, 2);
+        // Charcoal Body
+        gCinderImp.fillStyle(0x1c1917, 1);
+        gCinderImp.fillRect(3, 3, 10, 10);
+        // Glowing Magma Cracks
+        gCinderImp.fillStyle(0xf97316, 1);
+        gCinderImp.fillRect(5, 5, 6, 2);
+        gCinderImp.fillRect(7, 7, 2, 4);
+        gCinderImp.fillRect(4, 10, 8, 2);
+        // Molten Amber Eyes
+        gCinderImp.fillStyle(0xffeb3b, 1);
+        gCinderImp.fillRect(5, 4, 2, 2);
+        gCinderImp.fillRect(9, 4, 2, 2);
+        // Sparking Fuse Wick
+        gCinderImp.fillStyle(0xef4444, 1);
+        gCinderImp.fillRect(7, 0, 2, 2);
+        gCinderImp.fillStyle(0xffffff, 1);
+        gCinderImp.fillRect(7, 0, 1, 1);
+        gCinderImp.generateTexture('enemy_cinder_imp', 16, 16);
+        gCinderImp.destroy();
 
         // Transition to TitleScene when loading is complete
         this.scene.start('TitleScene');

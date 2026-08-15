@@ -15,7 +15,7 @@ export class UnitPresenter {
   private isSelected: boolean = false;
   private isElite: boolean = false;
 
-  constructor(private scene: Phaser.Scene, unit: Unit, coord: TileCoordinate, isPlayer: boolean = true, isLeader: boolean = false) {
+  constructor(private scene: Phaser.Scene, public unit: Unit, coord: TileCoordinate, isPlayer: boolean = true, isLeader: boolean = false) {
     this.isPlayer = isPlayer;
     this.isLeader = isLeader;
     this.isElite = !isPlayer && (unit.name.includes('💀') || unit.name.includes('FOE') || unit.name.includes('Dread'));
@@ -36,6 +36,8 @@ export class UnitPresenter {
     } else {
       if (this.isElite) {
         textureKey = 'enemy_dread_minotaur';
+      } else if (unit.isExplosive || unit.name.includes('Cinder Imp')) {
+        textureKey = 'enemy_cinder_imp';
       } else {
         switch (unit.weaponType) {
           case WeaponType.SWORD:
@@ -99,22 +101,30 @@ export class UnitPresenter {
         ringColor = 0x00d4ff; // Celestial Cyan Ally
         borderColor = 0x38bdf8;
       }
+    } else if (this.unit.fuseActive) {
+      ringColor = 0xff5722; // Volatile Fiery Orange
+      borderColor = 0xffeb3b;
     } else if (this.isElite) {
       ringColor = 0x9333ea; // Ominous Deep Purple
       borderColor = 0xc084fc;
     }
 
-    const alpha = this.isExhausted ? 0.25 : (this.isElite ? 0.85 : 0.65);
+    const alpha = this.isExhausted ? 0.25 : (this.unit.fuseActive ? 0.95 : (this.isElite ? 0.85 : 0.65));
 
     // Draw soft glowing ellipse under the unit's feet
     this.factionRing.fillStyle(ringColor, alpha);
     this.factionRing.fillEllipse(0, 11, this.isElite ? 24 : 20, this.isElite ? 11 : 9);
 
     const activeBorderColor = this.isSelected ? 0xffffff : borderColor;
-    const borderThickness = this.isSelected ? 2.5 : (this.isElite ? 2.0 : 1.5);
+    const borderThickness = this.isSelected ? 2.5 : (this.unit.fuseActive ? 2.2 : (this.isElite ? 2.0 : 1.5));
 
     this.factionRing.lineStyle(borderThickness, activeBorderColor, this.isExhausted ? 0.4 : 0.95);
     this.factionRing.strokeEllipse(0, 11, this.isElite ? 24 : 20, this.isElite ? 11 : 9);
+  }
+
+  public setFuseActive(active: boolean): void {
+    this.unit.fuseActive = active;
+    this.drawFactionRing();
   }
 
   public setSelected(selected: boolean): void {
@@ -124,6 +134,10 @@ export class UnitPresenter {
 
   public setExhausted(isExhausted: boolean): void {
     this.isExhausted = isExhausted;
+    if (this.unit.currentHp <= 0) {
+      this.container.setVisible(false);
+      return;
+    }
     if (isExhausted) {
       // Darken / grayscale when turn is finished
       this.sprite.setTint(0x64748b);
@@ -144,7 +158,11 @@ export class UnitPresenter {
     const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
     this.scene.tweens.killTweensOf(this.container);
     this.container.setPosition(targetX, targetY);
-    this.container.setVisible(true);
+    if (this.unit.currentHp <= 0) {
+      this.container.setVisible(false);
+    } else {
+      this.container.setVisible(true);
+    }
   }
 
   public async movePath(path: TileCoordinate[], fast: boolean = false): Promise<void> {

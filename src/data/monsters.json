@@ -10,6 +10,7 @@
     "floorTier": 1,
     "lore": "A weak but nimble scout of the goblin horde. Usually found patrolling the upper floors, wielding rusted swords.",
     "detectionRadius": 3,
+    "moveRange": 3,
     "attackRange": 1
   },
   {
@@ -23,6 +24,7 @@
     "floorTier": 1,
     "lore": "Brutish warriors who rely on raw strength. Their heavy axes can shatter frail defenses with ease.",
     "detectionRadius": 3,
+    "moveRange": 2,
     "attackRange": 1
   },
   {
@@ -36,20 +38,8 @@
     "floorTier": 1,
     "lore": "Reanimated remains of fallen soldiers. They maintain their martial discipline, attacking with long-reaching lances.",
     "detectionRadius": 3,
-    "attackRange": 1
-  },
-  {
-    "id": "enemy_hobgoblin",
-    "name": "Hobgoblin Raider",
-    "weaponType": "SWORD",
-    "baseHp": 18,
-    "baseAttack": 8,
-    "baseDefense": 3,
-    "expYield": 80,
-    "floorTier": 2,
-    "lore": "Larger and more organized than their goblin kin. They coordinate their attacks to overwhelm intruders.",
-    "detectionRadius": 3,
-    "attackRange": 1
+    "moveRange": 2,
+    "attackRange": 2
   },
   {
     "id": "enemy_goblin_archer",
@@ -62,8 +52,23 @@
     "floorTier": 1,
     "lore": "A fragile but annoying goblin equipped with a crude bow, striking from afar.",
     "detectionRadius": 5,
+    "moveRange": 2,
     "attackRange": 3,
     "isRanged": true
+  },
+  {
+    "id": "enemy_hobgoblin",
+    "name": "Hobgoblin Raider",
+    "weaponType": "SWORD",
+    "baseHp": 18,
+    "baseAttack": 8,
+    "baseDefense": 3,
+    "expYield": 80,
+    "floorTier": 2,
+    "lore": "Larger and more organized than their goblin kin. They coordinate their attacks to overwhelm intruders.",
+    "detectionRadius": 3,
+    "moveRange": 2,
+    "attackRange": 1
   },
   {
     "id": "enemy_dark_cultist",
@@ -76,6 +81,7 @@
     "floorTier": 2,
     "lore": "Fanatical followers of the dark arts. They hurl volatile magic from a distance.",
     "detectionRadius": 5,
+    "moveRange": 2,
     "attackRange": 3,
     "isRanged": true
   },
@@ -90,6 +96,7 @@
     "floorTier": 2,
     "lore": "Fueled by sheer rage, these orcs abandon all defense to deliver devastating, reckless swings with their greataxes.",
     "detectionRadius": 3,
+    "moveRange": 3,
     "attackRange": 1
   },
   {
@@ -103,7 +110,8 @@
     "floorTier": 2,
     "lore": "Ethereal spirits bound to the dungeon. Their ghostly lances pierce through armor as if it were not there.",
     "detectionRadius": 3,
-    "attackRange": 1
+    "moveRange": 2,
+    "attackRange": 2
   },
   {
     "id": "enemy_dread_knight",
@@ -116,6 +124,7 @@
     "floorTier": 3,
     "lore": "Elite undead warriors clad in dark, impenetrable armor. Their heavy swords carry the chill of the grave.",
     "detectionRadius": 3,
+    "moveRange": 2,
     "attackRange": 1
   },
   {
@@ -129,6 +138,7 @@
     "floorTier": 3,
     "lore": "A towering construct of iron and magic. Slow but immensely durable, armed with an integrated axe-blade.",
     "detectionRadius": 3,
+    "moveRange": 1,
     "attackRange": 1
   },
   {
@@ -142,7 +152,25 @@
     "floorTier": 3,
     "lore": "Vengeful phantoms of ancient royal guards. They strike with terrifying precision using elongated halberds.",
     "detectionRadius": 3,
-    "attackRange": 1
+    "moveRange": 2,
+    "attackRange": 2
+  },
+  {
+    "id": "enemy_cinder_imp",
+    "name": "Cinder Imp",
+    "weaponType": "MAGIC",
+    "baseHp": 8,
+    "baseAttack": 3,
+    "baseDefense": 0,
+    "expYield": 75,
+    "floorTier": 3,
+    "lore": "A volatile entity formed from molten magma and sulfur. When close to intruders, it ignites a deadly self-destruct fuse.",
+    "detectionRadius": 6,
+    "moveRange": 2,
+    "attackRange": 1,
+    "isExplosive": true,
+    "explosionRadius": 1,
+    "explosionDamage": 16
   },
   {
     "id": "enemy_dread_minotaur",
@@ -156,6 +184,7 @@
     "isElite": true,
     "lore": "A terrifying FOE that wanders the early floors. Its colossal axe and immense strength make it a deadly encounter.",
     "detectionRadius": 7,
+    "moveRange": 2,
     "attackRange": 1
   },
   {
@@ -170,7 +199,8 @@
     "isElite": true,
     "lore": "An elite shadow entity that stalks the dark corridors. Its sweeping scythe-like lance cuts through the unwary.",
     "detectionRadius": 7,
-    "attackRange": 1
+    "moveRange": 3,
+    "attackRange": 2
   },
   {
     "id": "enemy_crimson_warlord",
@@ -184,6 +214,7 @@
     "isElite": true,
     "lore": "A blood-soaked general of the dungeon's armies. This elite FOE challenges only the strongest of adventurers.",
     "detectionRadius": 7,
+    "moveRange": 2,
     "attackRange": 1
   },
   {
@@ -198,6 +229,7 @@
     "isBoss": true,
     "lore": "The mid-tier boss ruling over the 5th floor. A hulking monstrosity wielding an axe forged in the deepest abysses.",
     "detectionRadius": 7,
+    "moveRange": 2,
     "attackRange": 1
   },
   {
@@ -212,6 +244,7 @@
     "isBoss": true,
     "lore": "The ultimate ruler of Wardwake. Its dark sword brings oblivion, commanding the shadows to consume all intruders.",
     "detectionRadius": 7,
-    "attackRange": 1
+    "moveRange": 2,
+    "attackRange": 2
   }
 ]

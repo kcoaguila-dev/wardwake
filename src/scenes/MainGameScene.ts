@@ -839,14 +839,18 @@ export class MainGameScene extends Phaser.Scene {
           }
         }
 
+        const isAlive = p.unit.currentHp > 0;
         p.hasActed = false;
         if (!p.graphic) {
-          p.graphic = new UnitPresenter(this, p.unit, p.coord, true, idx === 0);
+          p.graphic = new UnitPresenter(this, p.unit, p.coord, true, false);
         } else {
           p.graphic.setPosition(p.coord);
           p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
-          p.graphic.setExhausted(p.unit.currentHp <= 0);
-          p.graphic.setLeader(idx === 0);
+          p.graphic.setExhausted(false);
+        }
+
+        if (!isAlive) {
+          p.graphic.clear();
         }
       });
     }
@@ -970,13 +974,19 @@ export class MainGameScene extends Phaser.Scene {
       this.phaseManager.advancePhase();
     }
 
-    this.playerSquad.forEach(p => {
-      p.graphic.setExhausted(false);
-    });
-
-    if (this.playerSquad[0]) {
-      this.centerCameraOn(this.playerSquad[0].coord, false);
+    const firstAliveIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0);
+    if (firstAliveIdx !== -1) {
+      this.selectHeroByIndex(firstAliveIdx);
+      this.centerCameraOn(this.playerSquad[firstAliveIdx]!.coord, false);
     }
+
+    this.playerSquad.forEach(p => {
+      if (p.unit.currentHp > 0) {
+        p.graphic.setExhausted(false);
+      } else {
+        p.graphic.clear();
+      }
+    });
 
     this.updateFogAndVisibility();
     this.checkEncounterState();
@@ -1037,6 +1047,19 @@ export class MainGameScene extends Phaser.Scene {
       if (enemy.unit.currentHp > 0) {
         const isVisible = this.visibilityMap.isVisible(enemy.coord);
         enemy.graphic.setVisible(isVisible);
+        if (isVisible && enemy.unit.blueprintId) {
+          try {
+            if (typeof localStorage !== 'undefined') {
+              let bestiary: string[] = [];
+              const stored = localStorage.getItem('wardwake_bestiary');
+              if (stored) bestiary = JSON.parse(stored);
+              if (!bestiary.includes(enemy.unit.blueprintId)) {
+                bestiary.push(enemy.unit.blueprintId);
+                localStorage.setItem('wardwake_bestiary', JSON.stringify(bestiary));
+              }
+            }
+          } catch (e) {}
+        }
       }
     });
 
@@ -1918,14 +1941,21 @@ export class MainGameScene extends Phaser.Scene {
           await enemyData.graphic.moveTo(enemyData.coord);
           this.updateFogAndVisibility();
 
-          if (result.targetToAttack) {
+          if (result.isExploding) {
+            await this.executeAoEExplosion(enemyData.coord, result.explosionRadius ?? 1, result.explosionDamage ?? 16, enemyData);
+          } else if (result.fuseIgnited) {
+            enemyData.graphic.setFuseActive(true);
+            const exX = enemyData.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+            const exY = enemyData.coord.y * GridPresenter.TILE_SIZE - 12;
+            this.combatTextPresenter.showBanner(exX, exY, '⚠️ FUSE ACTIVE!');
+            this.audioService.playSound('item_potion');
+          } else if (result.targetToAttack) {
             const targetPlayer = this.playerSquad.find(p => p.unit.id === result.targetToAttack!.id);
             if (targetPlayer) {
               const summary = this.attackUnitUseCase.execute(enemyData.unit, targetPlayer.unit);
 
               const screenX = targetPlayer.coord.x * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
               const screenY = targetPlayer.coord.y * GridPresenter.TILE_SIZE + (GridPresenter.TILE_SIZE / 2);
-
 
               const dist = Math.abs(enemyData.coord.x - targetPlayer.coord.x) + Math.abs(enemyData.coord.y - targetPlayer.coord.y);
               if (dist > 1) {
@@ -1995,6 +2025,82 @@ export class MainGameScene extends Phaser.Scene {
     if (nextActiveIdx !== -1) {
       this.selectHeroByIndex(nextActiveIdx);
     }
+  }
+
+  private async executeAoEExplosion(coord: TileCoordinate, radius: number, damage: number, sourceEnemy: { unit: Unit; coord: TileCoordinate; graphic: UnitPresenter }): Promise<void> {
+    const originX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+    const originY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+
+    // 1. Camera Shake & Audio
+    this.cameras.main.shake(300, 0.02);
+    this.audioService.playSound('level_up');
+
+    // 2. Visual Blast Circle & Shockwave
+    const blast = this.add.graphics();
+    blast.setDepth(150);
+    blast.fillStyle(0xff5722, 0.7);
+    blast.fillCircle(originX, originY, (radius + 0.8) * GridPresenter.TILE_SIZE);
+    blast.lineStyle(3, 0xffeb3b, 1);
+    blast.strokeCircle(originX, originY, (radius + 0.8) * GridPresenter.TILE_SIZE);
+
+    this.combatTextPresenter.showBanner(originX, originY - 16, '💥 DETONATION!');
+
+    // Fade out blast wave
+    this.tweens.add({
+      targets: blast,
+      alpha: 0,
+      scale: 1.3,
+      duration: 350,
+      onComplete: () => blast.destroy()
+    });
+
+    // 3. Destroy exploding source unit
+    sourceEnemy.unit.currentHp = 0;
+    sourceEnemy.graphic.clear();
+
+    // 4. Damage all player units in radius
+    for (const player of this.playerSquad.filter(p => p.unit.currentHp > 0)) {
+      const dist = Math.max(Math.abs(player.coord.x - coord.x), Math.abs(player.coord.y - coord.y));
+      if (dist <= radius) {
+        player.unit.currentHp = Math.max(0, player.unit.currentHp - damage);
+        const pX = player.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const pY = player.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        this.combatTextPresenter.showDamage(pX, pY, damage, false, false);
+        await player.graphic.animateHit();
+        player.graphic.updateHp(player.unit.currentHp, player.unit.maxHp);
+
+        if (player.unit.currentHp <= 0) {
+          player.graphic.clear();
+          const firstAliveIdx = this.playerSquad.findIndex(p => p.unit.currentHp > 0);
+          if (firstAliveIdx !== -1) {
+            this.selectHeroByIndex(firstAliveIdx);
+            const newLeader = this.playerSquad[firstAliveIdx]!;
+            const scX = newLeader.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+            const scY = newLeader.coord.y * GridPresenter.TILE_SIZE - 12;
+            this.combatTextPresenter.showBanner(scX, scY, `👑 ${newLeader.unit.name} took leadership!`);
+          }
+        }
+      }
+    }
+
+    // 5. Damage all other enemies in radius
+    for (const otherEnemy of this.enemySquad.filter(e => e.unit.currentHp > 0 && e !== sourceEnemy)) {
+      const dist = Math.max(Math.abs(otherEnemy.coord.x - coord.x), Math.abs(otherEnemy.coord.y - coord.y));
+      if (dist <= radius) {
+        otherEnemy.unit.currentHp = Math.max(0, otherEnemy.unit.currentHp - damage);
+        const eX = otherEnemy.coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        const eY = otherEnemy.coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+        this.combatTextPresenter.showDamage(eX, eY, damage, false, false);
+        await otherEnemy.graphic.animateHit();
+        otherEnemy.graphic.updateHp(otherEnemy.unit.currentHp, otherEnemy.unit.maxHp);
+
+        if (otherEnemy.unit.currentHp <= 0) {
+          otherEnemy.graphic.clear();
+        }
+      }
+    }
+
+    this.partyHudPresenter.updateParty(this.playerSquad);
   }
 
   private triggerRunSummary(isVictory: boolean): void {

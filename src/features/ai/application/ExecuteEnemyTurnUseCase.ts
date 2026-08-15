@@ -11,6 +11,10 @@ export interface PlayerUnitInfo {
 export interface EnemyTurnResult {
   targetCoordinate: TileCoordinate;
   targetToAttack: Unit | null;
+  isExploding?: boolean;
+  explosionDamage?: number;
+  explosionRadius?: number;
+  fuseIgnited?: boolean;
 }
 
 export class ExecuteEnemyTurnUseCase {
@@ -20,7 +24,6 @@ export class ExecuteEnemyTurnUseCase {
     private readonly playerUnits: PlayerUnitInfo[],
     private readonly occupiedTiles: TileCoordinate[] = []
   ) {}
-
 
   private checkLineOfSight(start: TileCoordinate, end: TileCoordinate): boolean {
     let x0 = start.x;
@@ -62,6 +65,17 @@ export class ExecuteEnemyTurnUseCase {
       };
     }
 
+    // 1. If enemy is already primed with fuse active, it detonates this turn!
+    if (enemyUnit.isExplosive && enemyUnit.fuseActive) {
+      return {
+        targetCoordinate: enemyCoord,
+        targetToAttack: null,
+        isExploding: true,
+        explosionDamage: enemyUnit.explosionDamage ?? 16,
+        explosionRadius: enemyUnit.explosionRadius ?? 1
+      };
+    }
+
     if (this.playerUnits.length === 0) {
       return {
         targetCoordinate: enemyCoord,
@@ -69,7 +83,7 @@ export class ExecuteEnemyTurnUseCase {
       };
     }
 
-    // 1. Find the closest player unit by Manhattan distance
+    // 2. Find the closest player unit by Manhattan distance
     let closestPlayer: PlayerUnitInfo | null = null;
     let minDistance = Infinity;
 
@@ -96,8 +110,8 @@ export class ExecuteEnemyTurnUseCase {
       };
     }
 
-    // Check ranged attack
-    if (enemyUnit.attackRange > 1 && minDistance <= enemyUnit.attackRange) {
+    // Check ranged attack before moving
+    if (!enemyUnit.isExplosive && enemyUnit.attackRange > 1 && minDistance <= enemyUnit.attackRange) {
       if (this.checkLineOfSight(enemyCoord, closestPlayer.coord)) {
         return {
           targetCoordinate: enemyCoord,
@@ -106,15 +120,25 @@ export class ExecuteEnemyTurnUseCase {
       }
     }
 
-    // 2. If already adjacent, no need to move, just attack
-    if (minDistance === 1) {
+    // If explosive and already adjacent, ignite fuse immediately!
+    if (enemyUnit.isExplosive && minDistance <= 1) {
+      enemyUnit.fuseActive = true;
+      return {
+        targetCoordinate: enemyCoord,
+        targetToAttack: null,
+        fuseIgnited: true
+      };
+    }
+
+    // If standard melee and already adjacent, attack
+    if (!enemyUnit.isExplosive && minDistance === 1) {
       return {
         targetCoordinate: enemyCoord,
         targetToAttack: closestPlayer.unit
       };
     }
 
-    // 3. Build a dynamic pathfinding grid that treats other occupied tiles as obstacles
+    // 3. Build dynamic pathfinding grid
     const dynamicGrid = new GridMap(this.grid.width, this.grid.height);
     for (let x = 0; x < this.grid.width; x++) {
       for (let y = 0; y < this.grid.height; y++) {
@@ -125,17 +149,14 @@ export class ExecuteEnemyTurnUseCase {
       }
     }
 
-    // Add occupied tiles (other enemies and other players) as obstacles, except start and target player
     for (const occupied of this.occupiedTiles) {
       if (!occupied.equals(enemyCoord) && !occupied.equals(closestPlayer.coord)) {
         dynamicGrid.addObstacle(occupied);
       }
     }
 
-    // Find path using dynamic grid
     let path = this.pathfinder.findPath(enemyCoord, closestPlayer.coord, dynamicGrid);
 
-    // Fallback: If blocked by allies, pathfind on standard grid to at least move closer
     if (path.length === 0) {
       path = this.pathfinder.findPath(enemyCoord, closestPlayer.coord, this.grid);
     }
@@ -147,8 +168,8 @@ export class ExecuteEnemyTurnUseCase {
       };
     }
 
-    // 4. Traverse up to movement range (3 tiles)
-    const movementRange = 3;
+    // 4. Traverse up to individual movement range
+    const movementRange = enemyUnit.moveRange ?? 2;
     let targetCoordinate = enemyCoord;
     let targetToAttack: Unit | null = null;
 
@@ -163,25 +184,35 @@ export class ExecuteEnemyTurnUseCase {
       }
 
       if (nextCoord.equals(closestPlayer.coord)) {
-        // Adjacent to player (this step would land on player)
         targetToAttack = closestPlayer.unit;
         break;
       }
 
-      // Check if tile is occupied by another unit (cannot stop on top of another unit)
       const isOccupied = this.occupiedTiles.some(o => !o.equals(enemyCoord) && o.equals(nextCoord));
       if (isOccupied) {
-        // Cannot pass through or stop on occupied tile
         break;
       }
 
       targetCoordinate = nextCoord;
     }
 
-    // After moving, check if adjacent to the player to strike
     const finalDistToPlayer = Math.abs(closestPlayer.coord.x - targetCoordinate.x) + Math.abs(closestPlayer.coord.y - targetCoordinate.y);
-    if (finalDistToPlayer === 1) {
-      targetToAttack = closestPlayer.unit;
+
+    // If explosive and adjacent after moving, ignite fuse!
+    if (enemyUnit.isExplosive && finalDistToPlayer <= 1) {
+      enemyUnit.fuseActive = true;
+      return {
+        targetCoordinate,
+        targetToAttack: null,
+        fuseIgnited: true
+      };
+    }
+
+    // Check if within attack range after moving
+    if (!enemyUnit.isExplosive && finalDistToPlayer <= enemyUnit.attackRange) {
+      if (this.checkLineOfSight(targetCoordinate, closestPlayer.coord)) {
+        targetToAttack = closestPlayer.unit;
+      }
     }
 
     return {
