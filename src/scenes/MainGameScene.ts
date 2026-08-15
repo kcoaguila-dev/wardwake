@@ -41,6 +41,8 @@ import { GameDatabase } from '../core/domain/GameDatabase';
 import { Trap, TrapType } from '../features/traps/domain/Trap';
 import { TrapRepository } from '../features/traps/domain/TrapRepository';
 import { TrapPresenter } from '../features/traps/presentation/TrapPresenter';
+import { TrialRunContext } from '../features/trials/application/TrialRunContext';
+import { RecordTrialRunUseCase } from '../features/trials/application/RecordTrialRunUseCase';
 import { GamepadInputService, GamepadAction } from '../features/ui/infrastructure/GamepadInputService';
 import { VirtualPadPresenter } from '../features/ui/presentation/VirtualPadPresenter';
 import { ActionBarPresenter } from '../features/ui/presentation/ActionBarPresenter';
@@ -122,6 +124,8 @@ export class MainGameScene extends Phaser.Scene {
   private runMonstersSlain: number = 0;
   private runTotalExp: number = 0;
   private runRelicsFound: number = 0;
+  private runTimerMs: number = 0;
+  private runStartTimeMs: number = 0;
   private activeModifier: string = 'NORMAL';
   private isResumingSave: boolean = false;
 
@@ -151,6 +155,7 @@ export class MainGameScene extends Phaser.Scene {
     this.inputPresenter = new InputPresenter(this, MainGameScene.MAP_WIDTH, MainGameScene.MAP_HEIGHT);
     this.combatTextPresenter = new CombatTextPresenter(this);
     this.hudPresenter = new HudPresenter(this);
+    this.hudPresenter.updateSeedInfo(TrialRunContext.getInstance().getActiveSeed());
     this.hudPresenter.setOnMuteToggle(() => this.audioService.toggleMute());
     this.hudPresenter.setOnSettingsClick(() => {
       this.settingsModalPresenter.show();
@@ -243,6 +248,8 @@ export class MainGameScene extends Phaser.Scene {
       MainGameScene.MAP_WIDTH * GridPresenter.TILE_SIZE,
       MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
     );
+
+    this.runStartTimeMs = Date.now();
 
     // Load Initial Floor or Resume Saved Run
     if (this.isResumingSave) {
@@ -1880,6 +1887,8 @@ export class MainGameScene extends Phaser.Scene {
     this.isMenuOpen = true;
     this.audioService.stopBgm();
 
+    this.runTimerMs = Date.now() - this.runStartTimeMs;
+
     const stats: RunSummaryStats = {
       isVictory,
       floorsCleared: Math.max(0, this.floorCount - 1),
@@ -1891,6 +1900,24 @@ export class MainGameScene extends Phaser.Scene {
 
     // Meta-Progression: Award Gold
     const goldEarned = (stats.monstersSlain * 5) + (stats.floorsCleared * 20) + (isVictory ? 500 : 0);
+
+    // Seeded Run Scoring
+    if (TrialRunContext.getInstance().isSeededRun()) {
+      const recordUseCase = new RecordTrialRunUseCase();
+      const record = recordUseCase.execute(
+        TrialRunContext.getInstance().getActiveSeed()!,
+        stats.floorsCleared,
+        stats.turnsTaken,
+        stats.monstersSlain,
+        goldEarned,
+        stats.relicsFound,
+        this.runTimerMs,
+        this.playerSquad.map(p => p.unit)
+      );
+      stats.seedScore = record.score;
+      TrialRunContext.getInstance().clearRun();
+    }
+
     const townData = TownStorageService.load();
     const townManager = new TownManagerUseCase(townData);
     townManager.addGold(goldEarned);
