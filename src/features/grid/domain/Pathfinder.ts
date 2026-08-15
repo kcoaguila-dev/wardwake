@@ -45,12 +45,13 @@ export class Pathfinder {
     return Array.from(reachable.values());
   }
 
-  findPath(start: TileCoordinate, target: TileCoordinate, grid: GridMap): TileCoordinate[] {
+  findPath(start: TileCoordinate, target: TileCoordinate, grid: GridMap, obstacles: TileCoordinate[] = []): TileCoordinate[] {
     if (!grid.isWalkable(start)) return [];
 
     // If start is target, return path with just the start
     if (start.equals(target)) return [start];
 
+    const obstacleSet = new Set(obstacles.filter(o => !o.equals(start) && !o.equals(target)).map(o => o.toString()));
     const queue: { coord: TileCoordinate; path: TileCoordinate[] }[] = [];
     const visited = new Set<string>();
 
@@ -77,7 +78,7 @@ export class Pathfinder {
         const nextCoord = new TileCoordinate(nextX, nextY);
         const nextKey = nextCoord.toString();
 
-        if (!visited.has(nextKey) && grid.isWalkable(nextCoord)) {
+        if (!visited.has(nextKey) && grid.isWalkable(nextCoord) && !obstacleSet.has(nextKey)) {
           visited.add(nextKey);
           queue.push({ coord: nextCoord, path: [...current.path, nextCoord] });
         }

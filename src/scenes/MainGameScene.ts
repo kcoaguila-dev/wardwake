@@ -795,15 +795,12 @@ export class MainGameScene extends Phaser.Scene {
         }
 
         p.hasActed = false;
-        if (!isResuming) {
-          p.unit.currentHp = p.unit.maxHp;
-        }
         if (!p.graphic) {
           p.graphic = new UnitPresenter(this, p.unit, p.coord, true, idx === 0);
         } else {
-          p.graphic.moveTo(p.coord);
+          p.graphic.setPosition(p.coord);
           p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
-          p.graphic.setExhausted(false);
+          p.graphic.setExhausted(p.unit.currentHp <= 0);
           p.graphic.setLeader(idx === 0);
         }
       });
@@ -1003,17 +1000,19 @@ export class MainGameScene extends Phaser.Scene {
       item.sprite.setVisible(isVisible);
     });
 
-    // Update Action Bar attack availability
+    // Update Action Bar attack and skill availability
     const activeHero = this.getActiveHero();
     let canAttack = false;
-    if (activeHero) {
+    let canSkill = false;
+    if (activeHero && activeHero.unit.currentHp > 0) {
       canAttack = this.enemySquad.some(e => {
         if (e.unit.currentHp <= 0 || !this.visibilityMap.isVisible(e.coord)) return false;
         const dist = Math.abs(activeHero.coord.x - e.coord.x) + Math.abs(activeHero.coord.y - e.coord.y);
         return dist === 1;
       });
+      canSkill = activeHero.unit.currentSp >= 5;
     }
-    this.actionBarPresenter?.updateState(canAttack, this.isEncounterActive);
+    this.actionBarPresenter?.updateState(canAttack, canSkill, this.isEncounterActive);
 
     this.minimapPresenter.drawMap(this.gridMap, this.staircaseCoord, this.visibilityMap);
     this.updateMinimap();
@@ -1323,17 +1322,29 @@ export class MainGameScene extends Phaser.Scene {
     this.gridPresenter.clearHighlights();
 
     const leaderPreviousCoord = new TileCoordinate(selectedPlayer.coord.x, selectedPlayer.coord.y);
+
+    // Calculate actual path steps to walk around walls and corners accurately!
+    const obstacles = [
+      ...this.playerSquad.filter(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0).map(p => p.coord),
+      ...this.enemySquad.filter(e => e.unit.currentHp > 0).map(e => e.coord)
+    ];
+    const path = this.pathfinder.findPath(selectedPlayer.coord, coord, this.gridMap, obstacles);
+
     selectedPlayer.coord = coord;
     this.audioService.playSound('hero_step');
-    await selectedPlayer.graphic.moveTo(coord, fast);
+
+    if (path.length > 1) {
+      await selectedPlayer.graphic.movePath(path.slice(1), fast);
+    } else {
+      await selectedPlayer.graphic.moveTo(coord, fast);
+    }
     this.centerCameraOn(coord, !fast);
 
     if (!this.isEncounterActive) {
       const companion = this.playerSquad.find(p => p.unit.id !== selectedPlayer.unit.id && p.unit.currentHp > 0);
-      if (companion && !companion.coord.equals(leaderPreviousCoord)) {
-        const followTarget = this.followFormationCalculator.calculate(leaderPreviousCoord);
-        companion.coord = followTarget;
-        await companion.graphic.moveTo(followTarget, fast);
+      if (companion && !companion.coord.equals(leaderPreviousCoord) && !leaderPreviousCoord.equals(coord)) {
+        companion.coord = leaderPreviousCoord;
+        await companion.graphic.moveTo(leaderPreviousCoord, fast);
       }
       this.playerSquad.forEach(p => {
         if (p.unit.currentHp > 0) {
@@ -1402,10 +1413,20 @@ export class MainGameScene extends Phaser.Scene {
       }
     }
 
-    // 3. Hunger / Belly Decay every 10 steps
+    // 3. Hunger / Belly Decay every 10 steps & Natural HP Regen every 3 steps (Mystery Dungeon rule)
     this.stepCount++;
     this.turnCount++;
     this.hudPresenter.updateTurns(this.turnCount);
+
+    // Natural HP Regen every 3 steps when not starving
+    if (this.stepCount % 3 === 0) {
+      this.playerSquad.forEach(p => {
+        if (p.unit.currentHp > 0 && p.unit.belly > 0 && p.unit.currentHp < p.unit.maxHp) {
+          p.unit.heal(1);
+          p.graphic.updateHp(p.unit.currentHp, p.unit.maxHp);
+        }
+      });
+    }
 
     if (this.stepCount % 10 === 0) {
       this.playerSquad.forEach(p => {

@@ -106,11 +106,14 @@ export class ActionBarPresenter {
     this.waitText = wait.text;
   }
 
-  public updateState(canAttack: boolean, isCombat: boolean): void {
+  public updateState(canAttack: boolean, canSkill: boolean = true, isCombat: boolean = false): void {
     this.canAttack = canAttack;
+    this.canSkill = canSkill;
     this.isCombatMode = isCombat;
     this.refreshStyles();
   }
+
+  private canSkill: boolean = true;
 
   public resize(width: number, height: number): void {
     const barWidth = 364;
@@ -147,19 +150,28 @@ export class ActionBarPresenter {
       this.attackBtn.setStrokeStyle(1.5, 0x34d399);
       this.attackText.setColor('#34d399');
     } else {
-      this.attackBtn.setFillStyle(0x1e293b);
-      this.attackBtn.setStrokeStyle(1.5, 0x475569);
-      this.attackText.setColor(this.isCombatMode ? '#64748b' : '#cbd5e1');
+      this.attackBtn.setFillStyle(0x0f172a);
+      this.attackBtn.setStrokeStyle(1, 0x334155);
+      this.attackText.setColor(this.isCombatMode ? '#64748b' : '#94a3b8');
     }
 
-    this.skillBtn.setFillStyle(0x1e293b);
-    this.skillBtn.setStrokeStyle(1.5, 0x475569);
+    if (this.canSkill) {
+      this.skillBtn.setFillStyle(0x1e1b4b); // Violet/indigo accent
+      this.skillBtn.setStrokeStyle(1.5, 0x818cf8);
+      this.skillText.setColor('#c7d2fe');
+    } else {
+      this.skillBtn.setFillStyle(0x0f172a);
+      this.skillBtn.setStrokeStyle(1, 0x334155);
+      this.skillText.setColor('#64748b');
+    }
 
     this.itemBtn.setFillStyle(0x1e293b);
     this.itemBtn.setStrokeStyle(1.5, 0x475569);
+    this.itemText.setColor('#f8fafc');
 
     this.waitBtn.setFillStyle(0x1e293b);
     this.waitBtn.setStrokeStyle(1.5, 0x475569);
+    this.waitText.setColor('#f8fafc');
   }
 
   public setVisible(visible: boolean): void {

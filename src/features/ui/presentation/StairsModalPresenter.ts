@@ -16,16 +16,16 @@ export class StairsModalPresenter {
   public onStay?: () => void;
 
   constructor(private scene: Phaser.Scene) {
+    const screenWidth = this.scene.scale.width || 640;
+    const screenHeight = this.scene.scale.height || 360;
+
     this.container = this.scene.add.container(0, 0);
-    this.container.setDepth(250);
+    this.container.setDepth(260);
     this.container.setScrollFactor(0); // Anchored to camera viewport
     this.container.setVisible(false);
 
-    const screenWidth = 640;
-    const screenHeight = 360;
-
     // Semi-transparent backdrop shield
-    this.backdrop = this.scene.add.rectangle(0, 0, screenWidth, screenHeight, 0x000000, 0.6)
+    this.backdrop = this.scene.add.rectangle(0, 0, screenWidth, screenHeight, 0x000000, 0.7)
       .setOrigin(0, 0)
       .setInteractive();
 
@@ -73,8 +73,9 @@ export class StairsModalPresenter {
       color: '#ffffff'
     }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
 
-    const handleDescend = () => {
-      if (this.isVisible() && this.onDescend) this.onDescend();
+    const handleDescend = (pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
+      if (event && event.stopPropagation) event.stopPropagation();
+      if (this.onDescend) this.onDescend();
     };
     this.descendBtn.on('pointerdown', handleDescend);
     this.descendText.on('pointerdown', handleDescend);
@@ -95,27 +96,14 @@ export class StairsModalPresenter {
       color: '#cbd5e1'
     }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
 
-    const handleStay = () => {
-      if (this.isVisible() && this.onStay) this.onStay();
+    const handleStay = (pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
+      if (event && event.stopPropagation) event.stopPropagation();
+      if (this.onStay) this.onStay();
     };
     this.stayBtn.on('pointerdown', handleStay);
     this.stayText.on('pointerdown', handleStay);
     this.stayBtn.on('pointerover', () => this.stayBtn.setFillStyle(0x475569));
     this.stayBtn.on('pointerout', () => this.stayBtn.setFillStyle(0x334155));
-
-    // Direct screen-space pointer listener to guarantee clicks work even when camera is panned
-    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isVisible()) return;
-
-      const px = pointer.x;
-      const py = pointer.y;
-
-      if (px >= descendBtnX && px <= descendBtnX + btnWidth && py >= btnY && py <= btnY + btnHeight) {
-        handleDescend();
-      } else if (px >= stayBtnX && px <= stayBtnX + btnWidth && py >= btnY && py <= btnY + btnHeight) {
-        handleStay();
-      }
-    });
 
     this.container.add([
       this.backdrop,

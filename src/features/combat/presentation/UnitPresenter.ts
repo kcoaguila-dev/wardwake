@@ -122,16 +122,34 @@ export class UnitPresenter {
     this.drawFactionRing();
   }
 
-  public setExhausted(exhausted: boolean): void {
-    this.isExhausted = exhausted;
-    this.drawFactionRing();
-
-    if (exhausted) {
+  public setExhausted(isExhausted: boolean): void {
+    this.isExhausted = isExhausted;
+    if (isExhausted) {
       // Darken / grayscale when turn is finished
-      this.sprite.setTint(0x777777);
+      this.sprite.setTint(0x64748b);
+      this.factionRing.clear();
+      this.factionRing.fillStyle(0x334155, 0.7);
+      this.factionRing.fillCircle(0, 0, 10);
+      this.factionRing.lineStyle(1, 0x475569, 0.8);
+      this.factionRing.strokeCircle(0, 0, 10);
     } else {
       // Restore vibrant natural pixel art colors
       this.sprite.clearTint();
+      this.drawFactionRing();
+    }
+  }
+
+  public setPosition(coord: TileCoordinate): void {
+    const targetX = coord.x * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+    const targetY = coord.y * GridPresenter.TILE_SIZE + GridPresenter.TILE_SIZE / 2;
+    this.scene.tweens.killTweensOf(this.container);
+    this.container.setPosition(targetX, targetY);
+    this.container.setVisible(true);
+  }
+
+  public async movePath(path: TileCoordinate[], fast: boolean = false): Promise<void> {
+    for (const step of path) {
+      await this.moveTo(step, fast);
     }
   }
 
@@ -143,7 +161,7 @@ export class UnitPresenter {
       this.container.setVisible(true);
       this.scene.tweens.killTweensOf(this.container);
 
-      const duration = fast ? 35 : 120;
+      const duration = fast ? 35 : 110;
       const ease = fast ? 'Linear' : 'Sine.easeInOut';
 
       this.scene.tweens.add({
