@@ -258,6 +258,20 @@ export class MainGameScene extends Phaser.Scene {
       MainGameScene.MAP_HEIGHT * GridPresenter.TILE_SIZE + 40
     );
 
+    // Responsive Scale Resize Listener for Dynamic Aspect Ratios
+    this.scale.on('resize', (gameSize: Phaser.Structs.Size) => {
+      const w = gameSize.width;
+      const h = gameSize.height;
+      this.hudPresenter?.resize(w);
+      this.minimapPresenter?.resize(w);
+      this.actionBarPresenter?.resize(w, h);
+      this.partyHudPresenter?.resize(w, h);
+      const activeHero = this.getActiveHero();
+      if (activeHero) {
+        this.centerCameraOn(activeHero.coord);
+      }
+    });
+
     this.runStartTimeMs = Date.now();
 
     // Load Initial Floor or Resume Saved Run

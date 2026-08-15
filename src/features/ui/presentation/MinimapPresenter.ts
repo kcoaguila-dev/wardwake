@@ -131,6 +131,10 @@ export class MinimapPresenter {
     this.container.setVisible(this.isVisible);
   }
 
+  public resize(width: number): void {
+    this.container.setPosition(width - this.boxSize - 10, 48);
+  }
+
   public setVisible(visible: boolean): void {
     this.isVisible = visible;
     this.container.setVisible(visible);

@@ -1,10 +1,11 @@
 import * as Phaser from 'phaser';
 
 export class HudPresenter {
+  private bgGraphics: Phaser.GameObjects.Graphics;
   private floorText: Phaser.GameObjects.Text;
   private phaseText: Phaser.GameObjects.Text;
   private turnText: Phaser.GameObjects.Text;
-  private endTurnButton: Phaser.GameObjects.Text;
+  public endTurnButton: Phaser.GameObjects.Text;
   private settingsButton: Phaser.GameObjects.Text;
   private muteButton: Phaser.GameObjects.Text;
   private seedText?: Phaser.GameObjects.Text;
@@ -15,13 +16,13 @@ export class HudPresenter {
   constructor(private scene: Phaser.Scene) {
     const width = this.scene.scale.width || 640;
 
-    const graphics = this.scene.add.graphics();
-    graphics.fillStyle(0x0a0e17, 0.96);
-    graphics.fillRect(0, 0, width, 38);
-    graphics.lineStyle(1, 0x1e293b, 1);
-    graphics.lineBetween(0, 38, width, 38);
-    graphics.setScrollFactor(0);
-    graphics.setDepth(10);
+    this.bgGraphics = this.scene.add.graphics();
+    this.bgGraphics.fillStyle(0x0a0e17, 0.96);
+    this.bgGraphics.fillRect(0, 0, width, 38);
+    this.bgGraphics.lineStyle(1, 0x1e293b, 1);
+    this.bgGraphics.lineBetween(0, 38, width, 38);
+    this.bgGraphics.setScrollFactor(0);
+    this.bgGraphics.setDepth(10);
 
     const fontStyle = {
       fontSize: '11px',
@@ -115,6 +116,22 @@ export class HudPresenter {
     this.phaseText.setX(pX);
     const tX = this.phaseText.x + this.phaseText.width + spacing;
     this.turnText.setX(tX);
+  }
+
+  public resize(width: number): void {
+    this.bgGraphics.clear();
+    this.bgGraphics.fillStyle(0x0a0e17, 0.96);
+    this.bgGraphics.fillRect(0, 0, width, 38);
+    this.bgGraphics.lineStyle(1, 0x1e293b, 1);
+    this.bgGraphics.lineBetween(0, 38, width, 38);
+
+    this.endTurnButton.setX(width - 152);
+    this.settingsButton.setX(width - 54);
+    this.muteButton.setX(width - 28);
+    if (this.seedText) {
+      this.seedText.setX(width / 2);
+    }
+    this.relayout();
   }
 
   setOnMuteToggle(callback: () => void): void {

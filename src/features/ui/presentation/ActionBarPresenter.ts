@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 
 export class ActionBarPresenter {
-  private container: Phaser.GameObjects.Container;
+  private bg: Phaser.GameObjects.Graphics;
   private attackBtn: Phaser.GameObjects.Rectangle;
   private attackText: Phaser.GameObjects.Text;
   private skillBtn: Phaser.GameObjects.Rectangle;
@@ -17,80 +17,89 @@ export class ActionBarPresenter {
   public onWait?: () => void;
 
   private canAttack: boolean = false;
+  private isCombatMode: boolean = false;
 
   constructor(private scene: Phaser.Scene) {
-    const screenWidth = this.scene.scale.width || 640;
-    const barWidth = 360;
-    const barHeight = 30;
-    const startX = (screenWidth - barWidth) / 2;
-    const startY = 284; // Docked comfortably right above Party HUD (318)
+    const width = this.scene.scale.width || 640;
+    const height = this.scene.scale.height || 360;
 
-    this.container = this.scene.add.container(startX, startY);
-    this.container.setScrollFactor(0);
-    this.container.setDepth(85);
+    const barWidth = 364;
+    const barHeight = 32;
+    const startX = (width - barWidth) / 2;
+    const startY = height - 76;
 
-    // Subtle dark dock background
-    const bg = this.scene.add.rectangle(barWidth / 2, barHeight / 2, barWidth, barHeight, 0x0a0e17, 0.94)
-      .setStrokeStyle(1.5, 0x1e293b);
-    this.container.add(bg);
+    // 1. Background Dock Bar (Depth 240)
+    this.bg = this.scene.add.graphics();
+    this.bg.fillStyle(0x0a0e17, 0.96);
+    this.bg.fillRoundedRect(startX, startY, barWidth, barHeight, 6);
+    this.bg.lineStyle(1.5, 0x1e293b, 1);
+    this.bg.strokeRoundedRect(startX, startY, barWidth, barHeight, 6);
+    this.bg.setScrollFactor(0);
+    this.bg.setDepth(240);
 
-    const btnW = 82;
-    const btnH = 22;
-    const btnCenterY = barHeight / 2;
+    const btnW = 84;
+    const btnH = 24;
+    const btnY = startY + 4;
     const spacing = 88;
-    const firstBtnCenterX = 6 + btnW / 2;
+    const firstX = startX + 6;
 
-    // Helper to create reliable interactive button
-    const createDockButton = (centerX: number, label: string, onClick: () => void) => {
-      const rect = this.scene.add.rectangle(centerX, btnCenterY, btnW, btnH, 0x1e293b)
+    // Helper to create direct, robust interactive button
+    const createBtn = (x: number, label: string, onClick: () => void) => {
+      const rect = this.scene.add.rectangle(x, btnY, btnW, btnH, 0x1e293b)
+        .setOrigin(0, 0)
         .setStrokeStyle(1.5, 0x475569)
+        .setScrollFactor(0)
+        .setDepth(250)
         .setInteractive({ useHandCursor: true });
 
-      const text = this.scene.add.text(centerX, btnCenterY, label, {
-        fontSize: '10px',
+      const text = this.scene.add.text(x + btnW / 2, btnY + btnH / 2, label, {
+        fontSize: '11px',
         fontFamily: 'monospace',
         fontStyle: 'bold',
         color: '#cbd5e1'
-      }).setOrigin(0.5, 0.5).setInteractive({ useHandCursor: true });
+      })
+        .setOrigin(0.5, 0.5)
+        .setScrollFactor(0)
+        .setDepth(251)
+        .setInteractive({ useHandCursor: true });
 
-      const clickHandler = (pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
+      const trigger = (pointer?: Phaser.Input.Pointer, _lx?: number, _ly?: number, event?: any) => {
         if (event && event.stopPropagation) event.stopPropagation();
         onClick();
       };
 
-      rect.on('pointerdown', clickHandler);
-      text.on('pointerdown', clickHandler);
+      rect.on('pointerdown', trigger);
+      text.on('pointerdown', trigger);
 
       rect.on('pointerover', () => rect.setFillStyle(0x334155));
       rect.on('pointerout', () => this.refreshStyles());
 
-      this.container.add([rect, text]);
       return { rect, text };
     };
 
     // 1. ATTACK Button
-    const attack = createDockButton(firstBtnCenterX, '⚔️ ATTACK', () => {
+    const attack = createBtn(firstX, '⚔️ ATTACK', () => {
       if (this.onAttack) this.onAttack();
     });
     this.attackBtn = attack.rect;
     this.attackText = attack.text;
 
     // 2. SKILL Button
-    const skill = createDockButton(firstBtnCenterX + spacing, '✨ SKILL', () => {
+    const skill = createBtn(firstX + spacing, '✨ SKILL', () => {
       if (this.onSkill) this.onSkill();
     });
     this.skillBtn = skill.rect;
     this.skillText = skill.text;
 
     // 3. ITEM Button
-    const item = createDockButton(firstBtnCenterX + spacing * 2, '🎒 ITEM', () => {
+    const item = createBtn(firstX + spacing * 2, '🎒 ITEM', () => {
       if (this.onItem) this.onItem();
     });
     this.itemBtn = item.rect;
     this.itemText = item.text;
 
     // 4. WAIT Button
-    const wait = createDockButton(firstBtnCenterX + spacing * 3, '⏳ WAIT', () => {
+    const wait = createBtn(firstX + spacing * 3, '⏳ WAIT', () => {
       if (this.onWait) this.onWait();
     });
     this.waitBtn = wait.rect;
@@ -99,10 +108,40 @@ export class ActionBarPresenter {
 
   public updateState(canAttack: boolean, isCombat: boolean): void {
     this.canAttack = canAttack;
-    this.refreshStyles(isCombat);
+    this.isCombatMode = isCombat;
+    this.refreshStyles();
   }
 
-  private refreshStyles(isCombat: boolean = false): void {
+  public resize(width: number, height: number): void {
+    const barWidth = 364;
+    const barHeight = 32;
+    const startX = (width - barWidth) / 2;
+    const startY = height - 76;
+
+    this.bg.clear();
+    this.bg.fillStyle(0x0a0e17, 0.96);
+    this.bg.fillRoundedRect(startX, startY, barWidth, barHeight, 6);
+    this.bg.lineStyle(1.5, 0x1e293b, 1);
+    this.bg.strokeRoundedRect(startX, startY, barWidth, barHeight, 6);
+
+    const btnW = 84;
+    const btnH = 24;
+    const btnY = startY + 4;
+    const spacing = 88;
+    const firstX = startX + 6;
+
+    const repositionBtn = (rect: Phaser.GameObjects.Rectangle, text: Phaser.GameObjects.Text, x: number) => {
+      rect.setPosition(x, btnY);
+      text.setPosition(x + btnW / 2, btnY + btnH / 2);
+    };
+
+    repositionBtn(this.attackBtn, this.attackText, firstX);
+    repositionBtn(this.skillBtn, this.skillText, firstX + spacing);
+    repositionBtn(this.itemBtn, this.itemText, firstX + spacing * 2);
+    repositionBtn(this.waitBtn, this.waitText, firstX + spacing * 3);
+  }
+
+  private refreshStyles(): void {
     if (this.canAttack) {
       this.attackBtn.setFillStyle(0x065f46); // Emerald highlight when attack available
       this.attackBtn.setStrokeStyle(1.5, 0x34d399);
@@ -110,7 +149,7 @@ export class ActionBarPresenter {
     } else {
       this.attackBtn.setFillStyle(0x1e293b);
       this.attackBtn.setStrokeStyle(1.5, 0x475569);
-      this.attackText.setColor(isCombat ? '#64748b' : '#94a3b8');
+      this.attackText.setColor(this.isCombatMode ? '#64748b' : '#cbd5e1');
     }
 
     this.skillBtn.setFillStyle(0x1e293b);
@@ -124,10 +163,26 @@ export class ActionBarPresenter {
   }
 
   public setVisible(visible: boolean): void {
-    this.container.setVisible(visible);
+    this.bg.setVisible(visible);
+    this.attackBtn.setVisible(visible);
+    this.attackText.setVisible(visible);
+    this.skillBtn.setVisible(visible);
+    this.skillText.setVisible(visible);
+    this.itemBtn.setVisible(visible);
+    this.itemText.setVisible(visible);
+    this.waitBtn.setVisible(visible);
+    this.waitText.setVisible(visible);
   }
 
   public destroy(): void {
-    this.container.destroy();
+    this.bg.destroy();
+    this.attackBtn.destroy();
+    this.attackText.destroy();
+    this.skillBtn.destroy();
+    this.skillText.destroy();
+    this.itemBtn.destroy();
+    this.itemText.destroy();
+    this.waitBtn.destroy();
+    this.waitText.destroy();
   }
 }

@@ -26,30 +26,54 @@ export class PartyHudPresenter {
   private p2StatsText!: Phaser.GameObjects.Text;
   private p2BellyText!: Phaser.GameObjects.Text;
 
+  private bgGraphics: Phaser.GameObjects.Graphics;
   public onSelectHero?: (index: number) => void;
 
   constructor(private scene: Phaser.Scene) {
-    this.container = this.scene.add.container(0, 318);
+    const screenWidth = this.scene.scale.width || 640;
+    const screenHeight = this.scene.scale.height || 360;
+    const startY = screenHeight - 42;
+
+    this.container = this.scene.add.container(0, startY);
     this.container.setScrollFactor(0);
     this.container.setDepth(20);
 
-    const screenWidth = this.scene.scale.width || 640;
     const barHeight = 42;
 
     // Bottom Background Panel
-    const bg = this.scene.add.graphics();
-    bg.fillStyle(0x0a0e17, 0.95);
-    bg.fillRect(0, 0, screenWidth, barHeight);
-    bg.lineStyle(1, 0x2e384d, 1);
-    bg.lineBetween(0, 0, screenWidth, 0);
+    this.bgGraphics = this.scene.add.graphics();
+    this.bgGraphics.fillStyle(0x0a0e17, 0.95);
+    this.bgGraphics.fillRect(0, 0, screenWidth, barHeight);
+    this.bgGraphics.lineStyle(1, 0x2e384d, 1);
+    this.bgGraphics.lineBetween(0, 0, screenWidth, 0);
 
-    this.container.add(bg);
+    this.container.add(this.bgGraphics);
+
+    const cardW = 290;
+    const totalW = cardW * 2 + 20; // 600
+    const startX = Math.max(10, (screenWidth - totalW) / 2);
 
     // Build P1 Card (Left side)
-    this.createP1Card(20);
+    this.createP1Card(startX);
 
     // Build P2 Card (Right side)
-    this.createP2Card(330);
+    this.createP2Card(startX + cardW + 20);
+  }
+
+  public resize(width: number, height: number): void {
+    const startY = height - 42;
+    this.container.setPosition(0, startY);
+    this.bgGraphics.clear();
+    this.bgGraphics.fillStyle(0x0a0e17, 0.95);
+    this.bgGraphics.fillRect(0, 0, width, 42);
+    this.bgGraphics.lineStyle(1, 0x2e384d, 1);
+    this.bgGraphics.lineBetween(0, 0, width, 0);
+
+    const cardW = 290;
+    const totalW = cardW * 2 + 20; // 600
+    const startX = Math.max(10, (width - totalW) / 2);
+    this.p1Card.setPosition(startX, 4);
+    this.p2Card.setPosition(startX + cardW + 20, 4);
   }
 
   private createP1Card(startX: number): void {

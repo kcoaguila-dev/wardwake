@@ -19,8 +19,9 @@ export class InputPresenter {
   }
 
   private handlePointerDown(pointer: Phaser.Input.Pointer): void {
-    // Ignore clicks on Top HUD (y < 42) and Bottom Action Bar / Party HUD (y >= 275)
-    if (pointer.y < 42 || pointer.y >= 275) {
+    const screenHeight = this.scene.scale.height || 360;
+    // Ignore clicks on Top HUD (y < 42) and Bottom Action Bar / Party HUD (y >= screenHeight - 85)
+    if (pointer.y < 42 || pointer.y >= screenHeight - 85) {
       return;
     }
 
@@ -37,8 +38,9 @@ export class InputPresenter {
   }
 
   private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    const screenHeight = this.scene.scale.height || 360;
     // Ignore hover highlights over Top HUD or Bottom Action Bar / Party HUD
-    if (pointer.y < 42 || pointer.y >= 275) {
+    if (pointer.y < 42 || pointer.y >= screenHeight - 85) {
       if (this.lastHoveredTile) {
         this.lastHoveredTile = null;
         this.scene.events.emit("ON_TILE_HOVER", new TileCoordinate(-1, -1));
